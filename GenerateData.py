@@ -16,6 +16,7 @@ class DynamicModel():
     time_span : np.ndarray 
 
     _model_dict : ClassVar 
+    _solution_flag : bool = field(init = False, default = False)
 
     def __post_init__(self):
         self._model_dict = {"kinetic_simple" : DynamicModel.kinetic_simple,
@@ -53,15 +54,18 @@ class DynamicModel():
 
     # plots the integrated solution with respect to time
     def plot(self, **kwargs):
-        assert self.solution, "Integrate the model before calling this method"
+        assert self._solution_flag, "Integrate the model before calling this method"
         
         plt.plot(self.time_span, self.solution, **kwargs)
+        plt.xlabel("Time")
+        plt.ylabel("Concentration")
+        plt.legend(["A", "B", "C", "D"])
         plt.show()
 
     # calculates the actual derivative of the model
     @property
     def actual_derivative(self):
-        assert self.solution, "Integrate the model before calling this method"
+        assert self._solution_flag, "Integrate the model before calling this method"
         return np.vectorize(self._model_dict[self.model], signature = "(m),(n),(k)->(m)")(self.solution, self.time_span, self._model_args)
 
     # calculates the approximate derivative using finite difference
@@ -71,7 +75,7 @@ class DynamicModel():
     
     # adds gaussian noise the the datapoints
     def add_noise(self, mean, variance, mulitplicative = "False"):
-        assert self.solution, "Integrate the model before calling this method"
+        assert self._solution_flag, "Integrate the model before calling this method"
 
         if multiplicative:
             self.solution_noise = self.solution * (1 + np.random.normal(mean, variance, size = self.solution.shape))
@@ -88,7 +92,7 @@ if __name__ == "__main__":
     x_init = np.array([1, 2, 3, 4])
     model = DynamicModel("kinetic_kosir", x_init, t_span)
     model.integrate(())
-    # model.plot()
+    model.plot()
 
     model.initial_condition = np.array([5, 6, 7, 8])
     model.integrate(()) # call integrate eveytime data is changed
