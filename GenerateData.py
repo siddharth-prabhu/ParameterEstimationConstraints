@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 import numpy as np
+np.random.seed(10)
 
 from typing import Optional
 from scipy.integrate import odeint
@@ -12,8 +13,9 @@ import matplotlib.pyplot as plt
 @dataclass
 class DynamicModel():
 
-    model : str = field(default = "kinetic_simple")
-
+    model : str 
+    initial_condition : np.ndarray 
+    time_span : np.ndarray 
 
     model_dict : dict = field(init = False)
     solution_flag : bool = field(init = False, default = False)
@@ -43,12 +45,10 @@ class DynamicModel():
             10.219*x[0] - 1.535*x[3]]
 
     # forward simulates the chosen model using scipy odeint
-    def integrate(self, initial_condition : np.ndarray, time_span : np.ndarray, 
-                    model_args: tuple, **odeint_kwargs):
+    def integrate(self, model_args: tuple, **odeint_kwargs):
         
-        self.time_span = time_span
-        self.solution = odeint(self.model_dict[self.model], initial_condition, 
-                        time_span, args = model_args, **odeint_kwargs)
+        self.solution = odeint(self.model_dict[self.model], self.initial_condition, 
+                        self.time_span, args = model_args, **odeint_kwargs)
         self.solution_flag = True
 
         return self.solution
@@ -63,8 +63,7 @@ class DynamicModel():
     # calculates the actual derivative of the model
     def actual_derivatives(self):
         assert self.solution_flag, "Integrate the model before calling this method"
-
-        pass
+        
 
     # adds gaussian noise the the datapoints
     def add_noise(self, mean, variance, mulitplicative = "False"):
@@ -80,9 +79,8 @@ class DynamicModel():
 
 if __name__ == "__main__":
 
-    model = DynamicModel("kinetic_kosir")
-    
     t_span = np.arange(0, 10, 0.1)
     x_init = np.array([1, 2, 3, 4])
-    model.integrate(x_init, t_span, ())
+    model = DynamicModel("kinetic_kosir", x_init, t_span)
+    model.integrate(())
     model.plot()
