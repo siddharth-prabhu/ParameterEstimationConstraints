@@ -53,13 +53,13 @@ class DynamicModel():
         return self.solution 
 
     # plots the integrated solution with respect to time
-    def plot(self, **kwargs):
-        assert self._solution_flag, "Integrate the model before calling this method"
+    @staticmethod
+    def plot(y_value : np.ndarray, x_value : np.ndarray, xlabel : str, ylabel : str, legend : list[str], **kwargs):
         
-        plt.plot(self.time_span, self.solution, **kwargs)
-        plt.xlabel("Time")
-        plt.ylabel("Concentration")
-        plt.legend(["A", "B", "C", "D"])
+        plt.plot(x_value, y_value, **kwargs)
+        plt.xlabel(xlabel)
+        plt.ylabel(ylabel)
+        plt.legend(legend)
         plt.show()
 
     # calculates the actual derivative of the model
@@ -74,15 +74,12 @@ class DynamicModel():
         pass
     
     # adds gaussian noise the the datapoints
-    def add_noise(self, mean, variance, mulitplicative = "False"):
-        assert self._solution_flag, "Integrate the model before calling this method"
-
+    @staticmethod
+    def add_noise(data : np.ndarray, mean : float = 0, variance : float  = 0.1, multiplicative = "False"):
         if multiplicative:
-            self.solution_noise = self.solution * (1 + np.random.normal(mean, variance, size = self.solution.shape))
+            return data * (1 + np.random.normal(mean, variance, size = data.shape))
         else:
-            self.solution_noise = self.solution + np.random.normal(mean, variance, shape = self.solution.shape)
-
-        return self.solution_noise
+            return data + np.random.normal(mean, variance, shape = data.shape)
 
 
 
@@ -91,10 +88,12 @@ if __name__ == "__main__":
     t_span = np.arange(0, 10, 0.1)
     x_init = np.array([1, 2, 3, 4])
     model = DynamicModel("kinetic_kosir", x_init, t_span)
-    model.integrate(())
-    model.plot()
+    solution = model.integrate(())
+    model.plot(solution, t_span, "Time", "Concentration", ["A", "B", "C", "D"])
 
     model.initial_condition = np.array([5, 6, 7, 8])
     model.integrate(()) # call integrate eveytime data is changed
     
     print(model.actual_derivative)
+    print("--"*20)
+    print(model.add_noise(model.actual_derivative))
