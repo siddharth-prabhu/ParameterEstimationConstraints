@@ -21,7 +21,7 @@ class HyperOpt():
 
     @staticmethod
     def train_test_split(X, y, t, train_percent : int = 80):
-        assert len(X) == len(y), "Features and target values are not of same leangth"
+        assert np.shape(X) == np.shape(y), "Features and targets should have same dimensions"
         sample = len(y)*train_percent//100
     
         return X[:sample], y[:sample], t[:sample], X[sample:], y[sample:], t[sample:]
