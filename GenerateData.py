@@ -13,7 +13,7 @@ class DynamicModel():
 
     model : str 
     time_span : np.ndarray
-    initial_condition : list  
+    initial_condition : list[np.ndarray] 
     n_expt : int = field(default = 1)
 
     _model_dict : ClassVar 
