@@ -24,11 +24,10 @@ class FunctionalLibrary():
         if kwargs.get("feature_library__include_interaction", False):
             setattr(self, "include_interaction", kwargs["feature_library__include_interaction"])
                 
-    def fit_transform(self, features : list, remove_feature: list = []):
+    def fit_transform(self, features : np.ndarray, include_feature: list = [int]):
         # remove_feature is zero indexed list of indices
 
-        features = np.vstack(features) # process multiple trajectories
-        self._feature_included = [feature for feature in range(features.shape[1]) if feature not in remove_feature]
+        self._feature_included = include_feature
         features = features[:, self._feature_included]
         self.poly = ps.PolynomialLibrary(degree = self.degree, include_bias = self.include_bias, 
                                 include_interaction = self.include_interaction, interaction_only = self.interaction_only)
