@@ -58,7 +58,7 @@ class Optimizer_casadi(Base):
     def _create_decision_variables(self):
         # initializes the number of variables that will be used in casadi optimization 
 
-        self.opti = cd.Opti()
+        self.opti = cd.Opti() # create casadi instance
         self.adict["coefficients"] = [self.opti.variable(dimension[-1], 1) for dimension in self.adict["library_dimension"]]
     
     # created separately becoz it needs to be run only once
@@ -70,7 +70,8 @@ class Optimizer_casadi(Base):
         self.adict["cost"] = 0
         for i in range(self._n_states):
             self.adict["cost"] += (cd.sumsqr(target[:, i] - cd.mtimes(self.adict["library"][i], self.adict["coefficients"][i]))/
-                            (sum(map(lambda x : x[0], self.adict["library_dimension"]))))
+                            (sum(map(lambda x : x[0], self.adict["library_dimension"]))) + 
+                            self.alpha*cd.sumsqr(self.adict["coefficients"][i]))
 
     
     def _minimize(self, solver_dict : dict):
@@ -96,7 +97,9 @@ class Optimizer_casadi(Base):
         features, target = np.vstack(features), np.vstack(target)
         self._generate_library(features, include_column)
         self._create_mask()
-
+        coefficients_prev = np.vstack([np.ones(dimension[-1]) for dimension in self.adict["library_dimension"]])
+        self.adict["iterations"] = 0
+ 
         for i in range(self.max_iter):
             # create problem from scratch since casadi cannot run the same problem once optimized
             self._create_decision_variables()  
@@ -106,9 +109,9 @@ class Optimizer_casadi(Base):
 
             coefficients = np.row_stack([self.adict["solution"].value(coeff) for coeff in self.adict["coefficients"]])
             
-            coefficients_next = np.abs(coefficients) < self.threshold
+            coefficients_next = np.abs(coefficients) >= self.threshold # boolean array
 
-            if np.allclose(coefficients, coefficients_next):
+            if np.allclose(coefficients_prev, coefficients_next):
                 print("Solution converged")
                 break
 
@@ -116,10 +119,13 @@ class Optimizer_casadi(Base):
                 print("Thresholding parameter eliminated all the coefficients")
                 break
             
+            coefficients_prev = coefficients_next # boolean array
+
             # update mask of small terms to zero
-            self.adict["mask"] = [self.adict["mask"][i]*coefficients_next[i] for i, mask in enumerate(self.adict["mask"])]
-            
-        return 
+            self.adict["mask"] = [mask*coefficients_next[i] for i, mask in enumerate(self.adict["mask"])]
+            self.adict["iterations"] += 1
+
+        self.adict["coefficients_value"] = coefficients
 
     def _casadi_model(x, t, coefficients,):
         pass
@@ -134,15 +140,17 @@ class Optimizer_casadi(Base):
 
     def print(self):
         assert self._fit_flag, "Fit the model before printing models"
+
+
         
 
 if __name__ == "__main__":
 
     from GenerateData import DynamicModel
 
-    model = DynamicModel("kinetic_kosir", np.arange(0, 5, 0.01), [], 2)
+    model = DynamicModel("kinetic_kosir", np.arange(0, 5, 0.01), n_expt = 5)
     features = model.integrate() # list of features
     target = model.approx_derivative # list of target value
 
-    opti = Optimizer_casadi(FunctionalLibrary(2))
+    opti = Optimizer_casadi(FunctionalLibrary(2), alpha = 0.1, threshold = 0.1)
     opti.fit(features, target)

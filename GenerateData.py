@@ -13,7 +13,7 @@ class DynamicModel():
 
     model : str 
     time_span : np.ndarray
-    initial_condition : list[np.ndarray] 
+    initial_condition : list[np.ndarray] = field(default_factory=list)
     n_expt : int = field(default = 1)
 
     _model_dict : ClassVar 
@@ -24,7 +24,7 @@ class DynamicModel():
                             "kinetic_kosir" : {"function" : DynamicModel.kinetic_kosir, "n_states" : 4}}
         assert self.model in self._model_dict, "Dynamic model is not defined yet"
         
-        if not len(self.initial_condition):
+        if not self.initial_condition:
             self.initial_condition = [np.random.uniform(0, 20, size = self._model_dict[self.model]["n_states"]) for _ in range(self.n_expt)]
         else:
             assert len(self.initial_condition[-1]) == self._model_dict[self.model]["n_states"], "Incorrect number of states"
