@@ -25,7 +25,7 @@ class FunctionalLibrary():
             setattr(self, "include_interaction", kwargs["feature_library__include_interaction"])
                 
     def fit_transform(self, features : np.ndarray, include_feature: list = [int]) -> np.ndarray:
-        # include_feature is zero indexed list of indices
+        # include_feature is zero indexed list of indices eg : [[0, 1, 2, 3]]
 
         self._feature_included = include_feature
         features = features[:, self._feature_included]
@@ -34,7 +34,7 @@ class FunctionalLibrary():
 
         return self.poly.fit_transform(features)
 
-    def get_features(self, input_features : list[str]) -> list:
+    def get_features(self, input_features : list[str]):
         input_features = [feature for anum, feature in enumerate(input_features) if anum in self._feature_included]
 
         return self.poly.get_feature_names(input_features)

@@ -11,19 +11,16 @@ import sympy as smp
 @dataclass(frozen = False)
 class Optimizer_casadi(Base):
 
-    library : FunctionalLibrary = field(default_factory = FunctionalLibrary)
+    library : FunctionalLibrary = field(default_factory = FunctionalLibrary())
     input_features : list[str] = field(default_factory=list)
     alpha : float = field(default = 0.0)
     threshold : float = field(default = 0.01)
     max_iter : int = field(default = 10)
 
-    _fit_flag = field(default = False, init = False)
-    opti = field(default_factory = cd.Opti(), init = False)
-    adict = field(default_factory = dict, init = False)
-
     def __post_init__(self):
-        pass
-    
+        self._fit_flag = False
+        self.adict = {}
+
     def set_params(self, **kwargs):
         # sets the values of various parameter for gridsearchcv
 
@@ -38,38 +35,50 @@ class Optimizer_casadi(Base):
         
         self.library.set_params(**kwargs)
 
-    
-    def _generate_library(self, data : list[np.ndarray], include_column = list[np.ndarray]):
+
+    def _generate_library(self, data : np.ndarray, include_column = list[np.ndarray]):
         # given data creates list of matix of all possible combinations of terms 
         # returns a list of number of columns of each matrix
 
-        self.adict["library"] = [self.library.fit_transform(data, include_column[i]) for i in range(self._n_states)]
-        self.adict["library_labels"] = [self.library.get_features(self.input_features) for _ in range(self._n_states)]
-        
-        return [xi.shape for xi in self.adict["library"]]
+        # define input features if not given
+        if not len(self.input_features):
+            self.input_features = [f"x{i}" for i in range(self._n_states)]
+            print(self.input_features)
 
-    def _create_decision_variables(self, library_dimension : list[tuple]):
-        # initializes the number of variables that will be used in casadi optimization 
-        # returns adictionary for future value retrieval
-
-        self.adict[f"coefficients"] = [self.opti.variable(dimension[1], 1) for dimension in library_dimension]
-
-        self.adict["mask"] = [np.ones(dimension) for dimension in library_dimension]
-        
-    
-    def _update_cost(self, target : np.ndarray, library_dimension : list[tuple]):
-
+        # done using for loop instead of list comprehension becoz each fit_transform and get_features
+        # share the same instance of the class
+        self.adict["library"] = []
+        self.adict["library_labels"] = []
         for i in range(self._n_states):
-            self.adict["cost"] = (cd.sumsqr(target[:, i] - cd.mtimes(self.adict["library"][i], self.adict[f"coefficients"][i]))/
-                            cd.sum1(list(map(lambda x : x[0], library_dimension))))
+            self.adict["library"].append(self.library.fit_transform(data, include_column[i]))
+            self.adict["library_labels"].append(self.library.get_features(self.input_features))
+        
+        self.adict["library_dimension"] = [xi.shape for xi in self.adict["library"]]
+
+    def _create_decision_variables(self):
+        # initializes the number of variables that will be used in casadi optimization 
+
+        self.opti = cd.Opti()
+        self.adict["coefficients"] = [self.opti.variable(dimension[-1], 1) for dimension in self.adict["library_dimension"]]
+    
+    # created separately becoz it needs to be run only once
+    def _create_mask(self):
+        self.adict["mask"] = [np.ones(dimension[-1]) for dimension in self.adict["library_dimension"]]
+
+    def _update_cost(self, target : np.ndarray):
+
+        self.adict["cost"] = 0
+        for i in range(self._n_states):
+            self.adict["cost"] += (cd.sumsqr(target[:, i] - cd.mtimes(self.adict["library"][i], self.adict["coefficients"][i]))/
+                            (sum(map(lambda x : x[0], self.adict["library_dimension"]))))
 
     
-    def _minimize(self, solver_dict : adict):
+    def _minimize(self, solver_dict : dict):
 
         self.opti.minimize(self.adict["cost"])
         self.opti.solver("ipopt", solver_dict)
         solution = self.opti.solve()
-        assert solution.success, "The solution did not converge"
+        # assert solution.success, "The solution did not converge"
         return solution
 
     def fit(self, features : list[np.ndarray], target : list[np.ndarray], include_column : Optional[list[np.ndarray]] = None) -> None:
@@ -79,21 +88,24 @@ class Optimizer_casadi(Base):
 
         if include_column:
             assert len(include_column) == self.n_states, "List should match the dimensions of features"
-            include_column = [[1]*self._n_states if len(alist) == 0 else alist for alist in include_column] 
+            include_column = [list(range(self._n_states)) if len(alist) == 0 else alist for alist in include_column] 
         else:
-            include_column = [[1]*self._n_states for _ in range(self._n_states)]
+            include_column = [list(range(self._n_states)) for _ in range(self._n_states)]
 
+        print(include_column)
         features, target = np.vstack(features), np.vstack(target)
-        library_dimension = self._generate_library(features, include_column)
+        self._generate_library(features, include_column)
+        self._create_mask()
 
         for i in range(self.max_iter):
-            self._create_decision_variables(library_dimension)
-            # update library using mask 
-            self.adict["library"] = [value*self.adict["mask"][i] for i, value in enumerate(self.adict["library"])]
-            self._update_cost(target, library_dimension)
-            self.adict[f"solution"] = self._minimize({"ipopt.print_level" : 1}) # no need to save for every iteration
+            # create problem from scratch since casadi cannot run the same problem once optimized
+            self._create_decision_variables()  
+            self.adict["library"] = [value*self.adict["mask"][i] for i, value in enumerate(self.adict["library"])]   
+            self._update_cost(target)
+            self.adict["solution"] = self._minimize({"ipopt.print_level" : 5}) # no need to save for every iteration
 
             coefficients = np.row_stack([self.adict["solution"].value(coeff) for coeff in self.adict["coefficients"]])
+            
             coefficients_next = np.abs(coefficients) < self.threshold
 
             if np.allclose(coefficients, coefficients_next):
@@ -105,7 +117,7 @@ class Optimizer_casadi(Base):
                 break
             
             # update mask of small terms to zero
-            self.adict["mask"] = [self.adict["mask"][i]*coefficients_next[i] for i, mask in self.adict["mask"]]
+            self.adict["mask"] = [self.adict["mask"][i]*coefficients_next[i] for i, mask in enumerate(self.adict["mask"])]
             
         return 
 
@@ -134,4 +146,3 @@ if __name__ == "__main__":
 
     opti = Optimizer_casadi(FunctionalLibrary(2))
     opti.fit(features, target)
-    
