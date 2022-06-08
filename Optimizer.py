@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 from Base import Base
 from typing import Optional
+from functools import reduce
 
 from FunctionalLibrary import FunctionalLibrary
 import numpy as np
@@ -44,6 +45,9 @@ class Optimizer_casadi(Base):
         if not len(self.input_features):
             self.input_features = [f"x{i}" for i in range(self._n_states)]
             print(self.input_features)
+
+        # define symbols that can be converted to equations later
+        self.input_symbols = smp.symbols(reduce(lambda accum, value : accum + value + ", ", self.input_features, ""))
 
         # done using for loop instead of list comprehension becoz each fit_transform and get_features
         # share the same instance of the class
@@ -126,9 +130,25 @@ class Optimizer_casadi(Base):
 
         self.adict["coefficients_value"] = coefficients
 
-    # model used for integration
-    def _casadi_model(x, t, coefficients,):
-        pass
+    def _create_equations(self):
+        # stores the equations in adict that can later be used
+        self.adict["equations"] = []
+        self.adict["equations_lambdify"] = []
+        for i in range(self._n_states):
+            zero_filter = filter(lambda x : x[0], zip(self.adict["coefficients_value"][i], self.adict["library_labels"][i]))
+            expr = (reduce(lambda accum, value : accum + value[0] + " * " + value[1] + " + ", 
+                    map(lambda x : ("{:.2f}".format(x[0]), x[1]), zero_filter), "").rstrip(" +"))
+        
+            self.adict["equations"].append(f"{self.input_features[i]}' = " + expr)
+            self.adict["equations_lambdify"].append(smp.lambdify(self.input_symbols, expr))
+
+
+    def _casadi_model(self, x, t):
+
+        if not self.adict.get("equations_lambdify", False):
+            self._create_equations()
+
+        return [eqn(*x) for eqn in self.adict["equations_lambdify"]]
     
 
     def predict(self):
@@ -141,9 +161,12 @@ class Optimizer_casadi(Base):
 
     def print(self):
         assert self._fit_flag, "Fit the model before printing models"
+        if not self.adict.get("equations", False):
+            self._create_equations()
 
+        for eqn in self.adict["equations"]:
+            print(eqn)
 
-        
 
 if __name__ == "__main__":
 
@@ -155,3 +178,5 @@ if __name__ == "__main__":
 
     opti = Optimizer_casadi(FunctionalLibrary(1), alpha = 0.0, threshold = 0.1)
     opti.fit(features, target, [[], [0, 1], [], []])
+    opti.print()
+    print(opti._casadi_model([1, 1, 1, 1], 0))
