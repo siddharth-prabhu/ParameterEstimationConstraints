@@ -33,7 +33,7 @@ class DynamicModel():
         self.model = self._model_dict[self.model]["function"]
 
     @staticmethod
-    def kinetic_simple(x, t, *args):
+    def kinetic_simple(x, t, *args) -> np.ndarray:
         # A + B <--> C --> D + B
         # k1 = 1, kr1 = 0.5, k2 = 2, kr2 = 1
         k1, kr1, k2, kr2 = args
@@ -44,7 +44,7 @@ class DynamicModel():
                 k2*x[2]])
     
     @staticmethod
-    def kinetic_kosir(x, t, *args):
+    def kinetic_kosir(x, t, *args) -> np.ndarray:
 
         return np.array([-15.693*x[0] + 5.743*x[2] + 1.534*x[3],
             8.566*x[0],
@@ -52,7 +52,7 @@ class DynamicModel():
             10.219*x[0] - 1.535*x[3]])
 
     # forward simulates the chosen model using scipy odeint
-    def integrate(self, model_args: tuple, **odeint_kwargs):
+    def integrate(self, model_args: tuple = (), **odeint_kwargs) -> list:
         
         self._solution_flag = True
         self._model_args = model_args
@@ -63,7 +63,7 @@ class DynamicModel():
 
     # plots the integrated solution with respect to time
     @staticmethod
-    def plot(y_value : np.ndarray, x_value : np.ndarray, xlabel : str, ylabel : str, legend : list[str], **kwargs):
+    def plot(y_value : np.ndarray, x_value : np.ndarray, xlabel : str, ylabel : str, legend : list[str], **kwargs) -> None:
         
         plt.plot(x_value, y_value, **kwargs)
         plt.xlabel(xlabel)
@@ -73,14 +73,14 @@ class DynamicModel():
 
     # calculates the actual derivative of the model
     @property
-    def actual_derivative(self):
+    def actual_derivative(self) -> list:
         assert self._solution_flag, "Integrate the model before calling this method"
         return [np.vectorize(self.model, signature = "(m),(n),(k)->(m)")(xi, self.time_span, self._model_args) for 
                 xi in self.solution]
 
     # calculates the approximate derivative using finite difference
     @property
-    def approx_derivative(self):
+    def approx_derivative(self) -> list:
         assert self._solution_flag, "Integrate the model before calling the method"
         
         # middle = np.zeros_like(self.solution)
@@ -95,14 +95,14 @@ class DynamicModel():
     
     # adds gaussian noise the the datapoints
     @staticmethod
-    def add_noise(data : list, mean : float = 0, variance : float  = 0.1, multiplicative = "False"):
+    def add_noise(data : list, mean : float = 0, variance : float  = 0.1, multiplicative = "False") -> list:
         if multiplicative:
             return [value * (1 + np.random.normal(mean, variance, size = value.shape)) for value in data]
         else:
             return [value + np.random.normal(mean, variance, shape = value.shape) for value in data]
 
     @staticmethod
-    def save_data(data : dict, path : str):
+    def save_data(data : dict, path : str) -> None:
         
         with open(path, "wb") as file:
             pickle.dump(data, file)
@@ -112,7 +112,7 @@ if __name__ == "__main__":
     t_span = np.arange(0, 10, 0.1)
     # x_init = np.array([1, 2, 3, 4])
     model = DynamicModel("kinetic_kosir", t_span, [], 2)
-    solution = model.integrate(())
+    solution = model.integrate()
     # model.plot(solution, t_span, "Time", "Concentration", ["A", "B", "C", "D"])
 
     print(model.actual_derivative)
