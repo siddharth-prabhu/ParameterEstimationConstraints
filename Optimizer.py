@@ -1,18 +1,19 @@
 from dataclasses import dataclass, field
 from Base import Base
-from typing import Optional
+from typing import Optional, Callable
 from functools import reduce
 
 from FunctionalLibrary import FunctionalLibrary
 import numpy as np
 import casadi as cd
 import sympy as smp
+from sklearn.metrics import mean_squared_error
 
 
 @dataclass(frozen = False)
 class Optimizer_casadi(Base):
 
-    library : FunctionalLibrary = field(default_factory = FunctionalLibrary())
+    library : FunctionalLibrary = field(default = FunctionalLibrary())
     input_features : list[str] = field(default_factory=list)
     alpha : float = field(default = 0.0)
     threshold : float = field(default = 0.01)
@@ -119,7 +120,7 @@ class Optimizer_casadi(Base):
                 break
 
             if not sum([np.sum(coeff) for coeff in coefficients_next]):
-                print("Thresholding parameter eliminated all the coefficients")
+                raise RuntimeError("Thresholding parameter eliminated all the coefficients")
                 break
             
             coefficients_prev = coefficients_next # boolean array
@@ -130,7 +131,7 @@ class Optimizer_casadi(Base):
 
         self.adict["coefficients_value"] = coefficients
 
-    def _create_equations(self):
+    def _create_equations(self) -> None:
         # stores the equations in adict that can later be used
         self.adict["equations"] = []
         self.adict["equations_lambdify"] = []
@@ -148,18 +149,35 @@ class Optimizer_casadi(Base):
         if not self.adict.get("equations_lambdify", False):
             self._create_equations()
 
-        return [eqn(*x) for eqn in self.adict["equations_lambdify"]]
+        return np.array([eqn(*x) for eqn in self.adict["equations_lambdify"]])
     
 
-    def predict(self):
+    def predict(self, X : list[np.ndarray]) -> list:
         assert self._fit_flag, "Fit the model before running predict"
+        afunc = np.vectorize(self._casadi_model, signature = "(m),()->(m)")
+        
+        return [afunc(xi, 0) for xi in X]
         
 
-    def score(self):
+    def score(self, X : list[np.ndarray], x_dot : [np.ndarray], metric : Callable = mean_squared_error, **kwargs) -> float:
         assert self._fit_flag, "Fit the model before running score"
-        
 
-    def print(self):
+        y_pred = self.predict(X)
+        return metric(np.vstack(y_pred), np.vstack(x_dot))
+
+    @property
+    def complexity(self):
+        if not self.adict.get("equations", False):
+            self._create_equations()
+        
+        return sum(eqn.count("+") + 1 for eqn in self.adict["equations"])
+
+    @property
+    def coefficients(self):
+        return self.adict["coefficients_value"]
+
+
+    def print(self) -> None:
         assert self._fit_flag, "Fit the model before printing models"
         if not self.adict.get("equations", False):
             self._create_equations()
@@ -176,7 +194,10 @@ if __name__ == "__main__":
     features = model.integrate() # list of features
     target = model.approx_derivative # list of target value
 
-    opti = Optimizer_casadi(FunctionalLibrary(1), alpha = 0.0, threshold = 0.1)
+    opti = Optimizer_casadi(alpha = 0.0, threshold = 0.1)
     opti.fit(features, target, [[], [0, 1], [], []])
     opti.print()
-    print(opti._casadi_model([1, 1, 1, 1], 0))
+
+    print("mean squared error :", opti.score(features, target))
+    print(opti.complexity)
+    print(opti.coefficients)

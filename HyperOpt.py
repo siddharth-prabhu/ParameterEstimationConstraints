@@ -7,8 +7,10 @@ from sklearn.metrics import mean_squared_error, r2_score
 import itertools
 from dataclasses import dataclass, field
 from collections import defaultdict
+from functools import reduce
 
 from GenerateData import DynamicModel
+from Optimizer import Optimizer_casadi
 
 @dataclass()
 class HyperOpt():
@@ -16,8 +18,8 @@ class HyperOpt():
     X : list[np.ndarray] 
     y : list[np.ndarray]
     t : np.ndarray
-    parameters : field(default_factory = dict)
-    model : ps.SINDy()
+    parameters : dict = field(default_factory = dict)
+    model : Optimizer_casadi() = field(default = Optimizer_casadi()) 
 
     @staticmethod
     def train_test_split(X, y, t, train_percent : int = 80):
@@ -38,13 +40,16 @@ class HyperOpt():
             self.model.set_params(**param_dict)
 
             try:
-                self.model.fit(self.X_train, x_dot = self.y_train, quiet = True, multiple_trajectories = True)
-            except :
+                # self.model.fit(self.X_train, x_dot = self.y_train, quiet = True, multiple_trajectories = True) # for sindy
+                self.model.fit(self.X_train, self.y_train) # for casadi
+
+            except Exception as e:
+                print(e)
                 print("Failed for the parameter combination", param_dict)
                 continue
             else:
                 # models with none coefficients are not considered 
-                if not np.sum(abs(self.model.coefficients()), axis = 1).all():
+                if 0 in map(lambda x : sum(abs(x)), self.model.coefficients):
                     continue
 
                 # calculate error
@@ -112,5 +117,5 @@ if __name__ == "__main__":
         "feature_library": [ps.PolynomialLibrary(include_bias=False)], "feature_library__include_bias" : [False],
         "feature_library__degree": [1, 2]}
 
-    opt = HyperOpt(features, target, t_span, params, ps.SINDy())
+    opt = HyperOpt(features, target, t_span, params)
     opt.gridsearch()
