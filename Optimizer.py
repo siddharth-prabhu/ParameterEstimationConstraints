@@ -88,16 +88,15 @@ class Optimizer_casadi(Base):
         self._n_states = np.shape(features)[-1]
 
         if include_column:
-            assert len(include_column) == self.n_states, "List should match the dimensions of features"
+            assert len(include_column) == self._n_states, "List should match the dimensions of features"
             include_column = [list(range(self._n_states)) if len(alist) == 0 else alist for alist in include_column] 
         else:
             include_column = [list(range(self._n_states)) for _ in range(self._n_states)]
 
-        print(include_column)
         features, target = np.vstack(features), np.vstack(target)
         self._generate_library(features, include_column)
         self._create_mask()
-        coefficients_prev = np.vstack([np.ones(dimension[-1]) for dimension in self.adict["library_dimension"]])
+        coefficients_prev = [np.ones(dimension[-1]) for dimension in self.adict["library_dimension"]]
         self.adict["iterations"] = 0
  
         for i in range(self.max_iter):
@@ -107,15 +106,15 @@ class Optimizer_casadi(Base):
             self._update_cost(target)
             self.adict["solution"] = self._minimize({"ipopt.print_level" : 5}) # no need to save for every iteration
 
-            coefficients = np.row_stack([self.adict["solution"].value(coeff) for coeff in self.adict["coefficients"]])
+            coefficients = [self.adict["solution"].value(coeff) for coeff in self.adict["coefficients"]] # list[np.ndarray]
             
-            coefficients_next = np.abs(coefficients) >= self.threshold # boolean array
+            coefficients_next = [np.abs(coeff) >= self.threshold for coeff in coefficients] # list of boolean arrays
 
-            if np.allclose(coefficients_prev, coefficients_next):
+            if np.array([np.allclose(coeff_prev, coeff_next) for coeff_prev, coeff_next in zip(coefficients_prev, coefficients_next)]).all():
                 print("Solution converged")
                 break
 
-            if not np.sum(coefficients_next, axis = 1).all():
+            if not sum([np.sum(coeff) for coeff in coefficients_next]):
                 print("Thresholding parameter eliminated all the coefficients")
                 break
             
@@ -127,8 +126,10 @@ class Optimizer_casadi(Base):
 
         self.adict["coefficients_value"] = coefficients
 
+    # model used for integration
     def _casadi_model(x, t, coefficients,):
         pass
+    
 
     def predict(self):
         assert self._fit_flag, "Fit the model before running predict"
@@ -148,9 +149,9 @@ if __name__ == "__main__":
 
     from GenerateData import DynamicModel
 
-    model = DynamicModel("kinetic_kosir", np.arange(0, 5, 0.01), n_expt = 5)
+    model = DynamicModel("kinetic_kosir", np.arange(0, 5, 0.01), n_expt = 15)
     features = model.integrate() # list of features
     target = model.approx_derivative # list of target value
 
-    opti = Optimizer_casadi(FunctionalLibrary(2), alpha = 0.1, threshold = 0.1)
-    opti.fit(features, target)
+    opti = Optimizer_casadi(FunctionalLibrary(1), alpha = 0.0, threshold = 0.1)
+    opti.fit(features, target, [[], [0, 1], [], []])
