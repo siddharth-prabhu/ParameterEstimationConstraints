@@ -121,12 +121,13 @@ class Optimizer_casadi(Base):
         self.opti.minimize(self.adict["cost"])
         self.opti.solver("ipopt", solver_dict)
         solution = self.opti.solve()
-        # assert solution.success, "The solution did not converge"
+        # assert solution.success, "The solution did not converge" add assertion 
         return solution
 
     def fit(self, features : list[np.ndarray], target : list[np.ndarray], include_column : Optional[list[np.ndarray]] = None, 
-            constraints_dict : dict = {"mass_balance" : [], "consumption" : [], "formation" : []}) -> None:
+            constraints_dict : Optional[dict] = None ) -> None:
 
+        # constraints_dict should be of the form {"mass_balance" : [], "consumption" : [], "formation" : []}
         self._fit_flag = True
         self._n_states = np.shape(features)[-1]
 
@@ -148,7 +149,8 @@ class Optimizer_casadi(Base):
             self._create_decision_variables()  
             self.adict["library"] = [value*self.adict["mask"][i] for i, value in enumerate(self.adict["library"])]   
             self._update_cost(target) 
-            self._add_constraints(constraints_dict)
+            if constraints_dict:
+                self._add_constraints(constraints_dict)
             self.adict["solution"] = self._minimize(self.solver_dict) # no need to save for every iteration
 
             coefficients = [self.adict["solution"].value(coeff) for coeff in self.adict["coefficients"]] # list[np.ndarray]
@@ -172,13 +174,14 @@ class Optimizer_casadi(Base):
         self.adict["coefficients_value"] = coefficients
 
     def _create_equations(self) -> None:
-        # stores the equations in adict that can later be used
+        # stores the equations in adict to be used later
         self.adict["equations"] = []
         self.adict["equations_lambdify"] = []
         for i in range(self._n_states):
             zero_filter = filter(lambda x : x[0], zip(self.adict["coefficients_value"][i], self.adict["library_labels"][i]))
-            expr = (reduce(lambda accum, value : accum + value[0] + " * " + value[1] + " + ", 
-                    map(lambda x : ("{:.2f}".format(x[0]), x[1]), zero_filter), "").rstrip(" +"))
+            expr = (reduce(lambda accum, value : accum + value[0] + " * " + value[1].replace(" ", "*") + " + ",   
+                    map(lambda x : ("{:.2f}".format(x[0]), x[1]), zero_filter), "").rstrip(" +")) 
+            # replaced whitespaces with multiplication element wise library labels
         
             self.adict["equations"].append(f"{self.input_features[i]}' = " + expr)
             self.adict["equations_lambdify"].append(smp.lambdify(self.input_symbols, expr.replace("^", "**")))
@@ -251,7 +254,7 @@ if __name__ == "__main__":
 
     opti = Optimizer_casadi(alpha = 0.0, threshold = 0.1, solver_dict={"ipopt.print_level" : 0, "print_time":0})
     opti.fit(features, target, [[], [0, 1], [], []], 
-            constraints_dict = {"mass_balance" : [56.108, 28.05, 56.106, 56.108], "consumption" : [], "formation" : [3]})
+            constraints_dict = {"mass_balance" : [56.108, 28.05, 56.106, 56.108], "consumption" : [], "formation" : [1]})
     opti.print()
 
     print("mean squared error :", opti.score(features, target))

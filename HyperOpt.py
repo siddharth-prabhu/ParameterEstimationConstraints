@@ -24,6 +24,8 @@ class HyperOpt():
     t : np.ndarray
     parameters : dict = field(default_factory = dict)
     model : Optimizer_casadi() = field(default = Optimizer_casadi()) 
+    include_column : list[list] = field(default = None)
+    constraints_dict : dict = field(default_factory = dict)
 
     @staticmethod
     def train_test_split(X, y, t, train_percent : int = 80):
@@ -45,8 +47,9 @@ class HyperOpt():
 
             try:
                 # self.model.fit(self.X_train, x_dot = self.y_train, quiet = True, multiple_trajectories = True) # for sindy
-                self.model.fit(self.X_train, self.y_train, 
-                            constraints_dict = {"mass_balance" : [56.108, 28.05, 56.106, 56.108], "consumption" : [], "formation" : []}) # for casadi
+                self.model.fit(self.X_train, self.y_train, include_column = self.include_column,
+                            constraints_dict = self.constraints_dict)  
+                            # {"mass_balance" : [56.108, 28.05, 56.106, 56.108], "consumption" : [], "formation" : []}) # for casadi
 
             except Exception as e:
                 print(e)
@@ -71,7 +74,7 @@ class HyperOpt():
                 result_dict["r2_train_pred"].append(self.model.score(self.X_train, x_dot = self.y_train, metric = r2_score, 
                                                     multiple_trajectories = True))
 
-                # is not compatible with multiple trajectories
+                # is not compatible with casadi yet
                 if integrate_models:
                     try:
                         y_pred_test_sim = self.model.simulate(self.X_test[0], self.t_test, integrator_kws = {"atol" : 1e-4, "rtol" : 1e-3, "method" : "RK23"})
@@ -145,10 +148,11 @@ if __name__ == "__main__":
 
     params = {"optimizer__threshold": [0.01, 0.1], 
         "optimizer__alpha": [0, 0.01], 
-        "feature_library": [ps.PolynomialLibrary(include_bias=False)], "feature_library__include_bias" : [False],
+        "feature_library__include_bias" : [False],
         "feature_library__degree": [1, 2]}
 
-    opt = HyperOpt(features, target, t_span, params, Optimizer_casadi(solver_dict = {"ipopt.print_level" : 0, "print_time":0}))
+    opt = HyperOpt(features, target, t_span, params, Optimizer_casadi(solver_dict = {"ipopt.print_level" : 0, "print_time":0}), 
+                    include_column = None, constraints_dict = None)
     opt.gridsearch()
     opt.plot()
 
