@@ -41,10 +41,10 @@ class Optimizer_casadi(Base):
             setattr(self, "max_iter", kwargs["optimizer__max_iter"])
         
         if kwargs.get("optimizer__alpha_mass", False):
-            setattr(self, alpha_mass, kwargs["optimizer__alpha_mass"])
+            setattr(self, "alpha_mass", kwargs["optimizer__alpha_mass"])
 
         if kwargs.get("optimize__num_points", False):
-            setattr(self, num_points, kwargs["optimize__num_points"])
+            setattr(self, "num_points", kwargs["optimize__num_points"])
 
         self.library.set_params(**kwargs)
 
@@ -199,7 +199,7 @@ class Optimizer_casadi(Base):
         return [afunc(xi, 0) for xi in X]
         
 
-    def score(self, X : list[np.ndarray], x_dot : [np.ndarray], metric : Callable = mean_squared_error, **kwargs) -> float:
+    def score(self, X : list[np.ndarray], x_dot : list[np.ndarray], metric : Callable = mean_squared_error, **kwargs) -> float:
         assert self._fit_flag, "Fit the model before running score"
 
         y_pred = self.predict(X)

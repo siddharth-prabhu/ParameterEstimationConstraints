@@ -106,8 +106,7 @@ class HyperOpt():
 
     # bokeh plotting
     def plot(self, filename : str = "saved_data\Gridsearch_results.html"):
-        df_updated = self.df_result.drop(columns=["feature_library"])
-        source = ColumnDataSource(df_updated)
+        source = ColumnDataSource(self.df_result)
         tooltips = [("Index", "$index"), ("complexity", "@complexity"), ("MSE", "@MSE_test_pred"), ("r2", "@r2_test_pred"), 
                     ("threshold", "@optimizer__threshold"), ("alpha", "@optimizer__alpha")]
 
