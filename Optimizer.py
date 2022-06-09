@@ -113,7 +113,7 @@ class Optimizer_casadi(Base):
         state_consumption = constraints_dict["consumption"]
         if state_consumption :
             for state in state_consumption:
-                self.opti.subject_to(cd.mtimes(self.adict["library"][i][chosen_rows], self.adict["coefficients"]) <= 0)
+                self.opti.subject_to(cd.mtimes(self.adict["library"][i][chosen_rows], self.adict["coefficients"][i]) <= 0)
 
 
     def _minimize(self, solver_dict : dict):
@@ -181,7 +181,7 @@ class Optimizer_casadi(Base):
                     map(lambda x : ("{:.2f}".format(x[0]), x[1]), zero_filter), "").rstrip(" +"))
         
             self.adict["equations"].append(f"{self.input_features[i]}' = " + expr)
-            self.adict["equations_lambdify"].append(smp.lambdify(self.input_symbols, expr))
+            self.adict["equations_lambdify"].append(smp.lambdify(self.input_symbols, expr.replace("^", "**")))
 
 
     def _casadi_model(self, x, t):
@@ -251,7 +251,7 @@ if __name__ == "__main__":
 
     opti = Optimizer_casadi(alpha = 0.0, threshold = 0.1, solver_dict={"ipopt.print_level" : 0, "print_time":0})
     opti.fit(features, target, [[], [0, 1], [], []], 
-                constraints_dict = {"mass_balance" : [56.108, 28.05, 56.106, 56.108], "consumption" : [], "formation" : []})
+            constraints_dict = {"mass_balance" : [56.108, 28.05, 56.106, 56.108], "consumption" : [], "formation" : [3]})
     opti.print()
 
     print("mean squared error :", opti.score(features, target))

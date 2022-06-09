@@ -9,7 +9,9 @@ from dataclasses import dataclass, field
 from collections import defaultdict
 from functools import reduce
 
-from bokeh.plotting import show, figure, output_file
+from bokeh.plotting import figure, output_file, save
+from bokeh.models import ColumnDataSource
+from bokeh.layouts import column, row
 
 from GenerateData import DynamicModel
 from Optimizer import Optimizer_casadi
@@ -43,7 +45,8 @@ class HyperOpt():
 
             try:
                 # self.model.fit(self.X_train, x_dot = self.y_train, quiet = True, multiple_trajectories = True) # for sindy
-                self.model.fit(self.X_train, self.y_train) # for casadi
+                self.model.fit(self.X_train, self.y_train, 
+                            constraints_dict = {"mass_balance" : [56.108, 28.05, 56.106, 56.108], "consumption" : [], "formation" : []}) # for casadi
 
             except Exception as e:
                 print(e)
@@ -102,8 +105,35 @@ class HyperOpt():
         return self.df_result
 
     # bokeh plotting
-    def plot(self, filename : str = "Gridsearch_results.html"):
-        pass
+    def plot(self, filename : str = "saved_data\Gridsearch_results.html"):
+        df_updated = self.df_result.drop(columns=["feature_library"])
+        source = ColumnDataSource(df_updated)
+        tooltips = [("Index", "$index"), ("complexity", "@complexity"), ("MSE", "@MSE_test_pred"), ("r2", "@r2_test_pred"), 
+                    ("threshold", "@optimizer__threshold"), ("alpha", "@optimizer__alpha")]
+
+        fig_mse = figure(tooltips = tooltips)
+        fig_mse.scatter(x = "complexity", y = "MSE_test_pred", source = source)
+        fig_mse.xaxis.axis_label = "Complexity"
+        fig_mse.xaxis.axis_label_text_font_style = "bold"
+        fig_mse.yaxis.axis_label = "MSE"
+        fig_mse.yaxis.axis_label_text_font_style = "bold"
+        fig_mse.plot_height = 400
+        fig_mse.plot_width = 700
+        fig_mse.margin = (5, 5, 5, 5) #top, right, bottom, left
+        
+        fig_r2 = figure(tooltips = tooltips)
+        fig_r2.scatter(x = "complexity", y = "r2_test_pred", source = source)
+        fig_r2.xaxis.axis_label = "Complexity"
+        fig_r2.xaxis.axis_label_text_font_style = "bold"
+        fig_r2.yaxis.axis_label = "R squared"
+        fig_r2.yaxis.axis_label_text_font_style = "bold"
+        fig_r2.plot_height = 400
+        fig_r2.plot_width = 700
+        fig_r2.margin = (5, 5, 5, 5) #top, right, bottom, left
+
+        grid = column(fig_mse, fig_r2)
+        output_file(filename)
+        save(grid)
 
 
 if __name__ == "__main__":
@@ -112,7 +142,7 @@ if __name__ == "__main__":
     model_actual = DynamicModel("kinetic_kosir", t_span, [], 2)
     features = model_actual.integrate(())
     target = model_actual.approx_derivative
-    model_actual.plot(features[-1], t_span, "Time", "Concentration", ["A", "B", "C", "D"])
+    # model_actual.plot(features[-1], t_span, "Time", "Concentration", ["A", "B", "C", "D"])
 
     params = {"optimizer__threshold": [0.01, 0.1], 
         "optimizer__alpha": [0, 0.01], 
@@ -121,5 +151,6 @@ if __name__ == "__main__":
 
     opt = HyperOpt(features, target, t_span, params, Optimizer_casadi(solver_dict = {"ipopt.print_level" : 0, "print_time":0}))
     opt.gridsearch()
+    opt.plot()
 
 
