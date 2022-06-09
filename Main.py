@@ -21,7 +21,7 @@ opti = Optimizer_casadi(alpha = 0.0, threshold = 0.01, solver_dict={"ipopt.print
 # opti.print() # without hyperopt
 print("--"*20)
 
-def run_gridsearch(features, target, parameters : dict, add_noise : bool = False, add_constraints : bool = False):
+def run_gridsearch(features : list[np.ndarray], target : list[np.ndarray], parameters : dict, add_noise : bool = False, add_constraints : bool = False):
     
     if add_constraints:
         include_column = [[0, 2, 3], [0], [0, 2], [0, 3]]
@@ -41,8 +41,8 @@ def run_gridsearch(features, target, parameters : dict, add_noise : bool = False
 
 
 # with hyperparameter optmization
-params = {"optimizer__threshold": [0.01, 0.1, 1, 10], 
-    "optimizer__alpha": [0, 0.01, 0.1, 1, 10], 
+params = {"optimizer__threshold": [0.01, 0.1, 1], 
+    "optimizer__alpha": [0, 0.01, 0.1, 1], 
     "feature_library__include_bias" : [False],
     "feature_library__degree": [1, 2, 3]}
 

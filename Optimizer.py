@@ -153,7 +153,8 @@ class Optimizer_casadi(Base):
                 self._add_constraints(constraints_dict)
             self.adict["solution"] = self._minimize(self.solver_dict) # no need to save for every iteration
 
-            coefficients = [self.adict["solution"].value(coeff) for coeff in self.adict["coefficients"]] # list[np.ndarray]
+            # list[np.ndarray]. additional layer of np.array and flatten to account for singular value, which casadi outputs as float
+            coefficients = [np.array([self.adict["solution"].value(coeff)]).flatten() for coeff in self.adict["coefficients"]] 
             
             coefficients_next = [np.abs(coeff) >= self.threshold for coeff in coefficients] # list of boolean arrays
 
@@ -252,9 +253,9 @@ if __name__ == "__main__":
     features = model.integrate() # list of features
     target = model.approx_derivative # list of target value
 
-    opti = Optimizer_casadi(alpha = 0.0, threshold = 0.1, solver_dict={"ipopt.print_level" : 0, "print_time":0})
-    opti.fit(features, target, [[], [0, 1], [], []], 
-            constraints_dict = {"mass_balance" : [56.108, 28.05, 56.106, 56.108], "consumption" : [], "formation" : [1]})
+    opti = Optimizer_casadi(FunctionalLibrary(1) ,alpha = 0.0, threshold = 0.1, solver_dict={"ipopt.print_level" : 0, "print_time":0})
+    opti.fit(features, target, [[0, 2, 3], [0], [0, 2], [0, 3]], 
+            constraints_dict = {"mass_balance" : [56.108, 28.05, 56.106, 56.108], "consumption" : [], "formation" : []})
     opti.print()
 
     print("mean squared error :", opti.score(features, target))

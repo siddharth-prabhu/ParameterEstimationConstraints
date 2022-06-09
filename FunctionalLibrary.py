@@ -49,10 +49,8 @@ class FunctionalLibrary():
 if __name__ == "__main__":
 
     a = np.random.normal(size = (10, 3))
-    lib = FunctionalLibrary()
-    lib.fit_transform(a)
+    lib = FunctionalLibrary(1)
+    b = lib.fit_transform(a, [0])
     print(lib.get_features(["x1", "x2", "x3"]))
-    lib.set_params(**{"feature_library__degree" : 3})
-    print(lib.get_features(["x1", "x2", "x3"]))
-
+    print(b.shape)
 
