@@ -9,6 +9,8 @@ from dataclasses import dataclass, field
 from collections import defaultdict
 from functools import reduce
 
+from bokeh.plotting import show, figure, output_file
+
 from GenerateData import DynamicModel
 from Optimizer import Optimizer_casadi
 
@@ -100,7 +102,7 @@ class HyperOpt():
         return self.df_result
 
     # bokeh plotting
-    def plot(self):
+    def plot(self, filename : str = "Gridsearch_results.html"):
         pass
 
 
@@ -117,5 +119,7 @@ if __name__ == "__main__":
         "feature_library": [ps.PolynomialLibrary(include_bias=False)], "feature_library__include_bias" : [False],
         "feature_library__degree": [1, 2]}
 
-    opt = HyperOpt(features, target, t_span, params)
+    opt = HyperOpt(features, target, t_span, params, Optimizer_casadi(solver_dict = {"ipopt.print_level" : 0, "print_time":0}))
     opt.gridsearch()
+
+
