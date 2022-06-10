@@ -160,11 +160,12 @@ if __name__ == "__main__":
 
     params = {"optimizer__threshold": [0.01, 0.1], 
         "optimizer__alpha": [0, 0.01], 
-        "feature_library__include_bias" : [False],
+        "feature_library__include_bias" : [False, True],
         "feature_library__degree": [1, 2]}
 
     opt = HyperOpt(features, target, t_span, params, Optimizer_casadi(solver_dict = {"ipopt.print_level" : 0, "print_time":0}), 
-                    include_column = None, constraints_dict = None)
+                    include_column = [[0, 1], [0, 2], [0, 3]], constraints_dict = {"mass_balance" : [], "consumption" : [], "formation" : [], 
+                                "stoichiometry" : np.array([-1, -1, -1, 1, 0, 0, 0, 1, 0, 0, 0, 2]).reshape(4, -1)})
     opt.gridsearch()
     opt.plot()
 
