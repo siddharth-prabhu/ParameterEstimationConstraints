@@ -3,7 +3,7 @@ import numpy as np
 np.random.seed(10)
 
 import pickle
-from typing import ClassVar
+from typing import ClassVar, Optional
 from scipy.integrate import odeint
 import matplotlib.pyplot as plt
 import pysindy as ps
@@ -63,12 +63,14 @@ class DynamicModel():
 
     # plots the integrated solution with respect to time
     @staticmethod
-    def plot(y_value : np.ndarray, x_value : np.ndarray, xlabel : str, ylabel : str, legend : list[str], **kwargs) -> None:
+    def plot(y_value : np.ndarray, x_value : np.ndarray, xlabel : str = "Time", 
+            ylabel : str = "Concentration", legend : Optional[list[str]] = None, **kwargs) -> None:
         
         plt.plot(x_value, y_value, **kwargs)
         plt.xlabel(xlabel)
         plt.ylabel(ylabel)
-        plt.legend(legend)
+        if legend :
+            plt.legend(legend)
         plt.show()
 
     # calculates the actual derivative of the model

@@ -100,7 +100,7 @@ class HyperOpt():
         # sort value and remove duplicates
         self.df_result = pd.DataFrame(result_dict)
         self.df_result.sort_values(by = ["r2_test_pred", "complexity"], ascending = False, inplace = True, ignore_index = True)
-        self.df_result.drop_duplicates(["r2_test_pred"], keep = "first", inplace = True, ignore_index = True)
+        # self.df_result.drop_duplicates(["r2_test_pred"], keep = "first", inplace = True, ignore_index = True)
 
         if display_results:
             print(self.df_result.head())

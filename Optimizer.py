@@ -21,7 +21,7 @@ class Optimizer_casadi(Base):
     alpha_mass : float = field(default = 0.01)
     num_points : float = field(default = 0.1) # 10 % of total data
     threshold : float = field(default = 0.01)
-    max_iter : int = field(default = 10)
+    max_iter : int = field(default = 20)
     solver_dict : dict = field(default_factory = dict)
 
     _fit_flag : bool = field(default = False, init = False)
