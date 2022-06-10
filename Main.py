@@ -14,13 +14,14 @@ target = model.approx_derivative # list of target value
 
 
 opti = Optimizer_casadi(alpha = 0.0, threshold = 0.01, solver_dict={"ipopt.print_level" : 0, "print_time":0})
-# opti.fit(features, target, include_column = [[], [], [], []],)
+# opti.fit(features, target, include_column = [[], [], [], []], 
+#          constraints_dict = {"mass_balance" : [56.108, 28.05, 56.106, 56.108], "consumption" : [], "formation" : [1]})
 # opti.print() # without hyperopt
 print("--"*20)
 
 
 def run_gridsearch(features : list[np.ndarray], target : list[np.ndarray], parameters : dict, add_noise : bool = False, 
-                    add_constraints : bool = False, filename : str = "saved_data\Gridsearch_results.html"):
+                    add_constraints : bool = False, filename : str = "saved_data\Gridsearch_results.html", title : str = "Conc vs time"):
     
     if add_constraints:
         include_column = [[0, 2, 3], [0], [0, 2], [0, 3]]
@@ -31,14 +32,14 @@ def run_gridsearch(features : list[np.ndarray], target : list[np.ndarray], param
         constraints_dict = None
 
     if add_noise:
-        features = model.add_noise(features, 0, 0.1)
-        model.plot(features[-1], t_span, legend=["A", "B", "C", "D"])
-
+        features = model.add_noise(features, 0, 0.01)
+        
+    model.plot(features[-1], t_span, legend=["A", "B", "C", "D"])
     opt = HyperOpt(features, target, t_span, parameters, Optimizer_casadi(solver_dict = {"ipopt.print_level" : 0, "print_time":0}), 
                 include_column = include_column, constraints_dict = constraints_dict)
 
     opt.gridsearch()
-    opt.plot(filename)
+    opt.plot(filename, title)
 
 
 # with hyperparameter optmization
@@ -47,5 +48,8 @@ params = {"optimizer__threshold": [0.01, 0.1, 1, 10],
     "feature_library__include_bias" : [False],
     "feature_library__degree": [1, 2, 3]}
 
-run_gridsearch(features, target, params, add_noise = True, add_constraints = False, filename = "saved_data\Gridsearch_no_con.html")
-run_gridsearch(features, target, params, add_noise = True, add_constraints = True, filename = "saved_data\Gridsearch_con.html")
+noise_sd = 0.1
+run_gridsearch(features, target, params, add_noise = noise_sd, add_constraints = False, filename = "saved_data\Gridsearch_no_con.html", 
+                title = f"Without constraints {noise_sd} noise")
+run_gridsearch(features, target, params, add_noise = noise_sd, add_constraints = True, filename = "saved_data\Gridsearch_con.html",
+                title = f"With constraints {noise_sd} noise")

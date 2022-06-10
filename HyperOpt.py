@@ -108,7 +108,7 @@ class HyperOpt():
         return self.df_result
 
     # bokeh plotting
-    def plot(self, filename : str = "saved_data\Gridsearch_results.html"):
+    def plot(self, filename : str = "saved_data\Gridsearch_results.html", title : str = "Concentration vs time"):
         # capture r2 values between 0 and 1
         self.df_result = self.df_result.loc[(self.df_result["r2_test_pred"] >= 0) & (self.df_result["r2_test_pred"] <= 1)]
         source = ColumnDataSource(self.df_result)
@@ -121,6 +121,10 @@ class HyperOpt():
         fig_mse.xaxis.axis_label_text_font_style = "bold"
         fig_mse.yaxis.axis_label = "MSE"
         fig_mse.yaxis.axis_label_text_font_style = "bold"
+        fig_mse.title.text = title
+        fig_mse.title.text_color = "blue"
+        fig_mse.title.align = "center"
+        fig_mse.title.text_font_size = "18px"
         fig_mse.plot_height = 400
         fig_mse.plot_width = 700
         fig_mse.outline_line_color = "black"
@@ -132,6 +136,10 @@ class HyperOpt():
         fig_r2.xaxis.axis_label_text_font_style = "bold"
         fig_r2.yaxis.axis_label = "R squared"
         fig_r2.yaxis.axis_label_text_font_style = "bold"
+        fig_r2.title.text = title
+        fig_r2.title.text_color = "blue"
+        fig_r2.title.align = "center"
+        fig_r2.title.text_font_size = "18px" 
         fig_r2.plot_height = 400
         fig_r2.plot_width = 700
         fig_r2.outline_line_color = "black"
