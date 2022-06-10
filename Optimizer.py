@@ -67,7 +67,7 @@ class Optimizer_casadi(Base):
         # share the same instance of the class
         self.adict["library"] = []
         self.adict["library_labels"] = []
-        for i in range(self._n_states):
+        for i in range(self._functional_library):
             self.adict["library"].append(self.library.fit_transform(data, include_column[i]))
             self.adict["library_labels"].append(self.library.get_features(self.input_features))
         
@@ -84,19 +84,34 @@ class Optimizer_casadi(Base):
         self.adict["mask"] = [np.ones(dimension[-1]) for dimension in self.adict["library_dimension"]]
 
     def _update_cost(self, target : np.ndarray):
-
+        
+        # initialize the cost to zero
         self.adict["cost"] = 0
+        
+        # stoichiometric coefficient times the reactions 
+        # need 2 for loops because of limitation of casadi 
+        self.adict["reactions"] = [cd.mtimes(self.adict["library"][j], self.adict["coefficients"][j]) for j in range(self._functional_library)]
+
         for i in range(self._n_states):
-            self.adict["cost"] += (cd.sumsqr(target[:, i] - cd.mtimes(self.adict["library"][i], self.adict["coefficients"][i]))/
-                            (sum(map(lambda x : x[0], self.adict["library_dimension"]))) + 
-                            self.alpha*cd.sumsqr(self.adict["coefficients"][i]))
+            asum = 0
+            for j in range(self._functional_library): 
+                asum += self.adict["stoichiometry"][i, j]*self.adict["reactions"][j]
+
+            self.adict["cost"] += cd.sumsqr(target[:, i] - asum)
+
+        # normalize the cost by dividing by the number of data points
+        self.adict["cost"] /= self.adict["library_dimension"][0][0] # first array with first dimension
+
+        # add regularization to the cost function
+        for i in range(self._functional_library):
+            self.adict["cost"] += self.alpha*cd.sumsqr(self.adict["coefficients"][i])
 
     def _add_constraints(self, constraints_dict):
         
         data_points = self.adict["library_dimension"][0][0]
         chosen_rows = np.random.choice(range(data_points), int(self.num_points*data_points), replace = False)
         
-        # adding mass balance constraints
+        # adding mass balance constraints (need to deal when chemistry constraints are present)
         state_mass = constraints_dict["mass_balance"]
         if state_mass:
             asum = 0
@@ -108,14 +123,22 @@ class Optimizer_casadi(Base):
         # adding formation constraints
         state_formation = constraints_dict["formation"]
         if state_formation:
-            for i in state_formation :
-                self.opti.subject_to(cd.mtimes(self.adict["library"][i][chosen_rows], self.adict["coefficients"][i]) >= 0)
+            for state in state_formation :
+                asum = 0
+                for j in range(self._functional_library):
+                    asum += self.adict["stoichiometry"][state, j]*self.adict["reactions"]
+
+                self.opti.subject_to(asum >= 0)
 
         # adding consumption constraints
         state_consumption = constraints_dict["consumption"]
         if state_consumption :
             for state in state_consumption:
-                self.opti.subject_to(cd.mtimes(self.adict["library"][i][chosen_rows], self.adict["coefficients"][i]) <= 0)
+                asum = 0
+                for j in range(self._functional_library):
+                    asum += self.adict["stoichiometry"][state, j]*self.adict["reactions"]
+                
+                self.opti.subject_to(asum <= 0)
 
 
     def _minimize(self, solver_dict : dict):
@@ -127,17 +150,26 @@ class Optimizer_casadi(Base):
         return solution
 
     def fit(self, features : list[np.ndarray], target : list[np.ndarray], include_column : Optional[list[np.ndarray]] = None, 
-            constraints_dict : Optional[dict] = None ) -> None:
+            constraints_dict : dict = {} ) -> None:
 
-        # constraints_dict should be of the form {"mass_balance" : [], "consumption" : [], "formation" : []}
+        # constraints_dict should be of the form {"mass_balance" : [], "consumption" : [], "formation" : [], "stoichiometry" : np.ndarray}
         self._fit_flag = True
         self._n_states = np.shape(features)[-1]
 
+        if "stoichiometry" in constraints_dict:
+            rows, cols = constraints_dict["stoichiometry"].shape
+            assert rows == self._n_states, "The rows should match the number of states"
+            self._functional_library = cols
+            self.adict["stoichiometry"] = constraints_dict["stoichiometry"]
+        else:
+            self._functional_library = self._n_states
+            self.adict["stoichiometry"] = np.eye(self._n_states) 
+
         if include_column:
-            assert len(include_column) == self._n_states, "List should match the dimensions of features"
+            assert len(include_column) == self._functional_library, "length of columns should match with the number of functional libraries"
             include_column = [list(range(self._n_states)) if len(alist) == 0 else alist for alist in include_column] 
         else:
-            include_column = [list(range(self._n_states)) for _ in range(self._n_states)]
+            include_column = [list(range(self._n_states)) for _ in range(self._functional_library)]
 
         features, target = np.vstack(features), np.vstack(target)
         self._generate_library(features, include_column)
@@ -177,6 +209,7 @@ class Optimizer_casadi(Base):
         self.adict["coefficients_value"] = coefficients
         self._create_equations()
 
+    # need to consider when stoichiometric in present
     def _create_equations(self) -> None:
         # stores the equations in adict to be used later
         self.adict["equations"] = []
@@ -254,10 +287,11 @@ if __name__ == "__main__":
     target = model.approx_derivative # list of target value
 
     opti = Optimizer_casadi(FunctionalLibrary(1) ,alpha = 0.0, threshold = 0.1, solver_dict={"ipopt.print_level" : 0, "print_time":0})
-    opti.fit(features, target, [[0, 2, 3], [0], [0, 2], [0, 3]], 
-            constraints_dict = {"mass_balance" : [56.108, 28.05, 56.106, 56.108], "consumption" : [], "formation" : []})
+    opti.fit(features, target, [[], [], []], 
+            constraints_dict = {"mass_balance" : [], "consumption" : [], "formation" : [], 
+                                "stoichiometry" : np.array([-1, -1, -1, 1, 0, 0, 0, 1, 0, 0, 0, 2]).reshape(4, -1)})
     opti.print()
 
     print("mean squared error :", opti.score(features, target))
     print(opti.complexity)
-    print(opti.coefficients)
+    print(opti.adict["equations"])

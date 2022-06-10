@@ -9,7 +9,6 @@ import numpy as np
 t_span = np.arange(0, 5, 0.01)
 model = DynamicModel("kinetic_kosir", t_span, n_expt = 15)
 features = model.integrate() # list of features
-# features = model.add_noise(features, 0, 0.1)
 target = model.approx_derivative # list of target value
 
 
