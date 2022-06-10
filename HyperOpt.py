@@ -109,29 +109,33 @@ class HyperOpt():
 
     # bokeh plotting
     def plot(self, filename : str = "saved_data\Gridsearch_results.html"):
+        # capture r2 values between 0 and 1
+        self.df_result = self.df_result.loc[(self.df_result["r2_test_pred"] >= 0) & (self.df_result["r2_test_pred"] <= 1)]
         source = ColumnDataSource(self.df_result)
         tooltips = [("Index", "$index"), ("complexity", "@complexity"), ("MSE", "@MSE_test_pred"), ("r2", "@r2_test_pred"), 
-                    ("threshold", "@optimizer__threshold"), ("alpha", "@optimizer__alpha")]
+                    ("threshold", "@optimizer__threshold"), ("alpha", "@optimizer__alpha"), ("degree", "@feature_library__degree")]
 
         fig_mse = figure(tooltips = tooltips)
-        fig_mse.scatter(x = "complexity", y = "MSE_test_pred", source = source)
+        fig_mse.scatter(x = "complexity", y = "MSE_test_pred", size = 8, source = source)
         fig_mse.xaxis.axis_label = "Complexity"
         fig_mse.xaxis.axis_label_text_font_style = "bold"
         fig_mse.yaxis.axis_label = "MSE"
         fig_mse.yaxis.axis_label_text_font_style = "bold"
         fig_mse.plot_height = 400
         fig_mse.plot_width = 700
+        fig_mse.outline_line_color = "black"
         fig_mse.margin = (5, 5, 5, 5) #top, right, bottom, left
         
         fig_r2 = figure(tooltips = tooltips)
-        fig_r2.scatter(x = "complexity", y = "r2_test_pred", source = source)
+        fig_r2.scatter(x = "complexity", y = "r2_test_pred", size = 8, source = source)
         fig_r2.xaxis.axis_label = "Complexity"
         fig_r2.xaxis.axis_label_text_font_style = "bold"
         fig_r2.yaxis.axis_label = "R squared"
         fig_r2.yaxis.axis_label_text_font_style = "bold"
         fig_r2.plot_height = 400
         fig_r2.plot_width = 700
-        fig_r2.margin = (5, 5, 5, 5) #top, right, bottom, left
+        fig_r2.outline_line_color = "black"
+        fig_r2.margin = (10, 5, 5, 5) #top, right, bottom, left
 
         grid = column(fig_mse, fig_r2)
         output_file(filename)

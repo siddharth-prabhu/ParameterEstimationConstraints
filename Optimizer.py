@@ -24,9 +24,11 @@ class Optimizer_casadi(Base):
     max_iter : int = field(default = 10)
     solver_dict : dict = field(default_factory = dict)
 
+    _fit_flag : bool = field(default = False, init = False)
+    adict : dict = field(default_factory = dict, init = False)
+
     def __post_init__(self):
-        self._fit_flag = False
-        self.adict = {}
+        pass
 
     def set_params(self, **kwargs):
         # sets the values of various parameter for gridsearchcv
@@ -173,6 +175,7 @@ class Optimizer_casadi(Base):
             self.adict["iterations"] += 1
 
         self.adict["coefficients_value"] = coefficients
+        self._create_equations()
 
     def _create_equations(self) -> None:
         # stores the equations in adict to be used later
@@ -190,9 +193,6 @@ class Optimizer_casadi(Base):
 
     def _casadi_model(self, x, t):
 
-        if not self.adict.get("equations_lambdify", False):
-            self._create_equations()
-
         return np.array([eqn(*x) for eqn in self.adict["equations_lambdify"]])
     
 
@@ -205,7 +205,7 @@ class Optimizer_casadi(Base):
 
     def score(self, X : list[np.ndarray], x_dot : list[np.ndarray], metric : Callable = mean_squared_error, **kwargs) -> float:
         assert self._fit_flag, "Fit the model before running score"
-
+        
         y_pred = self.predict(X)
         return metric(np.vstack(y_pred), np.vstack(x_dot))
 
