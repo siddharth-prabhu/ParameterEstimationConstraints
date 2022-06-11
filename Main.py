@@ -22,13 +22,17 @@ print("--"*20)
 def run_gridsearch(features : list[np.ndarray], target : list[np.ndarray], parameters : dict, add_noise : bool = False, 
                     add_constraints : bool = False, filename : str = "saved_data\Gridsearch_results.html", title : str = "Conc vs time"):
     
-    if add_constraints:
+    if add_constraints == "mass_balance":
         include_column = [[0, 2, 3], [0], [0, 2], [0, 3]]
         constraints_dict = {"mass_balance" : [56.108, 28.05, 56.106, 56.108], "consumption" : [], "formation" : [1]}
         # mass balance : equality constraint; formation/consumption : inequality constraint
+    elif add_constraints == "stoichiometry":
+        include_column = [[0, 1], [0, 2], [0, 3]]
+        constraints_dict = {"mass_balance" : [], "consumption" : [], "formation" : [3], 
+                                "stoichiometry" : np.array([-1, -1, -1, 1, 0, 0, 0, 1, 0, 0, 0, 2]).reshape(4, -1)}
     else:
         include_column = None
-        constraints_dict = None
+        constraints_dict = {}
 
     if add_noise:
         features = model.add_noise(features, 0, 0.01)
@@ -50,5 +54,7 @@ params = {"optimizer__threshold": [0.01, 0.1, 1, 10],
 noise_sd = 0.1
 run_gridsearch(features, target, params, add_noise = noise_sd, add_constraints = False, filename = "saved_data\Gridsearch_no_con.html", 
                 title = f"Without constraints {noise_sd} noise")
-run_gridsearch(features, target, params, add_noise = noise_sd, add_constraints = True, filename = "saved_data\Gridsearch_con.html",
+run_gridsearch(features, target, params, add_noise = noise_sd, add_constraints = "mass_balance", filename = "saved_data\Gridsearch_con.html",
+                title = f"With constraints {noise_sd} noise")
+run_gridsearch(features, target, params, add_noise = noise_sd, add_constraints = "stoichiometry", filename = "saved_data\Gridsearch_con.html",
                 title = f"With constraints {noise_sd} noise")

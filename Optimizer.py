@@ -102,8 +102,8 @@ class Optimizer_casadi(Base):
         self.adict["cost"] /= self.adict["library_dimension"][0][0] # first array with first dimension
 
         # add regularization to the cost function
-        for i in range(self._functional_library):
-            self.adict["cost"] += self.alpha*cd.sumsqr(self.adict["coefficients"][i])
+        for j in range(self._functional_library):
+            self.adict["cost"] += self.alpha*cd.sumsqr(self.adict["coefficients"][j])
 
     def _add_constraints(self, constraints_dict):
         
@@ -112,7 +112,7 @@ class Optimizer_casadi(Base):
         
         # adding mass balance constraints 
         state_mass = constraints_dict["mass_balance"]
-        if state_mass and self._flag_chemcon:
+        if state_mass and getattr(self, "_flag_chemcon", False):
             asum = 0
             for i in range(self._n_states):
                 asum += state_mass[i]*cd.mtimes(self.adict["library"][i][chosen_rows], self.adict["coefficients"][i])
@@ -125,7 +125,7 @@ class Optimizer_casadi(Base):
             for state in state_formation :
                 asum = 0
                 for j in range(self._functional_library):
-                    asum += self.adict["stoichiometry"][state, j]*self.adict["reactions"]
+                    asum += self.adict["stoichiometry"][state, j]*self.adict["reactions"][j]
 
                 self.opti.subject_to(asum >= 0)
 
@@ -135,7 +135,7 @@ class Optimizer_casadi(Base):
             for state in state_consumption:
                 asum = 0
                 for j in range(self._functional_library):
-                    asum += self.adict["stoichiometry"][state, j]*self.adict["reactions"]
+                    asum += self.adict["stoichiometry"][state, j]*self.adict["reactions"][j]
                 
                 self.opti.subject_to(asum <= 0)
 
@@ -291,12 +291,11 @@ if __name__ == "__main__":
     features = model.integrate() # list of features
     target = model.approx_derivative # list of target value
 
-    opti = Optimizer_casadi(FunctionalLibrary(1) , alpha = 0.0, threshold = 0.01, solver_dict={"ipopt.print_level" : 0, "print_time":0})
+    opti = Optimizer_casadi(FunctionalLibrary(1) , alpha = 0.05, threshold = 0.01, solver_dict={"ipopt.print_level" : 0, "print_time":0})
     stoichiometry = np.array([-1, -1, -1, 1, 0, 0, 0, 1, 0, 0, 0, 2]).reshape(4, -1)
     # stoichiometry = None
-    opti.fit(features, target, include_column = [[0, 1], [0, 2], [0, 3]], 
-            constraints_dict = {"mass_balance" : [], "consumption" : [], "formation" : [], 
-                                "stoichiometry" : stoichiometry})
+    opti.fit(features, target, include_column = None, 
+            constraints_dict = None)
     opti.print()
     print("--"*20)
     print("mean squared error :", opti.score(features, target))
