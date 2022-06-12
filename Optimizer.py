@@ -82,7 +82,7 @@ class Optimizer_casadi(Base):
     def _create_mask(self):
         self.adict["mask"] = [np.ones(dimension[-1]) for dimension in self.adict["library_dimension"]]
 
-    def _update_cost(self, target : np.ndarray):
+    def _update_cost(self, target : np.ndarray, method : str = "stlsq"):
         
         # initialize the cost to zero
         self.adict["cost"] = 0
@@ -101,9 +101,16 @@ class Optimizer_casadi(Base):
         # normalize the cost by dividing by the number of data points
         self.adict["cost"] /= self.adict["library_dimension"][0][0] # first array with first dimension
 
-        # add regularization to the cost function
-        for j in range(self._functional_library):
-            self.adict["cost"] += self.alpha*cd.sumsqr(self.adict["coefficients"][j])
+        if method == "stlsq":
+            # add regularization to the cost function
+            for j in range(self._functional_library):
+                self.adict["cost"] += self.alpha*cd.sumsqr(self.adict["coefficients"][j])
+        else: # implement l1 norm
+            norm_variables = [self.opti.variable(dimension[-1], 1) for dimension in self.adict["library_dimension"]]
+            for j in range(self._functional_library):
+                self.adict["cost"] += self.alpha*cd.sum1(norm_variables[j])
+                self.opti.subject_to(self.adict["coefficients"][j] <= norm_variables[j])
+                self.opti.subject_to(self.adict["coefficients"][j] >= -norm_variables[j])
 
     def _add_constraints(self, constraints_dict):
         
@@ -148,8 +155,61 @@ class Optimizer_casadi(Base):
         # assert solution.success, "The solution did not converge" add assertion 
         return solution
 
+    def _stlsq(self, target : np.ndarray, constraints_dict : dict) -> list[np.ndarray]:
+
+        self._create_mask()
+        coefficients_prev = [np.ones(dimension[-1]) for dimension in self.adict["library_dimension"]]
+        self.adict["iterations"] = 0
+ 
+        for i in range(self.max_iter):
+            # create problem from scratch since casadi cannot run the same problem once optimized
+            # steps should follow a sequence 
+            self._create_decision_variables()  
+            self.adict["library"] = [value*self.adict["mask"][i] for i, value in enumerate(self.adict["library"])]   
+            self._update_cost(target, method = "stlsq") 
+            if constraints_dict:
+                self._add_constraints(constraints_dict)
+            self.adict["solution"] = self._minimize(self.solver_dict) # no need to save for every iteration
+
+            # list[np.ndarray]. additional layer of np.array and flatten to account for singular value, which casadi outputs as float
+            coefficients = [np.array([self.adict["solution"].value(coeff)]).flatten() for coeff in self.adict["coefficients"]] 
+            
+            coefficients_next = [np.abs(coeff) >= self.threshold for coeff in coefficients] # list of boolean arrays
+
+            if np.array([np.allclose(coeff_prev, coeff_next) for coeff_prev, coeff_next in zip(coefficients_prev, coefficients_next)]).all():
+                print("Solution converged")
+                break
+
+            if not sum([np.sum(coeff) for coeff in coefficients_next]):
+                raise RuntimeError("Thresholding parameter eliminated all the coefficients")
+                break
+            
+            coefficients_prev = coefficients_next # boolean array
+
+            # update mask of small terms to zero
+            self.adict["mask"] = [mask*coefficients_next[i] for i, mask in enumerate(self.adict["mask"])]
+            self.adict["iterations"] += 1
+        
+        return coefficients
+
+    def _least_square(self, target : np.ndarray, constraints_dict : dict) -> list[np.ndarray]:
+        
+        self._create_mask()
+        self.adict["iterations"] = 1
+        print("running least square")
+        # steps should follow a sequence 
+        self._create_decision_variables()  
+        self.adict["library"] = [value*self.adict["mask"][i] for i, value in enumerate(self.adict["library"])]   
+        self._update_cost(target, method = "least_square")
+        self.adict["solution"] = self._minimize(self.solver_dict)
+
+        # list[np.ndarray]. additional layer of np.array and flatten to account for singular value, which casadi outputs as float
+        coefficients = [np.array([self.adict["solution"].value(coeff)]).flatten() for coeff in self.adict["coefficients"]] 
+
+        return coefficients
+
     def fit(self, features : list[np.ndarray], target : list[np.ndarray], include_column : Optional[list[np.ndarray]] = None, 
-            constraints_dict : dict = {} ) -> None:
+            constraints_dict : dict = {}, method : str = "stlsq" ) -> None:
 
         # constraints_dict should be of the form {"mass_balance" : [], "consumption" : [], "formation" : [], 
         #                                           "stoichiometry" : np.ndarray}
@@ -174,40 +234,14 @@ class Optimizer_casadi(Base):
 
         features, target = np.vstack(features), np.vstack(target)
         self._generate_library(features, include_column)
-        self._create_mask()
-        coefficients_prev = [np.ones(dimension[-1]) for dimension in self.adict["library_dimension"]]
-        self.adict["iterations"] = 0
- 
-        for i in range(self.max_iter):
-            # create problem from scratch since casadi cannot run the same problem once optimized
-            # steps should follow a sequence 
-            self._create_decision_variables()  
-            self.adict["library"] = [value*self.adict["mask"][i] for i, value in enumerate(self.adict["library"])]   
-            self._update_cost(target) 
-            if constraints_dict:
-                self._add_constraints(constraints_dict)
-            self.adict["solution"] = self._minimize(self.solver_dict) # no need to save for every iteration
 
-            # list[np.ndarray]. additional layer of np.array and flatten to account for singular value, which casadi outputs as float
-            coefficients = [np.array([self.adict["solution"].value(coeff)]).flatten() for coeff in self.adict["coefficients"]] 
-            
-            coefficients_next = [np.abs(coeff) >= self.threshold for coeff in coefficients] # list of boolean arrays
+        if method == "stlsq":
+            self.adict["coefficients_value"] = self._stlsq(target, constraints_dict)
+        elif method == "lsq":
+            self.adict["coefficients_value"] = self._least_square(target, constraints_dict)
+        else:
+            raise ValueError(f"Method {method} not yet implemented")
 
-            if np.array([np.allclose(coeff_prev, coeff_next) for coeff_prev, coeff_next in zip(coefficients_prev, coefficients_next)]).all():
-                print("Solution converged")
-                break
-
-            if not sum([np.sum(coeff) for coeff in coefficients_next]):
-                raise RuntimeError("Thresholding parameter eliminated all the coefficients")
-                break
-            
-            coefficients_prev = coefficients_next # boolean array
-
-            # update mask of small terms to zero
-            self.adict["mask"] = [mask*coefficients_next[i] for i, mask in enumerate(self.adict["mask"])]
-            self.adict["iterations"] += 1
-
-        self.adict["coefficients_value"] = coefficients
         self._create_equations()
 
     # need to consider when stoichiometric in present
@@ -225,7 +259,7 @@ class Optimizer_casadi(Base):
             # replaced whitespaces with multiplication element wise library labels
             # simpify already handles xor operation
 
-            self.adict["equations"].append(f"{self.input_features[i]}' = " + str(expr))
+            self.adict["equations"].append(str(expr))
             self.adict["equations_lambdify"].append(smp.lambdify(self.input_symbols, expr))
 
 
@@ -258,7 +292,7 @@ class Optimizer_casadi(Base):
         if not self.adict.get("equations", False):
             self._create_equations()
         
-        return sum(eqn.count("+") + 1 for eqn in self.adict["equations"])
+        return sum(eqn.count("+") + eqn.lstrip("-").count("-") + 1 for eqn in self.adict["equations"])
 
     @property
     def coefficients(self):
@@ -279,8 +313,8 @@ class Optimizer_casadi(Base):
         if not self.adict.get("equations", False):
             self._create_equations()
 
-        for eqn in self.adict["equations"]:
-            print(eqn)
+        for i, eqn in enumerate(self.adict["equations"]):
+            print(f"{self.input_features[i]}' = " + eqn)
 
 
 if __name__ == "__main__":
@@ -291,13 +325,16 @@ if __name__ == "__main__":
     features = model.integrate() # list of features
     target = model.approx_derivative # list of target value
 
-    opti = Optimizer_casadi(FunctionalLibrary(1) , alpha = 0.05, threshold = 0.01, solver_dict={"ipopt.print_level" : 0, "print_time":0})
-    stoichiometry = np.array([-1, -1, -1, 1, 0, 0, 0, 1, 0, 0, 0, 2]).reshape(4, -1)
+    opti = Optimizer_casadi(FunctionalLibrary(3) , alpha = 0.01, threshold = 0.1, solver_dict={"ipopt.print_level" : 0, "print_time":0})
+    stoichiometry = np.array([-1, -1, -1, 0, 0, 2, 1, 0, 0, 0, 1, 0]).reshape(4, -1)
     # stoichiometry = None
-    opti.fit(features, target, include_column = None, 
-            constraints_dict = None)
+    # opti.fit(features, target, include_column = [], 
+    #         constraints_dict = {}, method = "lsq")
+    opti.fit(features, target, include_column = [[0, 2], [0, 3], [0, 1]], 
+                constraints_dict= {"mass_balance" : [], "formation" : [1], "consumption" : [], 
+                                    "stoichiometry" : stoichiometry}, method = "stlsq")
     opti.print()
     print("--"*20)
     print("mean squared error :", opti.score(features, target))
     print(opti.complexity)
-    
+    print("Total number of iterations", opti.adict["iterations"])
