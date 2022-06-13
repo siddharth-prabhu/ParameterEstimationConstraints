@@ -1,5 +1,5 @@
 import numpy as np
-np.random.seed(10)
+
 import pandas as pd
 import pysindy as ps
 from sklearn.metrics import mean_squared_error, r2_score

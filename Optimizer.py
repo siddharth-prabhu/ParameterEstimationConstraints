@@ -115,6 +115,7 @@ class Optimizer_casadi(Base):
     def _add_constraints(self, constraints_dict):
         
         data_points = self.adict["library_dimension"][0][0]
+        np.random.seed(10)
         chosen_rows = np.random.choice(range(data_points), int(self.num_points*data_points), replace = False)
         
         # adding mass balance constraints 
@@ -150,7 +151,7 @@ class Optimizer_casadi(Base):
     def _minimize(self, solver_dict : dict):
 
         self.opti.minimize(self.adict["cost"])
-        self.opti.solver("ipopt", solver_dict)
+        self.opti.solver("ipopt", solver_dict, {"max_iter" : 30})
         solution = self.opti.solve()
         # assert solution.success, "The solution did not converge" add assertion 
         return solution

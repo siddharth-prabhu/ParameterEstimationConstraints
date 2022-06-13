@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 import numpy as np
-np.random.seed(10)
+
 
 import pickle
 from typing import ClassVar, Optional
@@ -64,11 +64,12 @@ class DynamicModel():
     # plots the integrated solution with respect to time
     @staticmethod
     def plot(y_value : np.ndarray, x_value : np.ndarray, xlabel : str = "Time", 
-            ylabel : str = "Concentration", legend : Optional[list[str]] = None, **kwargs) -> None:
+            ylabel : str = "Concentration", legend : Optional[list[str]] = None, title : str = "Concentration vs time", **kwargs) -> None:
         
         plt.plot(x_value, y_value, **kwargs)
         plt.xlabel(xlabel)
         plt.ylabel(ylabel)
+        plt.title(title)
         if legend :
             plt.legend(legend)
         plt.show()
@@ -96,12 +97,14 @@ class DynamicModel():
         return [ps.FiniteDifference()._differentiate(xi, self.time_span) for xi in self.solution]
     
     # adds gaussian noise the the datapoints
-    @staticmethod
-    def add_noise(data : list, mean : float = 0, variance : float  = 0.1, multiplicative = "False") -> list:
+    def add_noise(self, mean : float = 0, variance : float  = 0.1, multiplicative = False) -> list:
+        np.random.seed(10)
         if multiplicative:
-            return [value * (1 + np.random.normal(mean, variance, size = value.shape)) for value in data]
+            self.solution = [value * (1 + np.random.normal(mean, variance, size = value.shape)) for value in self.solution]
+            return self.solution
         else:
-            return [value + np.random.normal(mean, variance, shape = value.shape) for value in data]
+            self.solution = [value + np.random.normal(mean, variance, size = value.shape) for value in self.solution]
+            return self.solution
 
     @staticmethod
     def save_data(data : dict, path : str) -> None:
@@ -119,6 +122,6 @@ if __name__ == "__main__":
 
     print(model.actual_derivative)
     print("--"*20)
-    print(model.add_noise(model.actual_derivative))
+    print(model.add_noise())
     print("--"*20)
     
