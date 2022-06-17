@@ -29,8 +29,9 @@ class HyperOpt():
     constraints_dict : dict = field(default_factory = dict)
 
     @staticmethod
-    def train_test_split(X, y, y_clean, t, train_percent : int = 80):
-        assert np.shape(X) == np.shape(y) == np.shape(y_clean), "Features, targets and targets_clean should have same dimensions"
+    def train_test_split(X : list[np.ndarray], y : list[np.ndarray], y_clean : list[np.ndarray], t : list[np.ndarray], train_percent : int = 80):
+        assert np.shape(y) == np.shape(y_clean), "Targets and targets_clean should have same dimensions"
+        assert len(y) == len(y_clean) == len(X), "Features, target and target_clean should have the same length"
         sample = len(y)*train_percent//100
     
         return X[:sample], y[:sample], y_clean[:sample], t[:sample], X[sample:], y[sample:], y_clean[sample:], t[sample:]
