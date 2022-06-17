@@ -44,7 +44,8 @@ class HyperOpt():
         for combination in combinations: # use combinations of values
             param_dict = dict(zip(parameter_key, combination)) # combine the key value pari and fit the model
             self.model.set_params(**param_dict)
-
+            print("--"*100)
+            print("Running for parameter combination", param_dict)
             try:
                 # self.model.fit(self.X_train, x_dot = self.y_train, quiet = True, multiple_trajectories = True) # for sindy
                 self.model.fit(self.X_train, self.y_train, include_column = self.include_column,
@@ -53,7 +54,8 @@ class HyperOpt():
 
             except Exception as e:
                 print(e)
-                print("Failed for the parameter combination", param_dict)
+                print("Failed for the parameter combination")
+                print("--"*100)
                 continue
             else:
                 # models with none coefficients are not considered 
