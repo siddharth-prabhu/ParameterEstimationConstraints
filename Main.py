@@ -11,8 +11,6 @@ t_span = np.arange(0, 5, 0.01)
 model = DynamicModel("kinetic_kosir", t_span, n_expt = 15)
 features = model.integrate() # list of features
 target = model.approx_derivative # list of target value
-noise_sd = 0.1
-
 
 
 def run_gridsearch(features : list[np.ndarray], target : list[np.ndarray], parameters : dict, 
@@ -29,8 +27,6 @@ def run_gridsearch(features : list[np.ndarray], target : list[np.ndarray], param
     else:
         include_column = None
         constraints_dict = {}
-    
-    print(features[-1][-1])
     
     # model.plot(features[-1], t_span, legend=["A", "B", "C", "D"], title = title)
     opt = HyperOpt(features, target, t_span, parameters, Optimizer_casadi(solver_dict = {"ipopt.print_level" : 0, "print_time":0}), 
@@ -71,6 +67,3 @@ params = {"optimizer__threshold": [0.01, 0.1],
 noise_level = [0.0, 0.01,] #0.1, 0.2, 0.4]
 for noise in noise_level:
     run_all(noise, params)
-
-
-# deal with error calculations from clean data

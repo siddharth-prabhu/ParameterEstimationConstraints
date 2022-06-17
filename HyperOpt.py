@@ -21,6 +21,7 @@ class HyperOpt():
 
     X : list[np.ndarray] 
     y : list[np.ndarray]
+    y_clean : list[np.ndarray]
     t : np.ndarray
     parameters : dict = field(default_factory = dict)
     model : Optimizer_casadi() = field(default = Optimizer_casadi()) 
@@ -28,15 +29,15 @@ class HyperOpt():
     constraints_dict : dict = field(default_factory = dict)
 
     @staticmethod
-    def train_test_split(X, y, t, train_percent : int = 80):
-        assert np.shape(X) == np.shape(y), "Features and targets should have same dimensions"
+    def train_test_split(X, y, y_clean, t, train_percent : int = 80):
+        assert np.shape(X) == np.shape(y) == np.shape(y_clean), "Features, targets and targets_clean should have same dimensions"
         sample = len(y)*train_percent//100
     
-        return X[:sample], y[:sample], t[:sample], X[sample:], y[sample:], t[sample:]
+        return X[:sample], y[:sample], y_clean[:sample], t[:sample], X[sample:], y[sample:], y_clean[sample:], t[sample:]
 
     def gridsearch(self, integrate_models : bool = False, display_results : bool = True):
 
-        self.X_train, self.y_train, self.t_train, self.X_test, self.y_test, self.t_test = self.train_test_split(self.X, self.y, self.t)
+        self.X_train, self.y_train, self.y_clean_train, self.t_train, self.X_test, self.y_test, self.y_clean_test, self.t_test = self.train_test_split(self.X, self.y, self.y_clean, self.t)
         result_dict = defaultdict(list)
         parameter_key, parameter_value = zip(*self.parameters.items()) # separate the key value pairs
         combinations = itertools.product(*parameter_value)
@@ -66,17 +67,18 @@ class HyperOpt():
                 for key in param_dict:
                     result_dict[key].append(param_dict[key])
 
-                result_dict["MSE_test_pred"].append(self.model.score(self.X_test, x_dot = self.y_test, metric = mean_squared_error, 
+                result_dict["MSE_test_pred"].append(self.model.score(self.X_test, x_dot = self.y_clean_test, metric = mean_squared_error, 
                                                     multiple_trajectories = True))
-                result_dict["MSE_train_pred"].append(self.model.score(self.X_train, x_dot = self.y_train, metric = mean_squared_error, 
-                                                    multiple_trajectories = True))
-
-                result_dict["r2_test_pred"].append(self.model.score(self.X_test, x_dot = self.y_test, metric = r2_score, 
-                                                    multiple_trajectories = True))
-                result_dict["r2_train_pred"].append(self.model.score(self.X_train, x_dot = self.y_train, metric = r2_score, 
+                result_dict["MSE_train_pred"].append(self.model.score(self.X_train, x_dot = self.y_clean_train, metric = mean_squared_error, 
                                                     multiple_trajectories = True))
 
-                # is not compatible with casadi yet
+                result_dict["r2_test_pred"].append(self.model.score(self.X_test, x_dot = self.y_clean_test, metric = r2_score, 
+                                                    multiple_trajectories = True))
+                result_dict["r2_train_pred"].append(self.model.score(self.X_train, x_dot = self.y_clean_train, metric = r2_score, 
+                                                    multiple_trajectories = True))
+
+                # is not compatible with casadi yet. 
+                # need to calculate errors using clean target values
                 if integrate_models:
                     try:
                         y_pred_test_sim = self.model.simulate(self.X_test[0], self.t_test, integrator_kws = {"atol" : 1e-4, "rtol" : 1e-3, "method" : "RK23"})
@@ -165,7 +167,7 @@ if __name__ == "__main__":
         "feature_library__include_bias" : [False, True],
         "feature_library__degree": [1, 2]}
 
-    opt = HyperOpt(features, target, t_span, params, Optimizer_casadi(solver_dict = {"ipopt.print_level" : 0, "print_time":0}), 
+    opt = HyperOpt(features, target, target, t_span, params, Optimizer_casadi(solver_dict = {"ipopt.print_level" : 0, "print_time":0}), 
                     include_column = [[0, 1], [0, 2], [0, 3]], constraints_dict = {"mass_balance" : [], "consumption" : [], "formation" : [3], 
                                 "stoichiometry" : np.array([-1, -1, -1, 1, 0, 0, 0, 1, 0, 0, 0, 2]).reshape(4, -1)})
     opt.gridsearch()
