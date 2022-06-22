@@ -14,16 +14,16 @@ class FunctionalLibrary():
     include_interaction : bool = field(default = True)
 
     def set_params(self, **kwargs):
-        if kwargs.get("feature_library__degree", False):
+        if "feature_library__degree" in kwargs:
             setattr(self, "degree", kwargs["feature_library__degree"])
         
-        if kwargs.get("feature_library__include_bias", False):
+        if "feature_library__include_bias" in kwargs:
             setattr(self, "include_bias", kwargs["feature_library__include_bias"])
         
-        if kwargs.get("feature_library__interaction_only", False):
+        if "feature_library__interaction_only" in kwargs:
             setattr(self, "interaction_only", kwargs["feature_library__interaction_only"])
         
-        if kwargs.get("feature_library__include_interaction", False):
+        if "feature_library__include_interaction" in kwargs:
             setattr(self, "include_interaction", kwargs["feature_library__include_interaction"])
                 
     def fit_transform(self, features : np.ndarray, include_feature: Optional[list[int]] = None) -> np.ndarray:

@@ -33,19 +33,19 @@ class Optimizer_casadi(Base):
     def set_params(self, **kwargs):
         # sets the values of various parameter for gridsearchcv
 
-        if kwargs.get("optimizer__alpha", False):
+        if "optimizer__alpha" in kwargs:
             setattr(self, "alpha", kwargs["optimizer__alpha"])
         
-        if kwargs.get("optimizer__threshold", False):
+        if "optimizer__threshold" in kwargs:
             setattr(self, "threshold", kwargs["optimizer__threshold"])
         
-        if kwargs.get("optimizer__max_iter", False):
+        if "optimizer__max_iter" in kwargs:
             setattr(self, "max_iter", kwargs["optimizer__max_iter"])
         
-        if kwargs.get("optimizer__alpha_mass", False):
+        if "optimizer__alpha_mass" in kwargs:
             setattr(self, "alpha_mass", kwargs["optimizer__alpha_mass"])
 
-        if kwargs.get("optimize__num_points", False):
+        if "optimize__num_points" in kwargs:
             setattr(self, "num_points", kwargs["optimize__num_points"])
 
         self.library.set_params(**kwargs)
@@ -175,7 +175,7 @@ class Optimizer_casadi(Base):
             # list[np.ndarray]. additional layer of np.array and flatten to account for singular value, which casadi outputs as float
             coefficients = [np.array([self.adict["solution"].value(coeff)]).flatten() for coeff in self.adict["coefficients"]] 
             
-            coefficients_next = [np.abs(coeff) >= self.threshold for coeff in coefficients] # list of boolean arrays
+            coefficients_next = [np.abs(coeff) > self.threshold for coeff in coefficients] # list of boolean arrays
 
             if np.array([np.allclose(coeff_prev, coeff_next) for coeff_prev, coeff_next in zip(coefficients_prev, coefficients_next)]).all():
                 print("Solution converged")
@@ -290,9 +290,6 @@ class Optimizer_casadi(Base):
 
     @property
     def complexity(self):
-        if not self.adict.get("equations", False):
-            self._create_equations()
-        
         return sum(eqn.count("+") + eqn.lstrip("-").count("-") + 1 for eqn in self.adict["equations"])
 
     @property

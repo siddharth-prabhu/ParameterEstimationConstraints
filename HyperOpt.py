@@ -24,7 +24,7 @@ class HyperOpt():
     y_clean : list[np.ndarray]
     t : np.ndarray
     parameters : dict = field(default_factory = dict)
-    model : Optimizer_casadi() = field(default = Optimizer_casadi()) 
+    model : Optimizer_casadi = field(default_factory = Optimizer_casadi()) 
     include_column : list[list] = field(default = None)
     constraints_dict : dict = field(default_factory = dict)
 
@@ -60,9 +60,7 @@ class HyperOpt():
                 print("--"*100)
                 continue
             else:
-                # models with none coefficients are not considered 
-                if 0 in map(lambda x : sum(abs(x)), self.model.coefficients):
-                    continue
+                result_dict["complexity"].append(self.model.complexity)
 
                 # calculate error
                 for key in param_dict:
@@ -78,29 +76,6 @@ class HyperOpt():
                 result_dict["r2_train_pred"].append(self.model.score(self.X_train, x_dot = self.y_clean_train, metric = r2_score, 
                                                     multiple_trajectories = True))
 
-                # is not compatible with casadi yet. 
-                # need to calculate errors using clean target values
-                if integrate_models:
-                    try:
-                        y_pred_test_sim = self.model.simulate(self.X_test[0], self.t_test, integrator_kws = {"atol" : 1e-4, "rtol" : 1e-3, "method" : "RK23"})
-                        y_pred_train_sim = self.model.simulate(self.X_train[0], self.t_train, integrator_kws = {"atol" : 1e-4, "rtol" : 1e-3, "method" : "RK23"})
-                        print(y_pred_test_sim.shape)
-                        assert len(y_pred_train_sim) == len(self.y_train)
-                        assert len(y_pred_test_sim) == len(self.y_test) 
-                    except:
-                        result_dict["MSE_test_sim"].append(np.inf)
-                        result_dict["MSE_train_sim"].append(np.inf)
-
-                        result_dict["r2_test_sim"].append(np.inf)
-                        result_dict["r2_train_sim"].append(np.inf)
-                    else:
-                        result_dict["MSE_test_sim"].append(mean_squared_error(self.X_test, y_pred_test_sim))
-                        result_dict["MSE_train_sim"].append(mean_squared_error(self.X_train, y_pred_train_sim))
-
-                        result_dict["r2_test_sim"].append(r2_score(self.X_test, y_pred_test_sim))
-                        result_dict["r2_train_sim"].append(r2_score(self.X_train, y_pred_train_sim))
-
-                result_dict["complexity"].append(self.model.complexity)
 
         # sort value and remove duplicates
         self.df_result = pd.DataFrame(result_dict)
