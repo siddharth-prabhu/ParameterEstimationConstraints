@@ -1,7 +1,6 @@
 from dataclasses import dataclass, field
 import numpy as np
 
-
 import pickle
 from typing import ClassVar, Optional
 from scipy.integrate import odeint
@@ -15,6 +14,7 @@ class DynamicModel():
     time_span : np.ndarray
     initial_condition : list[np.ndarray] = field(default_factory=list)
     n_expt : int = field(default = 1)
+    seed : int = field(default = 12345)
 
     _model_dict : ClassVar 
     _solution_flag : bool = field(init = False, default = False)
@@ -25,7 +25,8 @@ class DynamicModel():
         assert self.model in self._model_dict, "Dynamic model is not defined yet"
         
         if not self.initial_condition:
-            self.initial_condition = [np.random.uniform(0, 20, size = self._model_dict[self.model]["n_states"]) for _ in range(self.n_expt)]
+            rng = np.random.default_rng(self.seed)
+            self.initial_condition = [rng.uniform(0, 20, size = self._model_dict[self.model]["n_states"]) for _ in range(self.n_expt)]
         else:
             assert len(self.initial_condition[-1]) == self._model_dict[self.model]["n_states"], "Incorrect number of states"
             assert len(self.initial_condition) == len(self.n_expt), "Initial conditions should match the number of experiments"
@@ -98,12 +99,13 @@ class DynamicModel():
     
     # adds gaussian noise the the datapoints
     def add_noise(self, mean : float = 0, variance : float  = 0.1, multiplicative = False) -> list:
-        np.random.seed(10)
+
+        rng = np.random.default_rng(self.seed)
         if multiplicative:
-            self.solution = [value * (1 + np.random.normal(mean, variance, size = value.shape)) for value in self.solution]
+            self.solution = [value * (1 + rng.normal(mean, variance, size = value.shape)) for value in self.solution]
             return self.solution
         else:
-            self.solution = [value + np.random.normal(mean, variance, size = value.shape) for value in self.solution]
+            self.solution = [value + rng.normal(mean, variance, size = value.shape) for value in self.solution]
             return self.solution
 
     @staticmethod

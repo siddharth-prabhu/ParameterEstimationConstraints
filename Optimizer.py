@@ -112,11 +112,11 @@ class Optimizer_casadi(Base):
                 self.opti.subject_to(self.adict["coefficients"][j] <= norm_variables[j])
                 self.opti.subject_to(self.adict["coefficients"][j] >= -norm_variables[j])
 
-    def _add_constraints(self, constraints_dict):
+    def _add_constraints(self, constraints_dict, seed : int = 12345):
         
         data_points = self.adict["library_dimension"][0][0]
-        np.random.seed(10)
-        chosen_rows = np.random.choice(range(data_points), int(self.num_points*data_points), replace = False)
+        rng = np.random.default_rng(seed)
+        chosen_rows = rng.choice(range(data_points), int(self.num_points*data_points), replace = False)
         
         # adding mass balance constraints 
         state_mass = constraints_dict["mass_balance"]
