@@ -21,6 +21,7 @@ class HyperOpt():
 
     X : list[np.ndarray] 
     y : list[np.ndarray]
+    X_clean : list[np.ndarray]
     y_clean : list[np.ndarray]
     t : np.ndarray
     parameters : dict = field(default_factory = dict)
@@ -29,16 +30,18 @@ class HyperOpt():
     constraints_dict : dict = field(default_factory = dict)
 
     @staticmethod
-    def train_test_split(X : list[np.ndarray], y : list[np.ndarray], y_clean : list[np.ndarray], t : list[np.ndarray], train_percent : int = 80):
+    def train_test_split(X : list[np.ndarray], y : list[np.ndarray], X_clean : list[np.ndarray], y_clean : list[np.ndarray], 
+                        t : list[np.ndarray], train_percent : int = 80):
+        
         assert np.shape(y) == np.shape(y_clean), "Targets and targets_clean should have same dimensions"
         assert len(y) == len(y_clean) == len(X), "Features, target and target_clean should have the same length"
         sample = len(y)*train_percent//100
     
-        return X[:sample], y[:sample], y_clean[:sample], t[:sample], X[sample:], y[sample:], y_clean[sample:], t[sample:]
+        return X[:sample], y[:sample], X_clean[:sample], y_clean[:sample], t[:sample], X[sample:], y[sample:], X_clean[sample:], y_clean[sample:], t[sample:]
 
     def gridsearch(self, integrate_models : bool = False, display_results : bool = True):
 
-        self.X_train, self.y_train, self.y_clean_train, self.t_train, self.X_test, self.y_test, self.y_clean_test, self.t_test = self.train_test_split(self.X, self.y, self.y_clean, self.t)
+        self.X_train, self.y_train, self.X_clean_train, self.y_clean_train, self.t_train, self.X_test, self.y_test, self.X_clean_test, self.y_clean_test, self.t_test = self.train_test_split(self.X, self.y, self.X_clean, self.y_clean, self.t)
         result_dict = defaultdict(list)
         parameter_key, parameter_value = zip(*self.parameters.items()) # separate the key value pairs
         combinations = itertools.product(*parameter_value)
@@ -66,14 +69,14 @@ class HyperOpt():
                 for key in param_dict:
                     result_dict[key].append(param_dict[key])
 
-                result_dict["MSE_test_pred"].append(self.model.score(self.X_test, x_dot = self.y_clean_test, metric = mean_squared_error, 
+                result_dict["MSE_test_pred"].append(self.model.score(self.X_clean_test, x_dot = self.y_clean_test, metric = mean_squared_error, 
                                                     multiple_trajectories = True))
-                result_dict["MSE_train_pred"].append(self.model.score(self.X_train, x_dot = self.y_clean_train, metric = mean_squared_error, 
+                result_dict["MSE_train_pred"].append(self.model.score(self.X_clean_train, x_dot = self.y_clean_train, metric = mean_squared_error, 
                                                     multiple_trajectories = True))
 
-                result_dict["r2_test_pred"].append(self.model.score(self.X_test, x_dot = self.y_clean_test, metric = r2_score, 
+                result_dict["r2_test_pred"].append(self.model.score(self.X_clean_test, x_dot = self.y_clean_test, metric = r2_score, 
                                                     multiple_trajectories = True))
-                result_dict["r2_train_pred"].append(self.model.score(self.X_train, x_dot = self.y_clean_train, metric = r2_score, 
+                result_dict["r2_train_pred"].append(self.model.score(self.X_clean_train, x_dot = self.y_clean_train, metric = r2_score, 
                                                     multiple_trajectories = True))
 
 
@@ -119,7 +122,7 @@ class HyperOpt():
         fig_r2.title.text = title
         fig_r2.title.text_color = "blue"
         fig_r2.title.align = "center"
-        fig_r2.title.text_font_size = "18px" 
+        fig_r2.title.text_font_size = "18px"
         fig_r2.plot_height = 400
         fig_r2.plot_width = 700
         fig_r2.outline_line_color = "black"
@@ -143,7 +146,7 @@ if __name__ == "__main__":
         "feature_library__include_bias" : [False, True],
         "feature_library__degree": [1, 2]}
 
-    opt = HyperOpt(features, target, target, t_span, params, Optimizer_casadi(solver_dict = {"ipopt.print_level" : 0, "print_time":0}), 
+    opt = HyperOpt(features, target, features, target, t_span, params, Optimizer_casadi(solver_dict = {"ipopt.print_level" : 0, "print_time":0}), 
                     include_column = [[0, 1], [0, 2], [0, 3]], constraints_dict = {"mass_balance" : [], "consumption" : [], "formation" : [3], 
                                 "stoichiometry" : np.array([-1, -1, -1, 1, 0, 0, 0, 1, 0, 0, 0, 2]).reshape(4, -1)})
     opt.gridsearch()

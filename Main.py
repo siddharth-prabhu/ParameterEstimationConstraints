@@ -6,8 +6,9 @@ from Optimizer import Optimizer_casadi
 import numpy as np
 
 
-def run_gridsearch(features : list[np.ndarray], target : list[np.ndarray], target_clean : list[np.ndarray], time_span : np.ndarray, parameters : dict, 
-                    add_constraints : bool = False, filename : str = "saved_data\Gridsearch_results.html", title : str = "Conc vs time"):
+def run_gridsearch(features : list[np.ndarray], target : list[np.ndarray], features_clean : list[np.ndarray], target_clean : list[np.ndarray], 
+                    time_span : np.ndarray, parameters : dict, add_constraints : bool = False, 
+                    filename : str = "saved_data\Gridsearch_results.html", title : str = "Conc vs time"):
     
     if add_constraints == "mass_balance":
         include_column = []
@@ -22,7 +23,7 @@ def run_gridsearch(features : list[np.ndarray], target : list[np.ndarray], targe
         constraints_dict = {}
     
     # model.plot(features[-1], t_span, legend=["A", "B", "C", "D"], title = title)
-    opt = HyperOpt(features, target, target_clean, time_span, parameters, Optimizer_casadi(solver_dict = {"ipopt.print_level" : 5, "print_time": 5}), 
+    opt = HyperOpt(features, target, features_clean, target_clean, time_span, parameters, Optimizer_casadi(solver_dict = {"ipopt.print_level" : 5, "print_time": 5}), 
                 include_column = include_column, constraints_dict = constraints_dict)
 
     opt.gridsearch()
@@ -32,22 +33,22 @@ def run_all(noise_level : float, parameters : dict, iterate = True):
 
     t_span = np.arange(0, 5, 0.01)
     model = DynamicModel("kinetic_kosir", t_span, n_expt = 15)
-    features = model.integrate()
+    features_clean = model.integrate()
     target_clean = model.approx_derivative
     features = model.add_noise(0, noise_level)
     target = model.approx_derivative
 
     if iterate:
         print(f"Running simulation for {noise_level} noise and without constraints")
-        run_gridsearch(features, target, target_clean, t_span, parameters, add_constraints = False, 
+        run_gridsearch(features, target, features_clean, target_clean, t_span, parameters, add_constraints = False, 
                     filename = f"saved_data\Gridsearch_no_con_{noise_level}.html", title = f"Without constraints {noise_level} noise")
 
         print(f"Running simulation for {noise_level} noise and with constraints")
-        run_gridsearch(features, target, target_clean, t_span, parameters, add_constraints = "mass_balance", 
+        run_gridsearch(features, target, features_clean, target_clean, t_span, parameters, add_constraints = "mass_balance", 
                     filename = f"saved_data\Gridsearch_con_{noise_level}.html", title = f"With constraints {noise_level} noise") 
                     
         print(f"Running simulation for {noise_level} noise and with stoichiometry")
-        run_gridsearch(features, target, target_clean, t_span, parameters, add_constraints = "stoichiometry", 
+        run_gridsearch(features, target, features_clean, target_clean, t_span, parameters, add_constraints = "stoichiometry", 
                     filename = f"saved_data\Gridsearch_stoichiometry_{noise_level}.html", title = f"With stoichiometry {noise_level} noise") 
 
 # with hyperparameter optmization
