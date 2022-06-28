@@ -60,7 +60,7 @@ params = {"optimizer__threshold": [0.01, 0.1],
 
 noise_level = [0.0, 0.01, 0.1, 0.2, 0.4]
 for noise in noise_level:
-    run_all(noise, params, iterate=True)
+    run_all(noise, params, iterate=False)
 
 """ 
 # without hyperparameter optimization

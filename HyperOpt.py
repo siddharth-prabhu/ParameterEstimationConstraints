@@ -39,9 +39,11 @@ class HyperOpt():
     
         return X[:sample], y[:sample], X_clean[:sample], y_clean[:sample], t[:sample], X[sample:], y[sample:], X_clean[sample:], y_clean[sample:], t[sample:]
 
-    def gridsearch(self, integrate_models : bool = False, display_results : bool = True):
+    def gridsearch(self, display_results : bool = True):
 
-        self.X_train, self.y_train, self.X_clean_train, self.y_clean_train, self.t_train, self.X_test, self.y_test, self.X_clean_test, self.y_clean_test, self.t_test = self.train_test_split(self.X, self.y, self.X_clean, self.y_clean, self.t)
+        (self.X_train, self.y_train, self.X_clean_train, self.y_clean_train, self.t_train, self.X_test, self.y_test, 
+        self.X_clean_test, self.y_clean_test, self.t_test) = self.train_test_split(self.X, self.y, self.X_clean, self.y_clean, self.t)
+        
         result_dict = defaultdict(list)
         parameter_key, parameter_value = zip(*self.parameters.items()) # separate the key value pairs
         combinations = itertools.product(*parameter_value)
@@ -57,9 +59,9 @@ class HyperOpt():
                             constraints_dict = self.constraints_dict)  
                             # {"mass_balance" : [56.108, 28.05, 56.106, 56.108], "consumption" : [], "formation" : []}) # for casadi
 
-            except Exception as e:
-                print(e)
-                print("Failed for the parameter combination")
+            except Exception as error:
+                print(error)
+                print("Failed for the parameter combination", param_dict)
                 print("--"*100)
                 continue
             else:
@@ -69,15 +71,32 @@ class HyperOpt():
                 for key in param_dict:
                     result_dict[key].append(param_dict[key])
 
-                result_dict["MSE_test_pred"].append(self.model.score(self.X_clean_test, x_dot = self.y_clean_test, metric = mean_squared_error, 
+                result_dict["MSE_test_pred"].append(self.model.score(self.X_clean_test, self.y_clean_test, metric = mean_squared_error, 
                                                     multiple_trajectories = True))
-                result_dict["MSE_train_pred"].append(self.model.score(self.X_clean_train, x_dot = self.y_clean_train, metric = mean_squared_error, 
+                result_dict["MSE_train_pred"].append(self.model.score(self.X_clean_train, self.y_clean_train, metric = mean_squared_error, 
                                                     multiple_trajectories = True))
 
-                result_dict["r2_test_pred"].append(self.model.score(self.X_clean_test, x_dot = self.y_clean_test, metric = r2_score, 
+                result_dict["r2_test_pred"].append(self.model.score(self.X_clean_test, self.y_clean_test, metric = r2_score, 
                                                     multiple_trajectories = True))
-                result_dict["r2_train_pred"].append(self.model.score(self.X_clean_train, x_dot = self.y_clean_train, metric = r2_score, 
+                result_dict["r2_train_pred"].append(self.model.score(self.X_clean_train, self.y_clean_train, metric = r2_score, 
                                                     multiple_trajectories = True))
+
+                # add integration results
+                try :
+                    _integration_test = self.model.simulate(self.X_clean_test, self.t_test)
+                    _integration_train = self.model.simulate(self.X_clean_train, self.t_train)
+                except:
+                    result_dict["MSE_test_sim"].append(np.nan)
+                    result_dict["MSE_train_sim"].append(np.nan)
+
+                    result_dict["r2_test_sim"].append(np.nan)
+                    result_dict["r2_train_sim"].append(np.nan)
+                else:
+                    result_dict["MSE_test_sim"].append(self.model.score(_integration_test, self.X_clean_test, metric=mean_squared_error, predict = False))
+                    result_dict["MSE_train_sim"].append(self.mdoel.score(_integration_train, self.X_clean_train, metric = mean_squared_error, predict = False))
+
+                    result_dict["r2_test_sim"].append(self.model.score(_integration_test, self.X_clean_test, metric = r2_score, predict = False))
+                    result_dict["r2_train_sim"].append(self.model.score(_integration_train, self.X_clean_train, metric = r2_score, predict = False))                    
 
 
         # sort value and remove duplicates
