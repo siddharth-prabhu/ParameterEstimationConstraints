@@ -31,13 +31,13 @@ class HyperOpt():
 
     @staticmethod
     def train_test_split(X : list[np.ndarray], y : list[np.ndarray], X_clean : list[np.ndarray], y_clean : list[np.ndarray], 
-                        t : list[np.ndarray], train_percent : int = 80):
+                        t : np.ndarray, train_percent : int = 80):
         
         assert np.shape(y) == np.shape(y_clean), "Targets and targets_clean should have same dimensions"
         assert len(y) == len(y_clean) == len(X), "Features, target and target_clean should have the same length"
         sample = len(y)*train_percent//100
     
-        return X[:sample], y[:sample], X_clean[:sample], y_clean[:sample], t[:sample], X[sample:], y[sample:], X_clean[sample:], y_clean[sample:], t[sample:]
+        return X[:sample], y[:sample], X_clean[:sample], y_clean[:sample], t, X[sample:], y[sample:], X_clean[sample:], y_clean[sample:], t
 
     def gridsearch(self, display_results : bool = True):
 
@@ -71,15 +71,11 @@ class HyperOpt():
                 for key in param_dict:
                     result_dict[key].append(param_dict[key])
 
-                result_dict["MSE_test_pred"].append(self.model.score(self.X_clean_test, self.y_clean_test, metric = mean_squared_error, 
-                                                    multiple_trajectories = True))
-                result_dict["MSE_train_pred"].append(self.model.score(self.X_clean_train, self.y_clean_train, metric = mean_squared_error, 
-                                                    multiple_trajectories = True))
+                result_dict["MSE_test_pred"].append(self.model.score(self.X_clean_test, self.y_clean_test, metric = mean_squared_error))
+                result_dict["MSE_train_pred"].append(self.model.score(self.X_clean_train, self.y_clean_train, metric = mean_squared_error))
 
-                result_dict["r2_test_pred"].append(self.model.score(self.X_clean_test, self.y_clean_test, metric = r2_score, 
-                                                    multiple_trajectories = True))
-                result_dict["r2_train_pred"].append(self.model.score(self.X_clean_train, self.y_clean_train, metric = r2_score, 
-                                                    multiple_trajectories = True))
+                result_dict["r2_test_pred"].append(self.model.score(self.X_clean_test, self.y_clean_test, metric = r2_score))
+                result_dict["r2_train_pred"].append(self.model.score(self.X_clean_train, self.y_clean_train, metric = r2_score))
 
                 # add integration results
                 try :
@@ -93,7 +89,7 @@ class HyperOpt():
                     result_dict["r2_train_sim"].append(np.nan)
                 else:
                     result_dict["MSE_test_sim"].append(self.model.score(_integration_test, self.X_clean_test, metric=mean_squared_error, predict = False))
-                    result_dict["MSE_train_sim"].append(self.mdoel.score(_integration_train, self.X_clean_train, metric = mean_squared_error, predict = False))
+                    result_dict["MSE_train_sim"].append(self.model.score(_integration_train, self.X_clean_train, metric = mean_squared_error, predict = False))
 
                     result_dict["r2_test_sim"].append(self.model.score(_integration_test, self.X_clean_test, metric = r2_score, predict = False))
                     result_dict["r2_train_sim"].append(self.model.score(_integration_train, self.X_clean_train, metric = r2_score, predict = False))                    
@@ -112,8 +108,11 @@ class HyperOpt():
     # bokeh plotting
     def plot(self, filename : str = "saved_data\Gridsearch_results.html", title : str = "Concentration vs time"):
         # capture r2 values between 0 and 1
-        self.df_result = self.df_result.loc[(self.df_result["r2_test_pred"] >= 0) & (self.df_result["r2_test_pred"] <= 1)]
-        source = ColumnDataSource(self.df_result)
+        updated_results = self.df_result.dropna()
+        updated_results = updated_results.loc[(updated_results["r2_test_pred"] >= 0) & (updated_results["r2_test_pred"] <= 1) & 
+                                               (updated_results["r2_test_sim"] >= 0) & (updated_results["r2_test_sim"] <= 1 )]
+        
+        source = ColumnDataSource(updated_results)
         tooltips = [("Index", "$index"), ("complexity", "@complexity"), ("MSE", "@MSE_test_pred"), ("r2", "@r2_test_pred"), 
                     ("threshold", "@optimizer__threshold"), ("alpha", "@optimizer__alpha"), ("degree", "@feature_library__degree")]
 
@@ -147,7 +146,37 @@ class HyperOpt():
         fig_r2.outline_line_color = "black"
         fig_r2.margin = (10, 5, 5, 5) #top, right, bottom, left
 
-        grid = column(fig_mse, fig_r2)
+        fig_mse_int = figure(tooltips = tooltips)
+        fig_mse_int.scatter(x = "complexity", y = "MSE_test_sim", size = 8, source = source)
+        fig_mse_int.xaxis.axis_label = "Complexity"
+        fig_mse_int.xaxis.axis_label_text_font_style = "bold"
+        fig_mse_int.yaxis.axis_label = "MSE"
+        fig_mse_int.yaxis.axis_label_text_font_style = "bold"
+        fig_mse_int.title.text = title
+        fig_mse_int.title.text_color = "blue"
+        fig_mse_int.title.align = "center"
+        fig_mse_int.title.text_font_size = "18px"
+        fig_mse_int.plot_height = 400
+        fig_mse_int.plot_width = 700
+        fig_mse_int.outline_line_color = "black"
+        fig_mse_int.margin = (5, 5, 5, 5) #top, right, bottom, left
+        
+        fig_r2_int = figure(tooltips = tooltips)
+        fig_r2_int.scatter(x = "complexity", y = "r2_test_sim", size = 8, source = source)
+        fig_r2_int.xaxis.axis_label = "Complexity"
+        fig_r2_int.xaxis.axis_label_text_font_style = "bold"
+        fig_r2_int.yaxis.axis_label = "R squared"
+        fig_r2_int.yaxis.axis_label_text_font_style = "bold"
+        fig_r2_int.title.text = title
+        fig_r2_int.title.text_color = "blue"
+        fig_r2_int.title.align = "center"
+        fig_r2_int.title.text_font_size = "18px"
+        fig_r2_int.plot_height = 400
+        fig_r2_int.plot_width = 700
+        fig_r2_int.outline_line_color = "black"
+        fig_r2_int.margin = (10, 5, 5, 5) #top, right, bottom, left
+
+        grid = column(row(fig_mse, fig_r2), row(fig_mse_int, fig_r2_int))
         output_file(filename)
         save(grid)
 

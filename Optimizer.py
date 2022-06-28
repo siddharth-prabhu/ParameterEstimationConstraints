@@ -293,7 +293,8 @@ class Optimizer_casadi(Base):
             try:
                 _integration_solution = odeint(self._casadi_model, xi, time_span, **integrator_kwargs)
             except Exception as error:
-                raise ValueError(f"{error}") 
+                print(error)
+                raise ValueError(f"Integration failed with error {error}") 
             else:
                 result.append(_integration_solution)
 
