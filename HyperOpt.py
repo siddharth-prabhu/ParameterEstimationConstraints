@@ -87,6 +87,8 @@ class HyperOpt():
 
                     result_dict["r2_test_sim"].append(np.nan)
                     result_dict["r2_train_sim"].append(np.nan)
+
+                    result_dict["AIC"].append(np.nan)
                 else:
                     result_dict["MSE_test_sim"].append(self.model.score(_integration_test, self.X_clean_test, metric=mean_squared_error, predict = False))
                     result_dict["MSE_train_sim"].append(self.model.score(_integration_train, self.X_clean_train, metric = mean_squared_error, predict = False))
@@ -94,16 +96,33 @@ class HyperOpt():
                     result_dict["r2_test_sim"].append(self.model.score(_integration_test, self.X_clean_test, metric = r2_score, predict = False))
                     result_dict["r2_train_sim"].append(self.model.score(_integration_train, self.X_clean_train, metric = r2_score, predict = False))                    
 
+                    result_dict["AIC"].append(np.log((result_dict["MSE_test_sim"][-1] + result_dict["MSE_test_pred"][-1])/2) + result_dict["complexity"][-1])
 
         # sort value and remove duplicates
         self.df_result = pd.DataFrame(result_dict)
-        self.df_result.sort_values(by = ["r2_test_pred", "complexity"], ascending = False, inplace = True, ignore_index = True)
+        self.df_result.sort_values(by = ["AIC"], ascending = True, inplace = True, ignore_index = True)
         # self.df_result.drop_duplicates(["r2_test_pred"], keep = "first", inplace = True, ignore_index = True)
 
         if display_results:
             print(self.df_result.head())
 
         return self.df_result
+
+    @staticmethod
+    def _bokeh_plot(fig : figure, x_label : str, y_label : str, title : str, height : int = 400, width : int = 700):
+
+        fig.xaxis.axis_label = x_label
+        fig.xaxis.axis_label_text_font_style = "bold"
+        fig.yaxis.axis_label = y_label
+        fig.yaxis.axis_label_text_font_style = "bold"
+        fig.title.text = title
+        fig.title.text_color = "blue"
+        fig.title.align = "center"
+        fig.title.text_font_size = "18px"
+        fig.plot_height = height
+        fig.plot_width = width
+        fig.outline_line_color = "black"
+        fig.margin = (5, 5, 5, 5) #top, right, bottom, left
 
     # bokeh plotting
     def plot(self, filename : str = "saved_data\Gridsearch_results.html", title : str = "Concentration vs time"):
@@ -118,65 +137,25 @@ class HyperOpt():
 
         fig_mse = figure(tooltips = tooltips)
         fig_mse.scatter(x = "complexity", y = "MSE_test_pred", size = 8, source = source)
-        fig_mse.xaxis.axis_label = "Complexity"
-        fig_mse.xaxis.axis_label_text_font_style = "bold"
-        fig_mse.yaxis.axis_label = "MSE"
-        fig_mse.yaxis.axis_label_text_font_style = "bold"
-        fig_mse.title.text = title
-        fig_mse.title.text_color = "blue"
-        fig_mse.title.align = "center"
-        fig_mse.title.text_font_size = "18px"
-        fig_mse.plot_height = 400
-        fig_mse.plot_width = 700
-        fig_mse.outline_line_color = "black"
-        fig_mse.margin = (5, 5, 5, 5) #top, right, bottom, left
+        self._bokeh_plot(fig_mse, "Complexity", "MSE Prediction", title)
         
         fig_r2 = figure(tooltips = tooltips)
         fig_r2.scatter(x = "complexity", y = "r2_test_pred", size = 8, source = source)
-        fig_r2.xaxis.axis_label = "Complexity"
-        fig_r2.xaxis.axis_label_text_font_style = "bold"
-        fig_r2.yaxis.axis_label = "R squared"
-        fig_r2.yaxis.axis_label_text_font_style = "bold"
-        fig_r2.title.text = title
-        fig_r2.title.text_color = "blue"
-        fig_r2.title.align = "center"
-        fig_r2.title.text_font_size = "18px"
-        fig_r2.plot_height = 400
-        fig_r2.plot_width = 700
-        fig_r2.outline_line_color = "black"
-        fig_r2.margin = (10, 5, 5, 5) #top, right, bottom, left
-
-        fig_mse_int = figure(tooltips = tooltips)
-        fig_mse_int.scatter(x = "complexity", y = "MSE_test_sim", size = 8, source = source)
-        fig_mse_int.xaxis.axis_label = "Complexity"
-        fig_mse_int.xaxis.axis_label_text_font_style = "bold"
-        fig_mse_int.yaxis.axis_label = "MSE"
-        fig_mse_int.yaxis.axis_label_text_font_style = "bold"
-        fig_mse_int.title.text = title
-        fig_mse_int.title.text_color = "blue"
-        fig_mse_int.title.align = "center"
-        fig_mse_int.title.text_font_size = "18px"
-        fig_mse_int.plot_height = 400
-        fig_mse_int.plot_width = 700
-        fig_mse_int.outline_line_color = "black"
-        fig_mse_int.margin = (5, 5, 5, 5) #top, right, bottom, left
+        self._bokeh_plot(fig_r2, "Complexity", "R squared Prediction", title)
         
-        fig_r2_int = figure(tooltips = tooltips)
-        fig_r2_int.scatter(x = "complexity", y = "r2_test_sim", size = 8, source = source)
-        fig_r2_int.xaxis.axis_label = "Complexity"
-        fig_r2_int.xaxis.axis_label_text_font_style = "bold"
-        fig_r2_int.yaxis.axis_label = "R squared"
-        fig_r2_int.yaxis.axis_label_text_font_style = "bold"
-        fig_r2_int.title.text = title
-        fig_r2_int.title.text_color = "blue"
-        fig_r2_int.title.align = "center"
-        fig_r2_int.title.text_font_size = "18px"
-        fig_r2_int.plot_height = 400
-        fig_r2_int.plot_width = 700
-        fig_r2_int.outline_line_color = "black"
-        fig_r2_int.margin = (10, 5, 5, 5) #top, right, bottom, left
+        fig_mse_sim = figure(tooltips = tooltips)
+        fig_mse_sim.scatter(x = "complexity", y = "MSE_test_sim", size = 8, source = source)
+        self._bokeh_plot(fig_mse_sim, "Complexity", "MSE Simulation", title)
+        
+        fig_r2_sim = figure(tooltips = tooltips)
+        fig_r2_sim.scatter(x = "complexity", y = "r2_test_sim", size = 8, source = source)
+        self._bokeh_plot(fig_r2_sim, "Complexity", "R squared Simulation", title)
+        
+        fig_aic = figure(tooltips = tooltips)
+        fig_aic.scatter(x = "complexity", y = "AIC", size = 8, source = source)
+        self._bokeh_plot(fig_aic, "Complexity", "AIC", title)
 
-        grid = column(row(fig_mse, fig_r2), row(fig_mse_int, fig_r2_int))
+        grid = column(row(fig_mse, fig_r2), row(fig_mse_sim, fig_r2_sim), fig_aic)
         output_file(filename)
         save(grid)
 
