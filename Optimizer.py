@@ -264,7 +264,7 @@ class Optimizer_casadi(Base):
             self.adict["equations_lambdify"].append(smp.lambdify(self.input_symbols, expr))
 
 
-    def _casadi_model(self, x, t):
+    def _casadi_model(self, x : np.ndarray, t : np.ndarray):
 
         return np.array([eqn(*x) for eqn in self.adict["equations_lambdify"]])
     
@@ -272,21 +272,33 @@ class Optimizer_casadi(Base):
     def predict(self, X : list[np.ndarray]) -> list:
         assert self._flag_fit, "Fit the model before running predict"
         afunc = np.vectorize(self._casadi_model, signature = "(m),()->(m)")
-        
+
         return [afunc(xi, 0) for xi in X]
         
 
-    def score(self, X : list[np.ndarray], x_dot : list[np.ndarray], metric : Callable = mean_squared_error, **kwargs) -> float:
+    def score(self, X : list[np.ndarray], y : list[np.ndarray], metric : Callable = mean_squared_error, predict : bool = True) -> float:
         assert self._flag_fit, "Fit the model before running score"
-        
-        y_pred = self.predict(X)
-        return metric(np.vstack(y_pred), np.vstack(x_dot))
+        y_pred = self.predict(X) if predict else X
+
+        return metric(np.vstack(y_pred), np.vstack(y))
 
     # integrate the model
-    def simulate(self, x0 : np.ndarray, time_span : np.ndarray, **integrator_kwargs):
-        assert len(x0) == self._n_states, "Dimension of initial conditions should match with the dimension of features"
-        
-        return odeint(self._casadi_model, x0, time_span **integrator_kwargs)
+    def simulate(self, X : list[np.ndarray], time_span : np.ndarray, **integrator_kwargs) -> list[np.ndarray]:
+        assert self._flag_fit, "Fit the model before running score"
+        x_init = [xi[0].flatten() for xi in X]
+        result = []
+        for xi in x_init:
+            assert len(xi) == self._n_states, "Initial conditions should be of right dimensions"
+
+            try:
+                _integration_solution = odeint(self._casadi_model, xi, time_span, **integrator_kwargs)
+            except Exception as error:
+                print(error)
+                raise ValueError(f"Integration failed with error {error}") 
+            else:
+                result.append(_integration_solution)
+
+        return result
 
     @property
     def complexity(self):

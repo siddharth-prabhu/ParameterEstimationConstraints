@@ -23,7 +23,7 @@ def run_gridsearch(features : list[np.ndarray], target : list[np.ndarray], featu
         constraints_dict = {}
     
     # model.plot(features[-1], t_span, legend=["A", "B", "C", "D"], title = title)
-    opt = HyperOpt(features, target, features_clean, target_clean, time_span, parameters, Optimizer_casadi(solver_dict = {"ipopt.print_level" : 5, "print_time": 5}), 
+    opt = HyperOpt(features, target, features_clean, target_clean, time_span, parameters, Optimizer_casadi(solver_dict = {"ipopt.print_level" : 0, "print_time": 0}), 
                 include_column = include_column, constraints_dict = constraints_dict)
 
     opt.gridsearch()
