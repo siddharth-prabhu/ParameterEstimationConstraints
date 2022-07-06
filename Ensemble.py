@@ -3,6 +3,7 @@ from dataclasses import dataclass, field
 import numpy as np
 import sympy as smp
 from collections import defaultdict, namedtuple
+import matplotlib.pyplot as plt
 
 from Optimizer import Optimizer_casadi
 
@@ -60,14 +61,25 @@ class ensemble :
         for (coefficients_dict, distribution_dict, inclustion_dict) in zip(self.coefficients_list, self.distribution, self.inclusion):
             
             parameters = np.vectorize(lambda x : (np.mean(coefficients_dict[x]), np.std(coefficients_dict[x])))(list(coefficients_dict.keys()))
-            np.vectorize(lambda key, mean, deviation : distribution_dict.update({key : distribution(mean, deviation)}), cache = True)(list(coefficients_dict.keys()), parameters[0], parameters[1])
+            np.vectorize(lambda key, mean, deviation : distribution_dict.update({key : distribution(mean, deviation)}), 
+                                        cache = True)(list(coefficients_dict.keys()), parameters[0], parameters[1])
+
             np.vectorize(lambda key: inclustion_dict.update({key : inclusion(np.count_nonzero(coefficients_dict[key])/len(coefficients_dict[key]))}))(list(coefficients_dict.keys()))
 
 
     def plot(self):
-        
-        pass
 
+        for i, (coefficients_dict) in enumerate(self.coefficients_list):
+            fig= plt.figure(figsize = (10, 15))
+            row, col = -1, 0
+            for j, key in enumerate(coefficients_dict.keys()):
+                col = j%4
+                row = row if col != 0 else row + 1
+                ax = fig.add_subplot(row, col)
+                ax.hist(coefficients_dict[key], bins = 5)
+                ax.set_title(key)
+        
+            plt.show()
 
 if __name__ == "__main__":
 
@@ -78,12 +90,16 @@ if __name__ == "__main__":
     features = model.integrate() # list of features
     target = model.approx_derivative # list of target value
 
+    features = model.add_noise(0, 0.1)
+    target = model.approx_derivative
+
     opti = Optimizer_casadi(FunctionalLibrary(2) , alpha = 0.01, threshold = 0.1, solver_dict={"ipopt.print_level" : 0, "print_time":0})
     
     opti_ensemble = ensemble([[], [], [], []], {}, opti)
-    opti_ensemble.fit(features, target, 4)
+    opti_ensemble.fit(features, target, 2)
     alist = opti_ensemble.coefficients_list
-    print(alist[0])
-    print("length of equations", len(alist))
-    print("distribution", opti_ensemble.distribution)
-    print("inclusion probability", opti_ensemble.inclusion)
+    # print(alist[0])
+    # print("length of equations", len(alist))
+    # print("distribution", opti_ensemble.distribution)
+    # print("inclusion probability", opti_ensemble.inclusion)
+    opti_ensemble.plot()
