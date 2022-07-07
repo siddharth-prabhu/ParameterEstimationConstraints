@@ -33,9 +33,9 @@ class ensemble :
         
         X, y = np.vstack(X), np.vstack(y)
         self.coefficients_list = [defaultdict(list) for _ in range(len(X[0]))]
-
+        data_iter = ensemble._dataloader(X, y, seed = 10)
         for i in range(iterations):
-            X_bootstrap, y_bootstrap = next(ensemble._dataloader(X, y, seed = 10))
+            X_bootstrap, y_bootstrap = next(data_iter)
 
             try :
                 self.casadi_model.fit([X_bootstrap], [y_bootstrap], self.include_column, self.constraints_dict)
@@ -69,15 +69,25 @@ class ensemble :
 
     def plot(self):
 
-        for i, (coefficients_dict) in enumerate(self.coefficients_list):
+        for i, coefficients_dict in enumerate(self.coefficients_list):
             fig = plt.figure(figsize = (10, 15))
             fig.subplots_adjust(hspace = 0.5)
             for j, key in enumerate(coefficients_dict.keys()):
                 ax = fig.add_subplot(len(coefficients_dict)//3 + 1, 3, j + 1)
-                ax.hist(coefficients_dict[key], bins = 1)
+                ax.hist(coefficients_dict[key], bins = 10)
                 ax.set_title(key)
         
             plt.show()
+
+        fig, ax = plt.subplots(-(-len(self.inclusion)//2), 2, figsize = (10, 15))
+        fig.subplots_adjust(hspace = 0.5, wspace = 0.5)
+        ax = np.ravel(ax)
+        for i, inclusion_dict in enumerate(self.inclusion):
+            inclusion_dict_keys = inclusion_dict.keys()
+            ax[i].barh(list(inclusion_dict_keys), [inclusion_dict[key].inclusion for key in inclusion_dict_keys])
+            ax[i].set(title = f"Inclusion probability x{i}", xlim = (0, 1))
+            
+        plt.show()
 
 if __name__ == "__main__":
 
@@ -88,12 +98,12 @@ if __name__ == "__main__":
     features = model.integrate() # list of features
     target = model.approx_derivative # list of target value
 
-    features = model.add_noise(0, 0.1)
+    features = model.add_noise(0, 0.2)
     target = model.approx_derivative
 
     opti = Optimizer_casadi(FunctionalLibrary(2) , alpha = 0.01, threshold = 0.1, solver_dict={"ipopt.print_level" : 0, "print_time":0})
     
     opti_ensemble = ensemble([[], [], [], []], {}, opti)
-    opti_ensemble.fit(features, target, 1000)
+    opti_ensemble.fit(features, target, iterations = 1000)
     alist = opti_ensemble.coefficients_list
     opti_ensemble.plot()
