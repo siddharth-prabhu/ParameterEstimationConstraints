@@ -53,8 +53,8 @@ class ensemble :
         distribution = namedtuple("distribution", ("mean", "deviation"))
         inclusion = namedtuple("probability", "inclusion")
 
-        self.inclusion = [defaultdict(inclusion)]*len(self.coefficients_list)
-        self.distribution = [defaultdict(distribution)]*len(self.coefficients_list)
+        self.inclusion = [defaultdict(distribution) for _ in range(len(self.coefficients_list))]
+        self.distribution = [defaultdict(inclusion) for _ in range(len(self.coefficients_list))]
 
         for (coefficients_dict, distribution_dict, inclusion_dict) in zip(self.coefficients_list, self.distribution, 
                                                                         self.inclusion):
@@ -71,16 +71,15 @@ class ensemble :
             np.vectorize(lambda key, mean, deviation : distribution_dict.update({key : distribution(mean, deviation)}), 
                                         cache = True)(coefficients_dict_keys, parameters[0], parameters[1])
 
-
     def plot(self):
 
-        for i, coefficients_dict in enumerate(self.coefficients_list):
-            fig = plt.figure(figsize = (10, 15))
+        for i, (coefficients_dict, distribution_dict) in enumerate(zip(self.coefficients_list, self.distribution)):
+            fig = plt.figure(figsize = (5, 8))
             fig.subplots_adjust(hspace = 0.5)
             for j, key in enumerate(coefficients_dict.keys()):
                 ax = fig.add_subplot(len(coefficients_dict)//3 + 1, 3, j + 1)
                 ax.hist(np.array(coefficients_dict[key], dtype=float), bins = 10)
-                ax.set_title(key)
+                ax.set_title(f"{key}, mean : {round(distribution_dict[key].mean, 2)}, sd : {round(distribution_dict[key].deviation, 2)}")
         
             plt.show()
 
@@ -103,10 +102,10 @@ if __name__ == "__main__":
     features = model.integrate() # list of features
     target = model.approx_derivative # list of target value
 
-    features = model.add_noise(0, 0.2)
+    features = model.add_noise(0, 0)
     target = model.approx_derivative
 
-    opti = Optimizer_casadi(FunctionalLibrary(1) , alpha = 0.01, threshold = 0.1, solver_dict={"ipopt.print_level" : 0, "print_time":0})
+    opti = Optimizer_casadi(FunctionalLibrary(1) , alpha = 0.0, threshold = 0.01, solver_dict={"ipopt.print_level" : 0, "print_time":0})
     include_column = include_column = [[0, 2], [0, 3], [0, 1]]
     constraints_dict= {"mass_balance" : [], "formation" : [], "consumption" : [], 
                                     "stoichiometry" : np.array([-1, -1, -1, 0, 0, 2, 1, 0, 0, 0, 1, 0]).reshape(4, -1)}
