@@ -70,13 +70,11 @@ class ensemble :
     def plot(self):
 
         for i, (coefficients_dict) in enumerate(self.coefficients_list):
-            fig= plt.figure(figsize = (10, 15))
-            row, col = -1, 0
+            fig = plt.figure(figsize = (10, 15))
+            fig.subplots_adjust(hspace = 0.5)
             for j, key in enumerate(coefficients_dict.keys()):
-                col = j%4
-                row = row if col != 0 else row + 1
-                ax = fig.add_subplot(row, col)
-                ax.hist(coefficients_dict[key], bins = 5)
+                ax = fig.add_subplot(len(coefficients_dict)//3 + 1, 3, j + 1)
+                ax.hist(coefficients_dict[key], bins = 1)
                 ax.set_title(key)
         
             plt.show()
@@ -96,10 +94,6 @@ if __name__ == "__main__":
     opti = Optimizer_casadi(FunctionalLibrary(2) , alpha = 0.01, threshold = 0.1, solver_dict={"ipopt.print_level" : 0, "print_time":0})
     
     opti_ensemble = ensemble([[], [], [], []], {}, opti)
-    opti_ensemble.fit(features, target, 2)
+    opti_ensemble.fit(features, target, 1000)
     alist = opti_ensemble.coefficients_list
-    # print(alist[0])
-    # print("length of equations", len(alist))
-    # print("distribution", opti_ensemble.distribution)
-    # print("inclusion probability", opti_ensemble.inclusion)
     opti_ensemble.plot()
