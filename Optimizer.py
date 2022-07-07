@@ -250,6 +250,8 @@ class Optimizer_casadi(Base):
         # stores the equations in adict to be used later
         self.adict["equations"] = []
         self.adict["equations_lambdify"] = []
+        self.adict["coefficients_dict"] = []
+        
         for i in range(self._n_states):
             expr = 0
             for j in range(self._functional_library):
@@ -261,6 +263,7 @@ class Optimizer_casadi(Base):
             # simpify already handles xor operation
 
             self.adict["equations"].append(str(expr))
+            self.adict["coefficients_dict"].append(expr.as_coefficients_dict())
             self.adict["equations_lambdify"].append(smp.lambdify(self.input_symbols, expr))
 
 
@@ -335,7 +338,7 @@ if __name__ == "__main__":
     features = model.integrate() # list of features
     target = model.approx_derivative # list of target value
 
-    opti = Optimizer_casadi(FunctionalLibrary(3) , alpha = 0.0, threshold = 0.1, solver_dict={"ipopt.print_level" : 0, "print_time":0})
+    opti = Optimizer_casadi(FunctionalLibrary(2) , alpha = 0.0, threshold = 0.01, solver_dict={"ipopt.print_level" : 0, "print_time":0})
     stoichiometry = np.array([-1, -1, -1, 0, 0, 2, 1, 0, 0, 0, 1, 0]).reshape(4, -1)
     # stoichiometry = None
     # opti.fit(features, target, include_column = [], 
@@ -348,3 +351,4 @@ if __name__ == "__main__":
     print("mean squared error :", opti.score(features, target))
     print(opti.complexity)
     print("Total number of iterations", opti.adict["iterations"])
+    print("coefficients dictionary", opti.adict["coefficients_dict"])

@@ -43,29 +43,33 @@ class ensemble :
                 print(f"failed for iteration {i} with error {error}")
                 continue
             else:
-                for (equation_symbols, coefficients, equation_dict) in zip(self.casadi_model.adict["library_labels"], 
-                                                                self.casadi_model.adict["coefficients_value"] , self.coefficients_list):
-                       
-                    np.vectorize(lambda key, value: equation_dict[key].append(value), cache=True)(equation_symbols, coefficients)
+                for (equation_dict, coefficients_dict) in zip(self.casadi_model.adict["coefficients_dict"], self.coefficients_list):
+                    np.vectorize(lambda key: coefficients_dict[key].append(equation_dict[key]), cache=True)(list(equation_dict.keys()))
         
-        self._calculate_statistics()
+        self._calculate_statistics(iterations)
 
     # calculates the mean, standard deviation and inclusion probability of coefficients
-    def _calculate_statistics(self):
+    def _calculate_statistics(self, iterations : int):
         distribution = namedtuple("distribution", ("mean", "deviation"))
         inclusion = namedtuple("probability", "inclusion")
 
         self.inclusion = [defaultdict(inclusion)]*len(self.coefficients_list)
         self.distribution = [defaultdict(distribution)]*len(self.coefficients_list)
 
-        for (coefficients_dict, distribution_dict, inclustion_dict) in zip(self.coefficients_list, self.distribution, 
+        for (coefficients_dict, distribution_dict, inclusion_dict) in zip(self.coefficients_list, self.distribution, 
                                                                         self.inclusion):
             
-            parameters = np.vectorize(lambda x : (np.mean(coefficients_dict[x]), np.std(coefficients_dict[x])))(list(coefficients_dict.keys()))
+            coefficients_dict_keys = list(coefficients_dict.keys())
+            np.vectorize(lambda key: inclusion_dict.update({key : inclusion(len(coefficients_dict[key])/iterations)}))(coefficients_dict_keys)
+            
+            np.vectorize(lambda key : (coefficients_dict[key].extend([0]*(iterations - len(coefficients_dict[key]))),
+                                    coefficients_dict[key].extend([0]*(iterations - len(coefficients_dict[key])))), cache = True)(coefficients_dict_keys)
+            
+            parameters = np.vectorize(lambda key : (np.mean(np.array(coefficients_dict[key], dtype=float)), 
+                                                    np.std(np.array(coefficients_dict[key], dtype=float))))(coefficients_dict_keys)
+            
             np.vectorize(lambda key, mean, deviation : distribution_dict.update({key : distribution(mean, deviation)}), 
-                                        cache = True)(list(coefficients_dict.keys()), parameters[0], parameters[1])
-
-            np.vectorize(lambda key: inclustion_dict.update({key : inclusion(np.count_nonzero(coefficients_dict[key])/len(coefficients_dict[key]))}))(list(coefficients_dict.keys()))
+                                        cache = True)(coefficients_dict_keys, parameters[0], parameters[1])
 
 
     def plot(self):
@@ -75,7 +79,7 @@ class ensemble :
             fig.subplots_adjust(hspace = 0.5)
             for j, key in enumerate(coefficients_dict.keys()):
                 ax = fig.add_subplot(len(coefficients_dict)//3 + 1, 3, j + 1)
-                ax.hist(coefficients_dict[key], bins = 10)
+                ax.hist(np.array(coefficients_dict[key], dtype=float), bins = 10)
                 ax.set_title(key)
         
             plt.show()
@@ -85,7 +89,7 @@ class ensemble :
         ax = np.ravel(ax)
         for i, inclusion_dict in enumerate(self.inclusion):
             inclusion_dict_keys = inclusion_dict.keys()
-            ax[i].barh(list(inclusion_dict_keys), [inclusion_dict[key].inclusion for key in inclusion_dict_keys])
+            ax[i].barh(list(map(str, list(inclusion_dict_keys))), [inclusion_dict[key].inclusion for key in inclusion_dict_keys])
             ax[i].set(title = f"Inclusion probability x{i}", xlim = (0, 1))
             
         plt.show()
@@ -107,7 +111,7 @@ if __name__ == "__main__":
     constraints_dict= {"mass_balance" : [], "formation" : [], "consumption" : [], 
                                     "stoichiometry" : np.array([-1, -1, -1, 0, 0, 2, 1, 0, 0, 0, 1, 0]).reshape(4, -1)}
     
-    opti_ensemble = ensemble(include_column, constraints_dict, opti)
-    opti_ensemble.fit(features, target, iterations = 1000)
+    opti_ensemble = ensemble(include_column, constraints_dict, casadi_model = opti)
+    opti_ensemble.fit(features, target, iterations = 2)
     alist = opti_ensemble.coefficients_list
     opti_ensemble.plot()
