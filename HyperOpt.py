@@ -1,6 +1,7 @@
 import numpy as np
 
 import pandas as pd
+pd.set_option("display.max_columns", 20)
 import pysindy as ps
 from sklearn.metrics import mean_squared_error, r2_score
 
@@ -104,9 +105,8 @@ class HyperOpt():
         # self.df_result.drop_duplicates(["r2_test_pred"], keep = "first", inplace = True, ignore_index = True)
 
         if display_results:
-            print(self.df_result.head())
+            print(self.df_result.head(10))
 
-        return self.df_result
 
     @staticmethod
     def _bokeh_plot(fig : figure, x_label : str, y_label : str, title : str, height : int = 400, width : int = 700):

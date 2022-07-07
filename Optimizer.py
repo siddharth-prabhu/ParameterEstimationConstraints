@@ -18,7 +18,7 @@ class Optimizer_casadi(Base):
     library : FunctionalLibrary = field(default = FunctionalLibrary())
     input_features : list[str] = field(default_factory=list)
     alpha : float = field(default = 0.0)
-    alpha_mass : float = field(default = 0.01)
+    alpha_mass : float = field(default = 1)
     num_points : float = field(default = 0.1) # 10 % of total data
     threshold : float = field(default = 0.01)
     max_iter : int = field(default = 20)
@@ -335,7 +335,7 @@ if __name__ == "__main__":
     features = model.integrate() # list of features
     target = model.approx_derivative # list of target value
 
-    opti = Optimizer_casadi(FunctionalLibrary(3) , alpha = 0.01, threshold = 0.1, solver_dict={"ipopt.print_level" : 0, "print_time":0})
+    opti = Optimizer_casadi(FunctionalLibrary(3) , alpha = 0.0, threshold = 0.1, solver_dict={"ipopt.print_level" : 0, "print_time":0})
     stoichiometry = np.array([-1, -1, -1, 0, 0, 2, 1, 0, 0, 0, 1, 0]).reshape(4, -1)
     # stoichiometry = None
     # opti.fit(features, target, include_column = [], 

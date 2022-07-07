@@ -3,8 +3,10 @@ from FunctionalLibrary import FunctionalLibrary
 from HyperOpt import HyperOpt
 from Optimizer import Optimizer_casadi
 
-import numpy as np
+from collections import defaultdict
 
+import numpy as np
+import matplotlib.pyplot as plt
 
 def run_gridsearch(features : list[np.ndarray], target : list[np.ndarray], features_clean : list[np.ndarray], target_clean : list[np.ndarray], 
                     time_span : np.ndarray, parameters : dict, add_constraints : bool = False, 
@@ -28,6 +30,7 @@ def run_gridsearch(features : list[np.ndarray], target : list[np.ndarray], featu
 
     opt.gridsearch()
     opt.plot(filename, title)
+    return opt.df_result
 
 def run_all(noise_level : float, parameters : dict, iterate = True):
 
@@ -40,16 +43,32 @@ def run_all(noise_level : float, parameters : dict, iterate = True):
 
     if iterate:
         print(f"Running simulation for {noise_level} noise and without constraints")
-        run_gridsearch(features, target, features_clean, target_clean, t_span, parameters, add_constraints = False, 
+        df_result = run_gridsearch(features, target, features_clean, target_clean, t_span, parameters, add_constraints = False, 
                     filename = f"saved_data\Gridsearch_no_con_{noise_level}.html", title = f"Without constraints {noise_level} noise")
 
+        adict["MSE_test_pred"].append(df_result.loc[0, "MSE_test_pred"])
+        adict["AIC"].append(df_result.loc[0, "AIC"])
+        adict["MSE_test_sim"].append(df_result.loc[0, "MSE_test_sim"])
+        adict["complexity"].append(df_result.loc[0, "complexity"])
+
+
         print(f"Running simulation for {noise_level} noise and with constraints")
-        run_gridsearch(features, target, features_clean, target_clean, t_span, parameters, add_constraints = "mass_balance", 
+        df_result = run_gridsearch(features, target, features_clean, target_clean, t_span, parameters, add_constraints = "mass_balance", 
                     filename = f"saved_data\Gridsearch_con_{noise_level}.html", title = f"With constraints {noise_level} noise") 
-                    
+
+        adict["MSE_test_pred"].append(df_result.loc[0, "MSE_test_pred"])
+        adict["AIC"].append(df_result.loc[0, "AIC"])
+        adict["MSE_test_sim"].append(df_result.loc[0, "MSE_test_sim"])
+        adict["complexity"].append(df_result.loc[0, "complexity"])
+
         print(f"Running simulation for {noise_level} noise and with stoichiometry")
-        run_gridsearch(features, target, features_clean, target_clean, t_span, parameters, add_constraints = "stoichiometry", 
+        df_result = run_gridsearch(features, target, features_clean, target_clean, t_span, parameters, add_constraints = "stoichiometry", 
                     filename = f"saved_data\Gridsearch_stoichiometry_{noise_level}.html", title = f"With stoichiometry {noise_level} noise") 
+
+        adict["MSE_test_pred"].append(df_result.loc[0, "MSE_test_pred"])
+        adict["AIC"].append(df_result.loc[0, "AIC"])
+        adict["MSE_test_sim"].append(df_result.loc[0, "MSE_test_sim"])
+        adict["complexity"].append(df_result.loc[0, "complexity"])
 
 # with hyperparameter optmization
 params = {"optimizer__threshold": [0.01, 0.1], 
@@ -57,27 +76,40 @@ params = {"optimizer__threshold": [0.01, 0.1],
     "feature_library__include_bias" : [False],
     "feature_library__degree": [1, 2, 3]}
 
-
-noise_level = [0.0, 0.01, 0.1, 0.2, 0.4]
+""" adict = defaultdict(list)
+noise_level = [0.0, 0.1, 0.2]
 for noise in noise_level:
-    run_all(noise, params, iterate=True)
+    run_all(noise, params, iterate=True) 
 
-""" 
+# plotting results
+for key in adict.keys():
+    plt.plot(noise_level, adict[key][0::3], "--o", label = "without") 
+    plt.plot(noise_level, adict[key][1::3], "--*", label = "mass")
+    plt.plot(noise_level, adict[key][2::3], "--+", label = "stoichiometry")
+    plt.xlabel("noise level")
+    plt.ylabel(key)
+    plt.legend()
+    plt.show() """
+
+
 # without hyperparameter optimization
 t_span = np.arange(0, 5, 0.01)
 model = DynamicModel("kinetic_kosir", t_span, n_expt = 15)
 features = model.integrate() # list of features
 target_clean = model.approx_derivative # list of target value
 
-features = model.add_noise(0, 0.0)
+features = model.add_noise(0, 0.2)
 target = model.approx_derivative
 print(f"Features value", features[-1][-1])
 print(f"Target value", target[-1][-1])
 
 # model.plot(features[-1], t_span, legend = ["A", "B", "C", "D"])
+include_column = include_column = [[0, 2], [0, 3], [0, 1]]
+constraints_dict= {"mass_balance" : [], "formation" : [], "consumption" : [], 
+                                    "stoichiometry" : np.array([-1, -1, -1, 0, 0, 2, 1, 0, 0, 0, 1, 0]).reshape(4, -1)}
 
-model = Optimizer_casadi(FunctionalLibrary(2) , alpha = 0, threshold = 0.1, solver_dict={"ipopt.print_level" : 0, "print_time":0})
+model = Optimizer_casadi(FunctionalLibrary(1) , alpha = 0, threshold = 0.1, solver_dict={"ipopt.print_level" : 0, "print_time":0})
 model.fit(features[:12], target[:12], include_column = [], 
             constraints_dict= {})
 model.print()
-print(model.complexity) """
+print(model.complexity)
