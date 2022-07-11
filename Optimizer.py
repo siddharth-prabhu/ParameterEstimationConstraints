@@ -19,7 +19,7 @@ class Optimizer_casadi(Base):
     input_features : list[str] = field(default_factory=list)
     alpha : float = field(default = 0.0)
     alpha_mass : float = field(default = 1)
-    num_points : float = field(default = 0.1) # 10 % of total data
+    num_points : float = field(default = 0.5) # 50 % of total data
     threshold : float = field(default = 0.01)
     max_iter : int = field(default = 20)
     solver_dict : dict = field(default_factory = dict)
@@ -119,8 +119,11 @@ class Optimizer_casadi(Base):
         chosen_rows = rng.choice(range(data_points), int(self.num_points*data_points), replace = False)
         
         # adding mass balance constraints 
-        state_mass = constraints_dict["mass_balance"]
-        if state_mass and getattr(self, "_flag_chemcon", False):
+        state_mass = constraints_dict.get("mass_balance", None)
+        if state_mass and len(state_mass) != self._n_states:
+            raise ValueError("Masses are not equal to the states")
+        
+        if state_mass :
             asum = 0
             for i in range(self._n_states):
                 asum += state_mass[i]*cd.mtimes(self.adict["library"][i][chosen_rows], self.adict["coefficients"][i])
@@ -222,7 +225,6 @@ class Optimizer_casadi(Base):
             assert rows == self._n_states, "The rows should match the number of states"
             self._functional_library = cols
             self.adict["stoichiometry"] = constraints_dict["stoichiometry"]
-            self._flag_chemcon = True
         else:
             self._functional_library = self._n_states
             self.adict["stoichiometry"] = np.eye(self._n_states) 
@@ -340,12 +342,13 @@ if __name__ == "__main__":
 
     opti = Optimizer_casadi(FunctionalLibrary(2) , alpha = 0.0, threshold = 0.01, solver_dict={"ipopt.print_level" : 0, "print_time":0})
     stoichiometry = np.array([-1, -1, -1, 0, 0, 2, 1, 0, 0, 0, 1, 0]).reshape(4, -1)
+    include_column = [[0, 2], [0, 3], [0, 1]]
     # stoichiometry = None
     # opti.fit(features, target, include_column = [], 
     #         constraints_dict = {}, method = "lsq")
-    opti.fit(features, target, include_column = [[0, 2], [0, 3], [0, 1]], 
-                constraints_dict= {"mass_balance" : [], "formation" : [1], "consumption" : [], 
-                                    "stoichiometry" : stoichiometry}, method = "stlsq")
+    opti.fit(features, target, include_column = [], 
+                constraints_dict= {"mass_balance" : [2, 1, 2, 2], "formation" : [], "consumption" : [], 
+                                    "stoichiometry" : 0}, method = "stlsq")
     opti.print()
     print("--"*20)
     print("mean squared error :", opti.score(features, target))
