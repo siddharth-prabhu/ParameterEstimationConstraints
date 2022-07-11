@@ -124,6 +124,7 @@ class Optimizer_casadi(Base):
             raise ValueError("Masses are not equal to the states")
         
         if state_mass :
+            print("adding mass balance constraints")
             asum = 0
             for i in range(self._n_states):
                 asum += state_mass[i]*cd.mtimes(self.adict["library"][i][chosen_rows], self.adict["coefficients"][i])
@@ -301,6 +302,8 @@ class Optimizer_casadi(Base):
                 print(error)
                 raise ValueError(f"Integration failed with error {error}") 
             else:
+                if np.isnan(_integration_solution).any() or np.isinf(_integration_solution).any():
+                    raise ValueError("Integration failed becoz nan or inf detected")
                 result.append(_integration_solution)
 
         return result

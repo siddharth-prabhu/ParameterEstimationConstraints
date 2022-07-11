@@ -79,7 +79,8 @@ class ensemble :
             for j, key in enumerate(coefficients_dict.keys()):
                 ax = fig.add_subplot(len(coefficients_dict)//3 + 1, 3, j + 1)
                 ax.hist(np.array(coefficients_dict[key], dtype=float), bins = 10)
-                ax.set_title(f"{key}, mean : {round(distribution_dict[key].mean, 2)}, sd : {round(distribution_dict[key].deviation, 2)}")
+                _mean, _deviation = distribution_dict[key].mean, distribution_dict[key].deviation
+                ax.set_title(f"{key}, mean : {round(_mean, 2)}, sd : {round(_deviation, 2)}, cv : {round(_deviation / (_mean + 1e-15), 2)}")
         
             plt.show()
 
@@ -105,12 +106,12 @@ if __name__ == "__main__":
     features = model.add_noise(0, 0)
     target = model.approx_derivative
 
-    opti = Optimizer_casadi(FunctionalLibrary(1) , alpha = 0.0, threshold = 0.01, solver_dict={"ipopt.print_level" : 0, "print_time":0})
+    opti = Optimizer_casadi(FunctionalLibrary(1) , alpha = 0.0, threshold = 0.0, solver_dict={"ipopt.print_level" : 0, "print_time":0})
     include_column = include_column = [[0, 2], [0, 3], [0, 1]]
     constraints_dict= {"mass_balance" : [], "formation" : [], "consumption" : [], 
                                     "stoichiometry" : np.array([-1, -1, -1, 0, 0, 2, 1, 0, 0, 0, 1, 0]).reshape(4, -1)}
     
-    opti_ensemble = ensemble(include_column, constraints_dict, casadi_model = opti)
-    opti_ensemble.fit(features, target, iterations = 2)
+    opti_ensemble = ensemble(include_column = [], constraints_dict = {}, casadi_model = opti)
+    opti_ensemble.fit(features, target, iterations = 100)
     alist = opti_ensemble.coefficients_list
     opti_ensemble.plot()

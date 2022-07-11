@@ -101,6 +101,7 @@ class HyperOpt():
 
         # sort value and remove duplicates
         self.df_result = pd.DataFrame(result_dict)
+        self.df_result.dropna(inplace=True)
         self.df_result.sort_values(by = ["AIC"], ascending = True, inplace = True, ignore_index = True)
         # self.df_result.drop_duplicates(["r2_test_pred"], keep = "first", inplace = True, ignore_index = True)
 
@@ -127,7 +128,7 @@ class HyperOpt():
     # bokeh plotting
     def plot(self, filename : str = "saved_data\Gridsearch_results.html", title : str = "Concentration vs time"):
         # capture r2 values between 0 and 1
-        updated_results = self.df_result.dropna()
+        updated_results = self.df_result
         updated_results = updated_results.loc[(updated_results["r2_test_pred"] >= 0) & (updated_results["r2_test_pred"] <= 1) & 
                                                (updated_results["r2_test_sim"] >= 0) & (updated_results["r2_test_sim"] <= 1 )]
         

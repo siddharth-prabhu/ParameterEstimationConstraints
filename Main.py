@@ -13,8 +13,9 @@ def run_gridsearch(features : list[np.ndarray], target : list[np.ndarray], featu
                     filename : str = "saved_data\Gridsearch_results.html", title : str = "Conc vs time"):
     
     if add_constraints == "mass_balance":
-        include_column = []
-        constraints_dict = {"mass_balance" : [56.108, 28.05, 56.106, 56.108], "consumption" : [], "formation" : []}
+        include_column = [] # "mass_balance" : [56.108, 28.05, 56.106, 56.108]
+        constraints_dict = {"mass_balance" : [], "consumption" : [], "formation" : [], 
+                            "stoichiometry" : np.array([1, 0, 0, 0, 1, 0, 0, 0, 1, -1, -0.5, -1]).reshape(4, -1)}
         # mass balance : equality constraint; formation/consumption : inequality constraint
     elif add_constraints == "stoichiometry":
         include_column = [[0, 2], [0, 3], [0, 1]]
@@ -76,7 +77,7 @@ params = {"optimizer__threshold": [0.01, 0.1],
     "feature_library__include_bias" : [False],
     "feature_library__degree": [1, 2, 3]}
 
-""" adict = defaultdict(list)
+adict = defaultdict(list)
 noise_level = [0.0, 0.1, 0.2]
 for noise in noise_level:
     run_all(noise, params, iterate=True) 
@@ -89,10 +90,10 @@ for key in adict.keys():
     plt.xlabel("noise level")
     plt.ylabel(key)
     plt.legend()
-    plt.show() """
+    plt.show() 
 
 
-# without hyperparameter optimization
+""" # without hyperparameter optimization
 t_span = np.arange(0, 5, 0.01)
 model = DynamicModel("kinetic_kosir", t_span, n_expt = 15)
 features = model.integrate() # list of features
@@ -112,4 +113,4 @@ model = Optimizer_casadi(FunctionalLibrary(1) , alpha = 0, threshold = 0.1, solv
 model.fit(features[:12], target[:12], include_column = [], 
             constraints_dict= {})
 model.print()
-print(model.complexity)
+print(model.complexity) """
