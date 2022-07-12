@@ -106,7 +106,7 @@ if __name__ == "__main__":
     features = model.add_noise(0, 0)
     target = model.approx_derivative
 
-    opti = Optimizer_casadi(FunctionalLibrary(2) , alpha = 0.0, threshold = 0.0, solver_dict={"ipopt.print_level" : 0, "print_time":0})
+    opti = Optimizer_casadi(FunctionalLibrary(2) , alpha = 0.0, threshold = 0.1, solver_dict={"ipopt.print_level" : 0, "print_time":0})
     include_column = include_column = [[0, 2], [0, 3], [0, 1]]
     constraints_dict= {"mass_balance" : [], "formation" : [], "consumption" : [], 
                                     "stoichiometry" : np.array([-1, -1, -1, 0, 0, 2, 1, 0, 0, 0, 1, 0]).reshape(4, -1)}

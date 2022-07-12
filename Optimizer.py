@@ -3,6 +3,7 @@ from Base import Base
 from typing import Optional, Callable
 from functools import reduce
 from collections import defaultdict
+from tqdm import tqdm
 
 from FunctionalLibrary import FunctionalLibrary
 import numpy as np
@@ -161,7 +162,7 @@ class Optimizer_casadi(Base):
         self.adict["iterations"] = 0
         library = self.adict["library"]
 
-        for _ in range(self.max_iter):
+        for _ in tqdm(range(self.max_iter)):
             
             self.adict["coefficients_ensemble"] = defaultdict(list)
 
@@ -208,7 +209,7 @@ class Optimizer_casadi(Base):
             self.adict["mask"] = [mask*coefficients_next[i] for i, mask in enumerate(self.adict["mask"])]
             self.adict["iterations"] += 1
         
-        return _mean
+        return _mean, _deviation
 
     def fit(self, features : list[np.ndarray], target : list[np.ndarray], include_column : Optional[list[np.ndarray]] = None, 
             constraints_dict : dict = {} , ensemble_iterations : int = 1) -> None:
@@ -236,7 +237,7 @@ class Optimizer_casadi(Base):
         features, target = np.vstack(features), np.vstack(target)
         self._generate_library(features, include_column)
 
-        self.adict["coefficients_value"] = self._stlsq(target, constraints_dict, ensemble_iterations)
+        self.adict["coefficients_value"], self.adict["coefficients_deviation"] = self._stlsq(target, constraints_dict, ensemble_iterations)
         self._create_equations()
 
     # need to consider when stoichiometric in present
@@ -334,7 +335,7 @@ if __name__ == "__main__":
     features = model.integrate() # list of features
     target = model.approx_derivative # list of target value
 
-    opti = Optimizer_casadi(FunctionalLibrary(2) , alpha = 0.0, threshold = 1, solver_dict={"ipopt.print_level" : 0, "print_time":0})
+    opti = Optimizer_casadi(FunctionalLibrary(2) , alpha = 0.0, threshold = 0.1, solver_dict={"ipopt.print_level" : 0, "print_time":0})
     stoichiometry = np.array([-1, -1, -1, 0, 0, 2, 1, 0, 0, 0, 1, 0]).reshape(4, -1)
     include_column = [[0, 2], [0, 3], [0, 1]]
     # stoichiometry = None
@@ -342,10 +343,13 @@ if __name__ == "__main__":
     #         constraints_dict = {})
     opti.fit(features, target, include_column = [], 
                 constraints_dict= {"mass_balance" : [], "formation" : [], "consumption" : [], 
-                                    "stoichiometry" : 0}, ensemble_iterations = 10)
+                                    "stoichiometry" : 0}, ensemble_iterations = 1000)
     opti.print()
     print("--"*20)
     print("mean squared error :", opti.score(features, target))
     print(opti.complexity)
     print("Total number of iterations", opti.adict["iterations"])
-    print("coefficients dictionary", opti.adict["coefficients_dict"])
+    print("--"*20)
+    print("coefficients value", opti.adict["coefficients_value"])
+    print("--"*20)
+    print("coefficients standard deviation", opti.adict["coefficients_deviation"])
