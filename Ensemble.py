@@ -106,12 +106,12 @@ if __name__ == "__main__":
     features = model.add_noise(0, 0)
     target = model.approx_derivative
 
-    opti = Optimizer_casadi(FunctionalLibrary(1) , alpha = 0.0, threshold = 0.0, solver_dict={"ipopt.print_level" : 0, "print_time":0})
+    opti = Optimizer_casadi(FunctionalLibrary(2) , alpha = 0.0, threshold = 0.1, solver_dict={"ipopt.print_level" : 0, "print_time":0})
     include_column = include_column = [[0, 2], [0, 3], [0, 1]]
     constraints_dict= {"mass_balance" : [], "formation" : [], "consumption" : [], 
                                     "stoichiometry" : np.array([-1, -1, -1, 0, 0, 2, 1, 0, 0, 0, 1, 0]).reshape(4, -1)}
     
-    opti_ensemble = ensemble(include_column = [], constraints_dict = {}, casadi_model = opti)
+    opti_ensemble = ensemble(include_column = [], constraints_dict = constraints_dict, casadi_model = opti)
     opti_ensemble.fit(features, target, iterations = 100)
     alist = opti_ensemble.coefficients_list
     opti_ensemble.plot()
