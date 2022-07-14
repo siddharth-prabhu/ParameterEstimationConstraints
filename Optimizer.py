@@ -175,7 +175,7 @@ class Optimizer_casadi(Base):
                 self.adict["library"] = [value[permutations]*self.adict["mask"][ind] for ind, value in enumerate(library)]
                 self._update_cost(target[permutations])
                 if constraints_dict:
-                    self._add_constraints(constraints_dict)
+                    self._add_constraints(constraints_dict, seed)
                 self.adict["solution"] = self._minimize(self.solver_dict) # no need to save for every iteration
 
                 # list[np.ndarray]. additional layer of np.array and flatten to account for singular value, which casadi outputs as float
@@ -212,7 +212,7 @@ class Optimizer_casadi(Base):
         return _mean, _deviation
 
     def fit(self, features : list[np.ndarray], target : list[np.ndarray], include_column : Optional[list[np.ndarray]] = None, 
-            constraints_dict : dict = {} , ensemble_iterations : int = 1) -> None:
+            constraints_dict : dict = {} , ensemble_iterations : int = 1, seed : int = 12345) -> None:
 
         # constraints_dict should be of the form {"mass_balance" : [], "consumption" : [], "formation" : [], 
         #                                           "stoichiometry" : np.ndarray}
@@ -237,7 +237,7 @@ class Optimizer_casadi(Base):
         features, target = np.vstack(features), np.vstack(target)
         self._generate_library(features, include_column)
 
-        self.adict["coefficients_value"], self.adict["coefficients_deviation"] = self._stlsq(target, constraints_dict, ensemble_iterations)
+        self.adict["coefficients_value"], self.adict["coefficients_deviation"] = self._stlsq(target, constraints_dict, ensemble_iterations, seed)
         self._create_equations()
 
     # need to consider when stoichiometric in present

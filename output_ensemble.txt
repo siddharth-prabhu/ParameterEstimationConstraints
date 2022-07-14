@@ -1,0 +1,561 @@
+Running simulation for 0.0 noise and without constraints
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 0.01, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
+
+******************************************************************************
+This program contains Ipopt, a library for large-scale nonlinear optimization.
+ Ipopt is released as open source code under the Eclipse Public License (EPL).
+         For more information visit http://projects.coin-or.org/Ipopt
+******************************************************************************
+
+Solution converged
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 0.01, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
+Solution converged
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 0.1, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
+Solution converged
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 0.1, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
+Solution converged
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 1, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
+Solution converged
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 1, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
+Solution converged
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 10, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
+Solution converged
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 10, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
+Solution converged
+   complexity  optimizer__threshold  optimizer__alpha  \
+0           8                  0.01                 0   
+1           8                  0.01                 0   
+2           8                  0.10                 0   
+3           8                  0.10                 0   
+4          10                  1.00                 0   
+5          10                 10.00                 0   
+6           9                  1.00                 0   
+7          11                 10.00                 0   
+
+   feature_library__include_bias  feature_library__degree  MSE_test_pred  \
+0                          False                        1       0.000453   
+1                          False                        2       0.000453   
+2                          False                        1       0.000453   
+3                          False                        2       0.000453   
+4                          False                        1       0.000328   
+5                          False                        1       0.000328   
+6                          False                        2       0.002080   
+7                          False                        2       0.001470   
+
+   MSE_train_pred  r2_test_pred  r2_train_pred  MSE_test_sim  MSE_train_sim  \
+0        0.000841      0.999991       0.999991      0.000864       0.001953   
+1        0.000841      0.999991       0.999991      0.000864       0.001953   
+2        0.000841      0.999991       0.999991      0.000864       0.001953   
+3        0.000841      0.999991       0.999991      0.000864       0.001953   
+4        0.000603      0.999994       0.999994      0.002067       0.005006   
+5        0.000603      0.999994       0.999994      0.002067       0.005006   
+6        0.006352      0.999961       0.999919      0.006047       0.026499   
+7        0.004921      0.999973       0.999937      0.004891       0.022291   
+
+   r2_test_sim  r2_train_sim       AIC  
+0     0.999980      0.999980  0.674277  
+1     0.999980      0.999980  0.674277  
+2     0.999980      0.999980  0.674277  
+3     0.999980      0.999980  0.674277  
+4     0.999983      0.999988  3.272541  
+5     0.999983      0.999988  3.272541  
+6     0.999946      0.999920  3.494341  
+7     0.999958      0.999934  5.249199  
+Running simulation for 0.0 noise and with constraints
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 0.01, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
+Solution converged
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 0.01, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
+Solution converged
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 0.1, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
+Solution converged
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 0.1, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
+Solution converged
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 1, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
+Solution converged
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 1, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
+Solution converged
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 10, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
+Solution converged
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 10, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
+Solution converged
+   complexity  optimizer__threshold  optimizer__alpha  \
+0           9                  0.01                 0   
+1           9                  0.01                 0   
+2           9                  0.10                 0   
+3           9                  0.10                 0   
+4          10                  1.00                 0   
+5          10                 10.00                 0   
+6          11                  1.00                 0   
+7          12                 10.00                 0   
+
+   feature_library__include_bias  feature_library__degree  MSE_test_pred  \
+0                          False                        1       0.000227   
+1                          False                        2       0.000227   
+2                          False                        1       0.000227   
+3                          False                        2       0.000227   
+4                          False                        1       0.000398   
+5                          False                        1       0.000398   
+6                          False                        2       0.003661   
+7                          False                        2       0.002681   
+
+   MSE_train_pred  r2_test_pred  r2_train_pred  MSE_test_sim  MSE_train_sim  \
+0        0.000327      0.999996       0.999996      0.000352       0.000861   
+1        0.000327      0.999996       0.999996      0.000352       0.000861   
+2        0.000327      0.999996       0.999996      0.000352       0.000861   
+3        0.000327      0.999996       0.999996      0.000352       0.000861   
+4        0.000773      0.999992       0.999992      0.001031       0.002504   
+5        0.000773      0.999992       0.999992      0.001031       0.002504   
+6        0.011883      0.999925       0.999859      0.001553       0.004733   
+7        0.009437      0.999945       0.999889      0.001369       0.004213   
+
+   r2_test_sim  r2_train_sim       AIC  
+0     0.999996      0.999997  0.853808  
+1     0.999996      0.999997  0.853808  
+2     0.999996      0.999997  0.853808  
+3     0.999996      0.999997  0.853808  
+4     0.999991      0.999993  2.756170  
+5     0.999991      0.999993  2.756170  
+6     0.999982      0.999977  5.050369  
+7     0.999985      0.999981  5.797833  
+Running simulation for 0.0 noise and with stoichiometry
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 0.01, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
+Solution converged
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 0.01, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
+Solution converged
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 0.1, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
+Solution converged
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 0.1, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
+Solution converged
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 1, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
+Solution converged
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 1, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
+Solution converged
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 10, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
+Solution converged
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 10, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
+Solution converged
+   complexity  optimizer__threshold  optimizer__alpha  \
+0           8                  0.01                 0   
+1           8                  0.01                 0   
+2           8                  0.10                 0   
+3           8                  0.10                 0   
+4           8                  1.00                 0   
+5           8                 10.00                 0   
+6           8                  1.00                 0   
+7           8                 10.00                 0   
+
+   feature_library__include_bias  feature_library__degree  MSE_test_pred  \
+0                          False                        1       0.000377   
+1                          False                        2       0.000377   
+2                          False                        1       0.000377   
+3                          False                        2       0.000377   
+4                          False                        1       0.000377   
+5                          False                        1       0.000377   
+6                          False                        2       0.000771   
+7                          False                        2       0.000771   
+
+   MSE_train_pred  r2_test_pred  r2_train_pred  MSE_test_sim  MSE_train_sim  \
+0        0.000671      0.999993       0.999993      0.000792       0.001929   
+1        0.000671      0.999993       0.999993      0.000792       0.001929   
+2        0.000671      0.999993       0.999993      0.000792       0.001929   
+3        0.000671      0.999993       0.999993      0.000792       0.001929   
+4        0.000671      0.999993       0.999993      0.000792       0.001929   
+5        0.000671      0.999993       0.999993      0.000792       0.001929   
+6        0.001504      0.999985       0.999983      0.000446       0.001090   
+7        0.001504      0.999985       0.999983      0.000446       0.001090   
+
+   r2_test_sim  r2_train_sim       AIC  
+0     0.999993      0.999995  0.555371  
+1     0.999993      0.999995  0.555371  
+2     0.999993      0.999995  0.555371  
+3     0.999993      0.999995  0.555371  
+4     0.999993      0.999995  0.555371  
+5     0.999993      0.999995  0.555371  
+6     0.999995      0.999995  0.595766  
+7     0.999995      0.999995  0.595766  
+Running simulation for 0.1 noise and without constraints
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 0.01, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
+Thresholding parameter eliminated all the coefficients
+Failed for the parameter combination {'optimizer__threshold': 0.01, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 0.01, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
+Thresholding parameter eliminated all the coefficients
+Failed for the parameter combination {'optimizer__threshold': 0.01, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 0.1, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
+Solution converged
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 0.1, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
+Thresholding parameter eliminated all the coefficients
+Failed for the parameter combination {'optimizer__threshold': 0.1, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 1, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
+Solution converged
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 1, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
+Solution converged
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 10, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
+Solution converged
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 10, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
+Solution converged
+   complexity  optimizer__threshold  optimizer__alpha  \
+0           9                   1.0                 0   
+1           7                   0.1                 0   
+2          12                  10.0                 0   
+3          25                   1.0                 0   
+4          46                  10.0                 0   
+
+   feature_library__include_bias  feature_library__degree  MSE_test_pred  \
+0                          False                        1       0.120335   
+1                          False                        1       0.260753   
+2                          False                        1       0.122534   
+3                          False                        2       0.559976   
+4                          False                        2       0.907630   
+
+   MSE_train_pred  r2_test_pred  r2_train_pred  MSE_test_sim  MSE_train_sim  \
+0        0.133320      0.997159       0.998384      0.005943       0.014051   
+1        0.464281      0.989733       0.992108      1.787337       4.229216   
+2        0.136863      0.997112       0.998352      0.020989       0.039831   
+3        3.934345      0.987495       0.954120      0.381266      86.236572   
+4        4.895429      0.979518       0.950104    112.589155     529.379341   
+
+   r2_test_sim  r2_train_sim        AIC  
+0     0.999697      0.999770   6.237579  
+1     0.967550      0.974250   7.023761  
+2     0.999537      0.999691   9.365596  
+3     0.984863      0.175637  24.246298  
+4     0.236003     -0.137736  50.038627  
+Running simulation for 0.1 noise and with constraints
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 0.01, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
+Thresholding parameter eliminated all the coefficients
+Failed for the parameter combination {'optimizer__threshold': 0.01, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 0.01, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
+Thresholding parameter eliminated all the coefficients
+Failed for the parameter combination {'optimizer__threshold': 0.01, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 0.1, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
+Solution converged
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 0.1, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
+Thresholding parameter eliminated all the coefficients
+Failed for the parameter combination {'optimizer__threshold': 0.1, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 1, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
+Solution converged
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 1, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
+Solution converged
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 10, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
+Solution converged
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 10, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
+Solution converged
+   complexity  optimizer__threshold  optimizer__alpha  \
+0           9                   1.0                 0   
+1           8                   0.1                 0   
+2          10                  10.0                 0   
+3          22                   1.0                 0   
+4          44                  10.0                 0   
+
+   feature_library__include_bias  feature_library__degree  MSE_test_pred  \
+0                          False                        1       0.113248   
+1                          False                        1       0.424709   
+2                          False                        1       0.110915   
+3                          False                        2       0.602462   
+4                          False                        2       1.008839   
+
+   MSE_train_pred  r2_test_pred  r2_train_pred  MSE_test_sim  MSE_train_sim  \
+0        0.122715      0.997466       0.998463      0.003657   4.712080e-03   
+1        0.701748      0.985981       0.988737      0.014143   3.044852e-02   
+2        0.123503      0.997457       0.998476      0.004054   6.539357e-03   
+3        2.929872      0.984845       0.964247      0.461506   1.485296e+40   
+4        6.138884      0.978445       0.929211      1.375895   1.835867e+01   
+
+   r2_test_sim  r2_train_sim        AIC  
+0     0.999823      0.999906   6.160453  
+1     0.994039      0.994603   6.483258  
+2     0.999777      0.999859   7.143761  
+3     0.988247     -0.000167  21.368858  
+4     0.973959      0.851776  44.175940  
+Running simulation for 0.1 noise and with stoichiometry
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 0.01, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
+Error in Opti::value [OptiNode] at .../casadi/core/optistack.cpp:175:
+.../casadi/core/optistack_internal.cpp:1111: Assertion "symbol_active_[meta(e).count]" failed:
+This expression has symbols that do not appear in the constraints and objective:
+  Opti decision variable 'opti115000_x_1' of shape 2x1, defined at /Users/siddharthprabhu/Desktop/git_projects/ParameterEstimationConstraints/Optimizer.py:81 in <listcomp>
+    self.adict["coefficients"] = [self.opti.variable(dimension[-1], 1) for dimension in self.adict["library_dimension"]]
+Failed for the parameter combination {'optimizer__threshold': 0.01, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 0.01, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
+Thresholding parameter eliminated all the coefficients
+Failed for the parameter combination {'optimizer__threshold': 0.01, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 0.1, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
+Solution converged
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 0.1, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
+Solution converged
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 1, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
+Solution converged
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 1, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
+Solution converged
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 10, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
+Solution converged
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 10, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
+Solution converged
+   complexity  optimizer__threshold  optimizer__alpha  \
+0           8                   1.0                 0   
+1           8                  10.0                 0   
+2           7                   0.1                 0   
+3           7                   0.1                 0   
+4          16                   1.0                 0   
+5          18                  10.0                 0   
+
+   feature_library__include_bias  feature_library__degree  MSE_test_pred  \
+0                          False                        1       0.020439   
+1                          False                        1       0.020439   
+2                          False                        1       0.407131   
+3                          False                        2       0.407131   
+4                          False                        2       0.109809   
+5                          False                        2       0.180585   
+
+   MSE_train_pred  r2_test_pred  r2_train_pred  MSE_test_sim  MSE_train_sim  \
+0        0.037151      0.999547       0.999536      0.000606       0.001442   
+1        0.037151      0.999547       0.999536      0.000606       0.001442   
+2        0.685341      0.986398       0.988962      0.014059       0.030799   
+3        0.685341      0.986398       0.988962      0.014059       0.030799   
+4        0.409844      0.996989       0.994682      0.019030       0.093602   
+5        0.666608      0.995512       0.991261      0.023449       0.131412   
+
+   r2_test_sim  r2_train_sim        AIC  
+0     0.999955      0.999958   3.445783  
+1     0.999955      0.999958   3.445783  
+2     0.994073      0.994626   5.442181  
+3     0.994073      0.994626   5.442181  
+4     0.998974      0.998783  13.257659  
+5     0.999176      0.998543  15.717386  
+Running simulation for 0.2 noise and without constraints
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 0.01, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
+Thresholding parameter eliminated all the coefficients
+Failed for the parameter combination {'optimizer__threshold': 0.01, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 0.01, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
+Thresholding parameter eliminated all the coefficients
+Failed for the parameter combination {'optimizer__threshold': 0.01, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 0.1, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
+Error in Opti::value [OptiNode] at .../casadi/core/optistack.cpp:175:
+.../casadi/core/optistack_internal.cpp:1111: Assertion "symbol_active_[meta(e).count]" failed:
+This expression has symbols that do not appear in the constraints and objective:
+  Opti decision variable 'opti136001_x_2' of shape 4x1, defined at /Users/siddharthprabhu/Desktop/git_projects/ParameterEstimationConstraints/Optimizer.py:81 in <listcomp>
+    self.adict["coefficients"] = [self.opti.variable(dimension[-1], 1) for dimension in self.adict["library_dimension"]]
+Failed for the parameter combination {'optimizer__threshold': 0.1, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 0.1, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
+Thresholding parameter eliminated all the coefficients
+Failed for the parameter combination {'optimizer__threshold': 0.1, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 1, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
+Solution converged
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 1, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
+Solution converged
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 10, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
+Solution converged
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 10, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
+Solution converged
+   complexity  optimizer__threshold  optimizer__alpha  \
+0           9                     1                 0   
+1          12                    10                 0   
+2          19                     1                 0   
+3          48                    10                 0   
+
+   feature_library__include_bias  feature_library__degree  MSE_test_pred  \
+0                          False                        1       1.093019   
+1                          False                        1       0.936599   
+2                          False                        2       2.764085   
+3                          False                        2       1.821520   
+
+   MSE_train_pred  r2_test_pred  r2_train_pred  MSE_test_sim  MSE_train_sim  \
+0        1.359636      0.967631       0.979975      2.063960   4.632436e+00   
+1        1.017208      0.975414       0.986258      0.113311   1.692208e-01   
+2        3.167855      0.948937       0.959721      2.255879   7.808773e+12   
+3        5.290788      0.953988       0.933070      3.952400   2.638487e+24   
+
+   r2_test_sim  r2_train_sim        AIC  
+0     0.959724      0.969790   9.456468  
+1     0.997256      0.998501  11.355556  
+2     0.953226      0.245892  19.920276  
+3     0.916400     -0.000635  49.060204  
+Running simulation for 0.2 noise and with constraints
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 0.01, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
+Thresholding parameter eliminated all the coefficients
+Failed for the parameter combination {'optimizer__threshold': 0.01, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 0.01, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
+Thresholding parameter eliminated all the coefficients
+Failed for the parameter combination {'optimizer__threshold': 0.01, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 0.1, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
+Error in Opti::value [OptiNode] at .../casadi/core/optistack.cpp:175:
+.../casadi/core/optistack_internal.cpp:1111: Assertion "symbol_active_[meta(e).count]" failed:
+This expression has symbols that do not appear in the constraints and objective:
+  Opti decision variable 'opti155002_x_2' of shape 4x1, defined at /Users/siddharthprabhu/Desktop/git_projects/ParameterEstimationConstraints/Optimizer.py:81 in <listcomp>
+    self.adict["coefficients"] = [self.opti.variable(dimension[-1], 1) for dimension in self.adict["library_dimension"]]
+Failed for the parameter combination {'optimizer__threshold': 0.1, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 0.1, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
+Thresholding parameter eliminated all the coefficients
+Failed for the parameter combination {'optimizer__threshold': 0.1, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 1, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
+Solution converged
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 1, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
+Solution converged
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 10, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
+Solution converged
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 10, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
+Solution converged
+   complexity  optimizer__threshold  optimizer__alpha  \
+0           9                     1                 0   
+1          11                    10                 0   
+2          20                     1                 0   
+3          46                    10                 0   
+
+   feature_library__include_bias  feature_library__degree  MSE_test_pred  \
+0                          False                        1       0.859424   
+1                          False                        1       0.900148   
+2                          False                        2       5.344288   
+3                          False                        2       1.384308   
+
+   MSE_train_pred  r2_test_pred  r2_train_pred  MSE_test_sim  MSE_train_sim  \
+0        0.916642      0.977455       0.986952      0.027060   2.878362e-02   
+1        0.963157      0.976639       0.986092      0.011581   1.417956e-02   
+2        8.497523      0.877555       0.899082      1.069002   6.032314e+40   
+3        3.690958      0.967293       0.953535      0.090160   2.587599e+24   
+
+   r2_test_sim  r2_train_sim        AIC  
+0     0.998562      0.999304   8.186361  
+1     0.998666      0.999328  10.214441  
+2     0.968760     -0.000167  21.165225  
+3     0.987188     -0.000720  45.695150  
+Running simulation for 0.2 noise and with stoichiometry
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 0.01, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
+Thresholding parameter eliminated all the coefficients
+Failed for the parameter combination {'optimizer__threshold': 0.01, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 0.01, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
+Thresholding parameter eliminated all the coefficients
+Failed for the parameter combination {'optimizer__threshold': 0.01, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 0.1, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
+Solution converged
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 0.1, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
+Error in Opti::value [OptiNode] at .../casadi/core/optistack.cpp:175:
+.../casadi/core/optistack_internal.cpp:1111: Assertion "symbol_active_[meta(e).count]" failed:
+This expression has symbols that do not appear in the constraints and objective:
+  Opti decision variable 'opti177003_x_1' of shape 5x1, defined at /Users/siddharthprabhu/Desktop/git_projects/ParameterEstimationConstraints/Optimizer.py:81 in <listcomp>
+    self.adict["coefficients"] = [self.opti.variable(dimension[-1], 1) for dimension in self.adict["library_dimension"]]
+Failed for the parameter combination {'optimizer__threshold': 0.1, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 1, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
+Solution converged
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 1, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
+Solution converged
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 10, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
+Solution converged
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 10, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
+Solution converged
+   complexity  optimizer__threshold  optimizer__alpha  \
+0           7                   0.1                 0   
+1           8                  10.0                 0   
+2           8                   1.0                 0   
+3          21                   1.0                 0   
+4          24                  10.0                 0   
+
+   feature_library__include_bias  feature_library__degree  MSE_test_pred  \
+0                          False                        1       0.583980   
+1                          False                        1       0.218050   
+2                          False                        1       0.226130   
+3                          False                        2       0.559205   
+4                          False                        2       0.653874   
+
+   MSE_train_pred  r2_test_pred  r2_train_pred  MSE_test_sim  MSE_train_sim  \
+0        0.947424      0.980834       0.984405      0.019671       0.044887   
+1        0.380755      0.994227       0.994543      0.007430       0.018557   
+2        0.393551      0.993935       0.994331      0.009193       0.023040   
+3        1.258109      0.979809       0.982815      0.072989       0.463893   
+4        1.615958      0.977763       0.977464      0.051832       0.741174   
+
+   r2_test_sim  r2_train_sim        AIC  
+0     0.993787      0.994395   5.802094  
+1     0.999097      0.999154   5.817326  
+2     0.999014      0.999074   5.860055  
+3     0.992356      0.991665  19.848295  
+4     0.993543      0.988608  22.958297  

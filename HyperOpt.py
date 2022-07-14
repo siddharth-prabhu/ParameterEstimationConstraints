@@ -31,6 +31,7 @@ class HyperOpt():
     include_column : list[list] = field(default = None)
     constraints_dict : dict = field(default_factory = dict)
     ensemble_iterations : int = field(default = 1)
+    seed : int = field(default = 12345)
 
     @staticmethod
     def train_test_split(X : list[np.ndarray], y : list[np.ndarray], X_clean : list[np.ndarray], y_clean : list[np.ndarray], 
@@ -59,7 +60,7 @@ class HyperOpt():
             try:
                 # self.model.fit(self.X_train, x_dot = self.y_train, quiet = True, multiple_trajectories = True) # for sindy
                 self.model.fit(self.X_train, self.y_train, include_column = self.include_column,
-                            constraints_dict = self.constraints_dict, ensemble_iterations = self.ensemble_iterations)  
+                            constraints_dict = self.constraints_dict, ensemble_iterations = self.ensemble_iterations, seed = self.seed)  
                             # {"mass_balance" : [56.108, 28.05, 56.106, 56.108], "consumption" : [], "formation" : []}) # for casadi
 
             except Exception as error:

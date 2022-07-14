@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 def run_gridsearch(features : list[np.ndarray], target : list[np.ndarray], features_clean : list[np.ndarray], target_clean : list[np.ndarray], 
                     time_span : np.ndarray, parameters : dict, add_constraints : bool = False, 
                     filename : str = "saved_data\Gridsearch_results.html", title : str = "Conc vs time", 
-                    ensemble_iterations : int = 1):
+                    ensemble_iterations : int = 1, seed : int = 12345):
     
     if add_constraints == "mass_balance":
         include_column = [] # "mass_balance" : [56.108, 28.05, 56.106, 56.108]
@@ -28,13 +28,13 @@ def run_gridsearch(features : list[np.ndarray], target : list[np.ndarray], featu
     
     # model.plot(features[-1], t_span, legend=["A", "B", "C", "D"], title = title)
     opt = HyperOpt(features, target, features_clean, target_clean, time_span, parameters, Optimizer_casadi(solver_dict = {"ipopt.print_level" : 0, "print_time": 0}), 
-                include_column = include_column, constraints_dict = constraints_dict, ensemble_iterations = ensemble_iterations)
+                include_column = include_column, constraints_dict = constraints_dict, ensemble_iterations = ensemble_iterations, seed = seed)
 
     opt.gridsearch()
     opt.plot(filename, title)
     return opt.df_result
 
-def run_all(noise_level : float, parameters : dict, iterate = True, ensemble_iterations : int = 1):
+def run_all(noise_level : float, parameters : dict, iterate = True, ensemble_iterations : int = 1, seed : int = 12345):
 
     t_span = np.arange(0, 5, 0.01)
     model = DynamicModel("kinetic_kosir", t_span, n_expt = 15)
@@ -47,7 +47,7 @@ def run_all(noise_level : float, parameters : dict, iterate = True, ensemble_ite
         print(f"Running simulation for {noise_level} noise and without constraints")
         df_result = run_gridsearch(features, target, features_clean, target_clean, t_span, parameters, add_constraints = False, 
                     filename = f"saved_data\Gridsearch_no_con_{noise_level}.html", title = f"Without constraints {noise_level} noise", 
-                    ensemble_iterations = ensemble_iterations)
+                    ensemble_iterations = ensemble_iterations, seed = seed)
 
         adict["MSE_test_pred"].append(df_result.loc[0, "MSE_test_pred"])
         adict["AIC"].append(df_result.loc[0, "AIC"])
@@ -58,7 +58,7 @@ def run_all(noise_level : float, parameters : dict, iterate = True, ensemble_ite
         print(f"Running simulation for {noise_level} noise and with constraints")
         df_result = run_gridsearch(features, target, features_clean, target_clean, t_span, parameters, add_constraints = "mass_balance", 
                     filename = f"saved_data\Gridsearch_con_{noise_level}.html", title = f"With constraints {noise_level} noise", 
-                    ensemble_iterations = ensemble_iterations) 
+                    ensemble_iterations = ensemble_iterations, seed = seed) 
 
         adict["MSE_test_pred"].append(df_result.loc[0, "MSE_test_pred"])
         adict["AIC"].append(df_result.loc[0, "AIC"])
@@ -68,7 +68,7 @@ def run_all(noise_level : float, parameters : dict, iterate = True, ensemble_ite
         print(f"Running simulation for {noise_level} noise and with stoichiometry")
         df_result = run_gridsearch(features, target, features_clean, target_clean, t_span, parameters, add_constraints = "stoichiometry", 
                     filename = f"saved_data\Gridsearch_stoichiometry_{noise_level}.html", title = f"With stoichiometry {noise_level} noise", 
-                    ensemble_iterations = ensemble_iterations) 
+                    ensemble_iterations = ensemble_iterations, seed = seed) 
 
         adict["MSE_test_pred"].append(df_result.loc[0, "MSE_test_pred"])
         adict["AIC"].append(df_result.loc[0, "AIC"])
@@ -84,12 +84,12 @@ params = {"optimizer__threshold": [0.01, 0.1],
 ensemble_params = {"optimizer__threshold": [0.01, 0.1, 1, 10], 
     "optimizer__alpha": [0], 
     "feature_library__include_bias" : [False],
-    "feature_library__degree": [1, 2, 3]}
+    "feature_library__degree": [1,]}
 
 adict = defaultdict(list)
 noise_level = [0.0, 0.1, 0.2]
 for noise in noise_level:
-    run_all(noise, ensemble_params, iterate=True, ensemble_iterations=1000) 
+    run_all(noise, ensemble_params, iterate=True, ensemble_iterations=1000, seed = 10) 
 
 # plotting results
 for key in adict.keys():
