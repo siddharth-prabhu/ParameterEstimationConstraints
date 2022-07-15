@@ -2,16 +2,19 @@ from dataclasses import dataclass, field
 from Base import Base
 from typing import Optional, Callable
 from functools import reduce
-from collections import defaultdict
+from collections import defaultdict, namedtuple
 from tqdm import tqdm
 
 from FunctionalLibrary import FunctionalLibrary
+from utils import ensemble_plot
+
 import numpy as np
 import casadi as cd
 import sympy as smp
 import pickle
 from sklearn.metrics import mean_squared_error
 from scipy.integrate import odeint
+import matplotlib.pyplot as plt
 
 
 @dataclass(frozen = False)
@@ -160,11 +163,12 @@ class Optimizer_casadi(Base):
         self._create_mask()
         coefficients_prev = [np.ones(dimension[-1]) for dimension in self.adict["library_dimension"]]
         self.adict["iterations"] = 0
+        self.adict["iterations_ensemble"] = ensemble_iterations
         library = self.adict["library"]
 
         for _ in tqdm(range(self.max_iter)):
             
-            self.adict["coefficients_ensemble"] = defaultdict(list)
+            self.adict["coefficients_casadi_ensemble"] = defaultdict(list)
 
             for _ in range(ensemble_iterations):
                 # create problem from scratch since casadi cannot run the same problem once optimized
@@ -180,20 +184,21 @@ class Optimizer_casadi(Base):
 
                 # list[np.ndarray]. additional layer of np.array and flatten to account for singular value, which casadi outputs as float
                 for key, coeff in enumerate(self.adict["coefficients"]):
-                    self.adict["coefficients_ensemble"][key].append(np.array([self.adict["solution"].value(coeff)]).flatten())
+                    self.adict["coefficients_casadi_ensemble"][key].append(np.array([self.adict["solution"].value(coeff)]).flatten())
             
             # calculating mean and standard deviation 
             _mean, _deviation = [], []
-            for key in self.adict["coefficients_ensemble"].keys():
-                stack = np.vstack(self.adict["coefficients_ensemble"][key])
+            for key in self.adict["coefficients_casadi_ensemble"].keys():
+                stack = np.vstack(self.adict["coefficients_casadi_ensemble"][key])
                 _mean.append(np.mean(stack, axis = 0))
                 _deviation.append(np.std(stack, axis = 0))
+                self.adict["coefficients_casadi_ensemble"][key] = stack
             
             # list of boolean arrays
             if ensemble_iterations > 1:
                 coefficients_next = [np.abs(deviation/(mean + 1e-10)) < self.threshold for mean, deviation in zip(_mean, _deviation)]
             else:
-                coefficients_next = [np.abs(self.adict["coefficients_ensemble"][key]) > self.threshold for key in self.adict["coefficients_ensemble"].keys()]
+                coefficients_next = [np.abs(self.adict["coefficients_casadi_ensemble"][key]) > self.threshold for key in self.adict["coefficients_casadi_ensemble"].keys()]
 
             if np.array([np.allclose(coeff_prev, coeff_next) for coeff_prev, coeff_next in zip(coefficients_prev, coefficients_next)]).all():
                 print("Solution converged")
@@ -248,18 +253,44 @@ class Optimizer_casadi(Base):
         self.adict["coefficients_dict"] = []
         
         for i in range(self._n_states):
-            expr = 0
-            for j in range(self._functional_library):
-                zero_filter = filter(lambda x : x[0], zip(self.adict["coefficients_value"][j], self.adict["library_labels"][j]))
-                expr += self.adict["stoichiometry"][i, j]*smp.sympify(reduce(lambda accum, value : 
-                        accum + value[0] + " * " + value[1].replace(" ", "*") + " + ",   
-                        map(lambda x : ("{:.2f}".format(x[0]), x[1]), zero_filter), "+").rstrip(" +")) 
-            # replaced whitespaces with multiplication element wise library labels
-            # simpify already handles xor operation
-
+            expr = self._create_sympy_expressions(self.adict["coefficients_value"], self.adict["library_labels"], self.adict["stoichiometry"][i])
             self.adict["equations"].append(str(expr))
             self.adict["coefficients_dict"].append(expr.as_coefficients_dict())
             self.adict["equations_lambdify"].append(smp.lambdify(self.input_symbols, expr))
+
+    @staticmethod
+    def _create_sympy_expressions(coefficients_value : list[np.ndarray], library_labels : list[list[str]], stoichiometry_row : np.ndarray) -> str:
+        expr = 0
+        for j in range(len(library_labels)):
+            zero_filter = filter(lambda x : x[0], zip(coefficients_value[j], library_labels[j]))
+            expr += stoichiometry_row[j]*smp.sympify(reduce(lambda accum, value : 
+                    accum + value[0] + " * " + value[1].replace(" ", "*") + " + ",   
+                    map(lambda x : ("{:.2f}".format(x[0]), x[1]), zero_filter), "+").rstrip(" +")) 
+        # replaced whitespaces with multiplication element wise library labels
+        # simpify already handles xor operation
+        return expr
+
+
+    def plot_distribution(self) -> None:
+        # plotting the distribution of casadi coefficients
+        # create list of dictionary with symbols as keys and arrays as values
+        _coefficients_list = [defaultdict(list) for _ in range(self._functional_library)]
+        
+        distribution = namedtuple("distribution", ("mean", "deviation"))
+        _coefficients_distribution = [defaultdict(distribution) for _ in range(self._functional_library)]
+
+        inclusion = namedtuple("probability", "inclusion")
+        _coefficients_inclusion = [defaultdict(inclusion) for _ in range(self._functional_library)]
+
+        for i, key in enumerate(self.adict["coefficients_casadi_ensemble"].keys()):
+            for j, _symbol in enumerate(self.adict["library_labels"][i]):
+                _coefficients_list[i][_symbol].extend(self.adict["coefficients_casadi_ensemble"][key][:, j])
+                _coefficients_distribution[i][_symbol] = distribution(self.adict["coefficients_value"][i][j], self.adict["coefficients_deviation"][i][j])
+                _coefficients_inclusion[i][_symbol] = inclusion(np.count_nonzero(_coefficients_list[i][_symbol])/self.adict["iterations_ensemble"])
+
+        ensemble_plot(_coefficients_list, _coefficients_distribution, _coefficients_inclusion)
+
+        # plotting the distribution of reaction equations
 
 
     def _casadi_model(self, x : np.ndarray, t : np.ndarray):
@@ -343,13 +374,15 @@ if __name__ == "__main__":
     #         constraints_dict = {})
     opti.fit(features, target, include_column = include_column, 
                 constraints_dict= {"mass_balance" : [], "formation" : [], "consumption" : [], 
-                                    "stoichiometry" : stoichiometry}, ensemble_iterations = 1000, seed = 10)
+                                    "stoichiometry" : stoichiometry}, ensemble_iterations = 3, seed = 10)
     opti.print()
     print("--"*20)
     print("mean squared error :", opti.score(features, target))
     print("model complexity", opti.complexity)
     print("Total number of iterations", opti.adict["iterations"])
     print("--"*20)
-    print("coefficients value", opti.adict["coefficients_value"])
+    print("coefficients ensemble", opti.adict["coefficients_casadi_ensemble"])
     print("--"*20)
     print("coefficients standard deviation", opti.adict["coefficients_deviation"])
+    print("--"*20)
+    print("coefficients list of dict", opti.plot_distribution())
