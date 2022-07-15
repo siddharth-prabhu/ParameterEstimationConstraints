@@ -335,19 +335,19 @@ if __name__ == "__main__":
     features = model.integrate() # list of features
     target = model.approx_derivative # list of target value
 
-    opti = Optimizer_casadi(FunctionalLibrary(2) , alpha = 0.0, threshold = 0.1, solver_dict={"ipopt.print_level" : 0, "print_time":0})
+    opti = Optimizer_casadi(FunctionalLibrary(1) , alpha = 0.0, threshold = 0.1, solver_dict={"ipopt.print_level" : 0, "print_time":0})
     stoichiometry = np.array([-1, -1, -1, 0, 0, 2, 1, 0, 0, 0, 1, 0]).reshape(4, -1)
     include_column = [[0, 2], [0, 3], [0, 1]]
     # stoichiometry = None
     # opti.fit(features, target, include_column = [], 
     #         constraints_dict = {})
-    opti.fit(features, target, include_column = [], 
+    opti.fit(features, target, include_column = include_column, 
                 constraints_dict= {"mass_balance" : [], "formation" : [], "consumption" : [], 
-                                    "stoichiometry" : 0}, ensemble_iterations = 1000)
+                                    "stoichiometry" : stoichiometry}, ensemble_iterations = 1000, seed = 10)
     opti.print()
     print("--"*20)
     print("mean squared error :", opti.score(features, target))
-    print(opti.complexity)
+    print("model complexity", opti.complexity)
     print("Total number of iterations", opti.adict["iterations"])
     print("--"*20)
     print("coefficients value", opti.adict["coefficients_value"])

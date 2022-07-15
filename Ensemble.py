@@ -38,7 +38,8 @@ class ensemble :
             X_bootstrap, y_bootstrap = next(data_iter)
 
             try :
-                self.casadi_model.fit([X_bootstrap], [y_bootstrap], self.include_column, self.constraints_dict)
+                # ensemble iterations was added after writing this script
+                self.casadi_model.fit([X_bootstrap], [y_bootstrap], self.include_column, self.constraints_dict, ensemble_iterations = 1, seed = self.seed)
             except Exception as error:
                 print(f"failed for iteration {i} with error {error}")
                 continue
@@ -71,6 +72,7 @@ class ensemble :
             np.vectorize(lambda key, mean, deviation : distribution_dict.update({key : distribution(mean, deviation)}), 
                                         cache = True)(coefficients_dict_keys, parameters[0], parameters[1])
 
+    # consider making it static so can be used in other scripts
     def plot(self):
 
         for i, (coefficients_dict, distribution_dict) in enumerate(zip(self.coefficients_list, self.distribution)):
@@ -106,12 +108,14 @@ if __name__ == "__main__":
     features = model.add_noise(0, 0)
     target = model.approx_derivative
 
-    opti = Optimizer_casadi(FunctionalLibrary(2) , alpha = 0.0, threshold = 0.1, solver_dict={"ipopt.print_level" : 0, "print_time":0})
-    include_column = include_column = [[0, 2], [0, 3], [0, 1]]
+    opti = Optimizer_casadi(FunctionalLibrary(1) , alpha = 0.0, threshold = 0.1, solver_dict={"ipopt.print_level" : 0, "print_time":0})
+    include_column = [[0, 2], [0, 3], [0, 1]]
+    stoichiometry = np.array([1, 0, 0, 0, 1, 0, 0, 0, 1, -1, -0.5, -1]).reshape(4, -1)
+    stoichiometry = np.array([-1, -1, -1, 0, 0, 2, 1, 0, 0, 0, 1, 0]).reshape(4, -1)
     constraints_dict= {"mass_balance" : [], "formation" : [], "consumption" : [], 
-                                    "stoichiometry" : np.array([-1, -1, -1, 0, 0, 2, 1, 0, 0, 0, 1, 0]).reshape(4, -1)}
+                                    "stoichiometry" : stoichiometry}
     
     opti_ensemble = ensemble(include_column = [], constraints_dict = constraints_dict, casadi_model = opti)
-    opti_ensemble.fit(features, target, iterations = 100)
+    opti_ensemble.fit(features, target, iterations = 1000)
     alist = opti_ensemble.coefficients_list
     opti_ensemble.plot()

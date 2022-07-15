@@ -84,7 +84,7 @@ params = {"optimizer__threshold": [0.01, 0.1],
 ensemble_params = {"optimizer__threshold": [0.01, 0.1, 1, 10], 
     "optimizer__alpha": [0], 
     "feature_library__include_bias" : [False],
-    "feature_library__degree": [1,]}
+    "feature_library__degree": [1, 2, 3]}
 
 adict = defaultdict(list)
 noise_level = [0.0, 0.1, 0.2]
