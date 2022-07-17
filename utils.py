@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
     
 def ensemble_plot(coefficients_list : list[dict], distribution : list[dict], inclusion : list[dict]) -> None:
 
+    assert len(coefficients_list) == len(distribution) == len(inclusion), "arguments should be of same length"
+    
     for i, (coefficients_dict, distribution_dict) in enumerate(zip(coefficients_list, distribution)):
         fig = plt.figure(figsize = (5, 8))
         fig.subplots_adjust(hspace = 0.5)

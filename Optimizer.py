@@ -291,6 +291,27 @@ class Optimizer_casadi(Base):
         ensemble_plot(_coefficients_list, _coefficients_distribution, _coefficients_inclusion)
 
         # plotting the distribution of reaction equations
+        _reaction_coefficients_list = [defaultdict(list) for _ in range(self._n_states)]
+        _reaction_coefficients_distribution = [defaultdict(distribution) for _ in range(self._n_states)]
+        _reaction_coefficients_inclusion = [defaultdict(inclusion) for _ in range(self._n_states)]
+
+        for i in range(self._n_states):
+            # for each iteration
+            for j in range(self.adict["iterations_ensemble"]):
+                _expr = self._create_sympy_expressions([self.adict["coefficients_casadi_ensemble"][key][j] for key in range(self._functional_library)], 
+                                                        self.adict["library_labels"], self.adict["stoichiometry"][i])
+                _expr_coeff = _expr.as_coefficients_dict()
+
+                for key, value in _expr_coeff.items():
+                    _reaction_coefficients_list[i][key].append(value)
+
+            for key, value in _reaction_coefficients_list[i].items():
+                value.extend([0]*(self.adict["iterations_ensemble"] - len(value)))
+                # wrap into numpy array as it does not know how to deal with sympy objects
+                _reaction_coefficients_distribution[i][key] = distribution(np.mean(np.array(value, dtype=float)), np.std(np.array(value, dtype = float)))
+                _reaction_coefficients_inclusion[i][key] = inclusion(np.count_nonzero(np.array(value, dtype = float))/self.adict["iterations_ensemble"])
+
+        ensemble_plot(_reaction_coefficients_list, _reaction_coefficients_distribution, _reaction_coefficients_inclusion)
 
 
     def _casadi_model(self, x : np.ndarray, t : np.ndarray):
@@ -366,7 +387,7 @@ if __name__ == "__main__":
     features = model.integrate() # list of features
     target = model.approx_derivative # list of target value
 
-    opti = Optimizer_casadi(FunctionalLibrary(1) , alpha = 0.0, threshold = 0.1, solver_dict={"ipopt.print_level" : 0, "print_time":0})
+    opti = Optimizer_casadi(FunctionalLibrary(1) , alpha = 0.1, threshold = 0.1, solver_dict={"ipopt.print_level" : 0, "print_time":0})
     stoichiometry = np.array([-1, -1, -1, 0, 0, 2, 1, 0, 0, 0, 1, 0]).reshape(4, -1)
     include_column = [[0, 2], [0, 3], [0, 1]]
     # stoichiometry = None
@@ -374,15 +395,16 @@ if __name__ == "__main__":
     #         constraints_dict = {})
     opti.fit(features, target, include_column = include_column, 
                 constraints_dict= {"mass_balance" : [], "formation" : [], "consumption" : [], 
-                                    "stoichiometry" : stoichiometry}, ensemble_iterations = 3, seed = 10)
+                                    "stoichiometry" : stoichiometry}, ensemble_iterations = 10, seed = 10)
     opti.print()
     print("--"*20)
     print("mean squared error :", opti.score(features, target))
     print("model complexity", opti.complexity)
     print("Total number of iterations", opti.adict["iterations"])
     print("--"*20)
-    print("coefficients ensemble", opti.adict["coefficients_casadi_ensemble"])
+    # print("coefficients ensemble", opti.adict["coefficients_casadi_ensemble"])
     print("--"*20)
-    print("coefficients standard deviation", opti.adict["coefficients_deviation"])
+    # print("coefficients standard deviation", opti.adict["coefficients_deviation"])
     print("--"*20)
     print("coefficients list of dict", opti.plot_distribution())
+    print("ensemble coefficients", opti.adict["coefficients_casadi_ensemble"])
