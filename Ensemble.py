@@ -6,6 +6,7 @@ from collections import defaultdict, namedtuple
 import matplotlib.pyplot as plt
 
 from Optimizer import Optimizer_casadi
+from utils import ensemble_plot
 
 
 @dataclass
@@ -38,7 +39,8 @@ class ensemble :
             X_bootstrap, y_bootstrap = next(data_iter)
 
             try :
-                self.casadi_model.fit([X_bootstrap], [y_bootstrap], self.include_column, self.constraints_dict)
+                # ensemble iterations was added after writing this script
+                self.casadi_model.fit([X_bootstrap], [y_bootstrap], self.include_column, self.constraints_dict, ensemble_iterations = 1, seed = self.seed)
             except Exception as error:
                 print(f"failed for iteration {i} with error {error}")
                 continue
@@ -71,28 +73,7 @@ class ensemble :
             np.vectorize(lambda key, mean, deviation : distribution_dict.update({key : distribution(mean, deviation)}), 
                                         cache = True)(coefficients_dict_keys, parameters[0], parameters[1])
 
-    def plot(self):
 
-        for i, (coefficients_dict, distribution_dict) in enumerate(zip(self.coefficients_list, self.distribution)):
-            fig = plt.figure(figsize = (5, 8))
-            fig.subplots_adjust(hspace = 0.5)
-            for j, key in enumerate(coefficients_dict.keys()):
-                ax = fig.add_subplot(len(coefficients_dict)//3 + 1, 3, j + 1)
-                ax.hist(np.array(coefficients_dict[key], dtype=float), bins = 10)
-                _mean, _deviation = distribution_dict[key].mean, distribution_dict[key].deviation
-                ax.set_title(f"{key}, mean : {round(_mean, 2)}, sd : {round(_deviation, 2)}, cv : {round(_deviation / (_mean + 1e-15), 2)}")
-        
-            plt.show()
-
-        fig, ax = plt.subplots(-(-len(self.inclusion)//2), 2, figsize = (10, 15))
-        fig.subplots_adjust(hspace = 0.5, wspace = 0.5)
-        ax = np.ravel(ax)
-        for i, inclusion_dict in enumerate(self.inclusion):
-            inclusion_dict_keys = inclusion_dict.keys()
-            ax[i].barh(list(map(str, list(inclusion_dict_keys))), [inclusion_dict[key].inclusion for key in inclusion_dict_keys])
-            ax[i].set(title = f"Inclusion probability x{i}", xlim = (0, 1))
-            
-        plt.show()
 
 if __name__ == "__main__":
 
@@ -106,12 +87,14 @@ if __name__ == "__main__":
     features = model.add_noise(0, 0)
     target = model.approx_derivative
 
-    opti = Optimizer_casadi(FunctionalLibrary(2) , alpha = 0.0, threshold = 0.1, solver_dict={"ipopt.print_level" : 0, "print_time":0})
-    include_column = include_column = [[0, 2], [0, 3], [0, 1]]
+    opti = Optimizer_casadi(FunctionalLibrary(1) , alpha = 0.0, threshold = 0.1, solver_dict={"ipopt.print_level" : 0, "print_time":0})
+    include_column = [[0, 2], [0, 3], [0, 1]]
+    stoichiometry = np.array([1, 0, 0, 0, 1, 0, 0, 0, 1, -1, -0.5, -1]).reshape(4, -1) # mass balance
+    stoichiometry = np.array([-1, -1, -1, 0, 0, 2, 1, 0, 0, 0, 1, 0]).reshape(4, -1) # chemistry constraint
     constraints_dict= {"mass_balance" : [], "formation" : [], "consumption" : [], 
-                                    "stoichiometry" : np.array([-1, -1, -1, 0, 0, 2, 1, 0, 0, 0, 1, 0]).reshape(4, -1)}
+                                    "stoichiometry" : stoichiometry}
     
     opti_ensemble = ensemble(include_column = [], constraints_dict = constraints_dict, casadi_model = opti)
-    opti_ensemble.fit(features, target, iterations = 100)
+    opti_ensemble.fit(features, target, iterations = 2)
     alist = opti_ensemble.coefficients_list
-    opti_ensemble.plot()
+    ensemble_plot(opti_ensemble.coefficients_list, opti_ensemble.distribution, opti_ensemble.inclusion)

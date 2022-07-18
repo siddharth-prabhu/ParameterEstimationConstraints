@@ -2,16 +2,19 @@ from dataclasses import dataclass, field
 from Base import Base
 from typing import Optional, Callable
 from functools import reduce
-from collections import defaultdict
+from collections import defaultdict, namedtuple
 from tqdm import tqdm
 
 from FunctionalLibrary import FunctionalLibrary
+from utils import ensemble_plot
+
 import numpy as np
 import casadi as cd
 import sympy as smp
 import pickle
 from sklearn.metrics import mean_squared_error
 from scipy.integrate import odeint
+import matplotlib.pyplot as plt
 
 
 @dataclass(frozen = False)
@@ -20,9 +23,8 @@ class Optimizer_casadi(Base):
     library : FunctionalLibrary = field(default = FunctionalLibrary())
     input_features : list[str] = field(default_factory=list)
     alpha : float = field(default = 0.0)
-    alpha_mass : float = field(default = 1)
-    num_points : float = field(default = 0.5) # 50 % of total data
-    threshold : float = field(default = 0.01)
+    num_points : float = field(default = 0.5)
+    threshold : float = field(default = 0.01) # inverse of z_critical for boostrapping
     max_iter : int = field(default = 20)
     solver_dict : dict = field(default_factory = dict)
 
@@ -30,7 +32,9 @@ class Optimizer_casadi(Base):
     adict : dict = field(default_factory = dict, init = False)
 
     def __post_init__(self):
-        pass
+        assert self.alpha >= 0 and self.threshold >= 0, "Regularization and thresholding parameter should be greater than equal to zero"
+        assert self.max_iter >= 1, "Max iteration should be greater than zero"
+        assert 0 <= self.num_points <= 1, "percent points to be considered as constraints should be in [0, 1]"
 
     def set_params(self, **kwargs):
         # sets the values of various parameter for gridsearchcv
@@ -43,9 +47,6 @@ class Optimizer_casadi(Base):
         
         if "optimizer__max_iter" in kwargs:
             setattr(self, "max_iter", kwargs["optimizer__max_iter"])
-        
-        if "optimizer__alpha_mass" in kwargs:
-            setattr(self, "alpha_mass", kwargs["optimizer__alpha_mass"])
 
         if "optimize__num_points" in kwargs:
             setattr(self, "num_points", kwargs["optimize__num_points"])
@@ -112,36 +113,24 @@ class Optimizer_casadi(Base):
         data_points = self.adict["library_dimension"][0][0]
         rng = np.random.default_rng(seed)
         chosen_rows = rng.choice(range(data_points), int(self.num_points*data_points), replace = False)
-        
-        # adding mass balance constraints 
-        state_mass = constraints_dict.get("mass_balance", None)
-        if state_mass and len(state_mass) != self._n_states:
-            raise ValueError("Masses are not equal to the states")
-        
-        if state_mass :
-            asum = 0
-            for i in range(self._n_states):
-                asum += state_mass[i]*cd.mtimes(self.adict["library"][i][chosen_rows], self.adict["coefficients"][i])
-
-            self.adict["cost"] += self.alpha_mass*cd.sum1(asum)**2/len(chosen_rows)
 
         # adding formation constraints
-        state_formation = constraints_dict["formation"]
+        state_formation = constraints_dict.get("formation", None) if constraints_dict else None
         if state_formation:
             for state in state_formation :
                 asum = 0
                 for j in range(self._functional_library):
-                    asum += self.adict["stoichiometry"][state, j]*self.adict["reactions"][j]
+                    asum += self.adict["stoichiometry"][state, j]*self.adict["reactions"][j][chosen_rows]
 
                 self.opti.subject_to(asum >= 0)
 
         # adding consumption constraints
-        state_consumption = constraints_dict["consumption"]
+        state_consumption = constraints_dict.get("consumption", None) if constraints_dict else None
         if state_consumption :
             for state in state_consumption:
                 asum = 0
                 for j in range(self._functional_library):
-                    asum += self.adict["stoichiometry"][state, j]*self.adict["reactions"][j]
+                    asum += self.adict["stoichiometry"][state, j]*self.adict["reactions"][j][chosen_rows]
                 
                 self.opti.subject_to(asum <= 0)
 
@@ -160,11 +149,12 @@ class Optimizer_casadi(Base):
         self._create_mask()
         coefficients_prev = [np.ones(dimension[-1]) for dimension in self.adict["library_dimension"]]
         self.adict["iterations"] = 0
+        self.adict["iterations_ensemble"] = ensemble_iterations
         library = self.adict["library"]
 
         for _ in tqdm(range(self.max_iter)):
             
-            self.adict["coefficients_ensemble"] = defaultdict(list)
+            self.adict["coefficients_casadi_ensemble"] = defaultdict(list)
 
             for _ in range(ensemble_iterations):
                 # create problem from scratch since casadi cannot run the same problem once optimized
@@ -180,34 +170,37 @@ class Optimizer_casadi(Base):
 
                 # list[np.ndarray]. additional layer of np.array and flatten to account for singular value, which casadi outputs as float
                 for key, coeff in enumerate(self.adict["coefficients"]):
-                    self.adict["coefficients_ensemble"][key].append(np.array([self.adict["solution"].value(coeff)]).flatten())
+                    self.adict["coefficients_casadi_ensemble"][key].append(np.array([self.adict["solution"].value(coeff)]).flatten())
             
             # calculating mean and standard deviation 
             _mean, _deviation = [], []
-            for key in self.adict["coefficients_ensemble"].keys():
-                stack = np.vstack(self.adict["coefficients_ensemble"][key])
+            for key in self.adict["coefficients_casadi_ensemble"].keys():
+                stack = np.vstack(self.adict["coefficients_casadi_ensemble"][key])
                 _mean.append(np.mean(stack, axis = 0))
                 _deviation.append(np.std(stack, axis = 0))
+                self.adict["coefficients_casadi_ensemble"][key] = stack
             
-            # list of boolean arrays
-            if ensemble_iterations > 1:
-                coefficients_next = [np.abs(deviation/(mean + 1e-10)) < self.threshold for mean, deviation in zip(_mean, _deviation)]
-            else:
-                coefficients_next = [np.abs(self.adict["coefficients_ensemble"][key]) > self.threshold for key in self.adict["coefficients_ensemble"].keys()]
+            # do not threshold last iteration. Helpful for visualizing after every iteration
+            if self.max_iter - self.adict["iterations"] - 1:
+                # list of boolean arrays
+                if ensemble_iterations > 1:
+                    coefficients_next = [np.abs(deviation/(mean + 1e-10)) < self.threshold for mean, deviation in zip(_mean, _deviation)]
+                else:
+                    coefficients_next = [np.abs(self.adict["coefficients_casadi_ensemble"][key]) > self.threshold for key in self.adict["coefficients_casadi_ensemble"].keys()]
 
-            if np.array([np.allclose(coeff_prev, coeff_next) for coeff_prev, coeff_next in zip(coefficients_prev, coefficients_next)]).all():
-                print("Solution converged")
-                break
+                if np.array([np.allclose(coeff_prev, coeff_next) for coeff_prev, coeff_next in zip(coefficients_prev, coefficients_next)]).all():
+                    print("Solution converged")
+                    break
 
-            if not sum([np.sum(coeff) for coeff in coefficients_next]):
-                raise RuntimeError("Thresholding parameter eliminated all the coefficients")
-                break
-            
-            coefficients_prev = coefficients_next # boolean array
+                if not sum([np.sum(coeff) for coeff in coefficients_next]):
+                    raise RuntimeError("Thresholding parameter eliminated all the coefficients")
+                    break
+                
+                coefficients_prev = coefficients_next # boolean array
 
-            # update mask of small terms to zero
-            self.adict["mask"] = [mask*coefficients_next[i] for i, mask in enumerate(self.adict["mask"])]
-            self.adict["iterations"] += 1
+                # update mask of small terms to zero
+                self.adict["mask"] = [mask*coefficients_next[i] for i, mask in enumerate(self.adict["mask"])]
+                self.adict["iterations"] += 1
         
         return _mean, _deviation
 
@@ -248,18 +241,66 @@ class Optimizer_casadi(Base):
         self.adict["coefficients_dict"] = []
         
         for i in range(self._n_states):
-            expr = 0
-            for j in range(self._functional_library):
-                zero_filter = filter(lambda x : x[0], zip(self.adict["coefficients_value"][j], self.adict["library_labels"][j]))
-                expr += self.adict["stoichiometry"][i, j]*smp.sympify(reduce(lambda accum, value : 
-                        accum + value[0] + " * " + value[1].replace(" ", "*") + " + ",   
-                        map(lambda x : ("{:.2f}".format(x[0]), x[1]), zero_filter), "+").rstrip(" +")) 
-            # replaced whitespaces with multiplication element wise library labels
-            # simpify already handles xor operation
-
+            expr = self._create_sympy_expressions(self.adict["coefficients_value"], self.adict["library_labels"], self.adict["stoichiometry"][i])
             self.adict["equations"].append(str(expr))
             self.adict["coefficients_dict"].append(expr.as_coefficients_dict())
             self.adict["equations_lambdify"].append(smp.lambdify(self.input_symbols, expr))
+
+    @staticmethod
+    def _create_sympy_expressions(coefficients_value : list[np.ndarray], library_labels : list[list[str]], stoichiometry_row : np.ndarray) -> str:
+        expr = 0
+        for j in range(len(library_labels)):
+            zero_filter = filter(lambda x : x[0], zip(coefficients_value[j], library_labels[j]))
+            expr += stoichiometry_row[j]*smp.sympify(reduce(lambda accum, value : 
+                    accum + value[0] + " * " + value[1].replace(" ", "*") + " + ",   
+                    map(lambda x : ("{:.2f}".format(x[0]), x[1]), zero_filter), "+").rstrip(" +")) 
+        # replaced whitespaces with multiplication element wise library labels
+        # simpify already handles xor operation
+        return expr
+
+
+    def plot_distribution(self, reaction_coefficients : bool = False) -> None:
+        # plotting the distribution of casadi coefficients
+        # create list of dictionary with symbols as keys and arrays as values
+        _coefficients_list = [defaultdict(list) for _ in range(self._functional_library)]
+        
+        distribution = namedtuple("distribution", ("mean", "deviation"))
+        _coefficients_distribution = [defaultdict(distribution) for _ in range(self._functional_library)]
+
+        inclusion = namedtuple("probability", "inclusion")
+        _coefficients_inclusion = [defaultdict(inclusion) for _ in range(self._functional_library)]
+
+        for i, key in enumerate(self.adict["coefficients_casadi_ensemble"].keys()):
+            for j, _symbol in enumerate(self.adict["library_labels"][i]):
+                _coefficients_list[i][_symbol].extend(self.adict["coefficients_casadi_ensemble"][key][:, j])
+                _coefficients_distribution[i][_symbol] = distribution(self.adict["coefficients_value"][i][j], self.adict["coefficients_deviation"][i][j])
+                _coefficients_inclusion[i][_symbol] = inclusion(np.count_nonzero(_coefficients_list[i][_symbol])/self.adict["iterations_ensemble"])
+
+        ensemble_plot(_coefficients_list, _coefficients_distribution, _coefficients_inclusion)
+
+        if reaction_coefficients:
+            # plotting the distribution of reaction equations
+            _reaction_coefficients_list = [defaultdict(list) for _ in range(self._n_states)]
+            _reaction_coefficients_distribution = [defaultdict(distribution) for _ in range(self._n_states)]
+            _reaction_coefficients_inclusion = [defaultdict(inclusion) for _ in range(self._n_states)]
+
+            for i in range(self._n_states):
+                # for each iteration
+                for j in range(self.adict["iterations_ensemble"]):
+                    _expr = self._create_sympy_expressions([self.adict["coefficients_casadi_ensemble"][key][j] for key in range(self._functional_library)], 
+                                                            self.adict["library_labels"], self.adict["stoichiometry"][i])
+                    _expr_coeff = _expr.as_coefficients_dict()
+
+                    for key, value in _expr_coeff.items():
+                        _reaction_coefficients_list[i][key].append(value)
+
+                for key, value in _reaction_coefficients_list[i].items():
+                    value.extend([0]*(self.adict["iterations_ensemble"] - len(value)))
+                    # wrap into numpy array as it does not know how to deal with sympy objects
+                    _reaction_coefficients_distribution[i][key] = distribution(np.mean(np.array(value, dtype=float)), np.std(np.array(value, dtype = float)))
+                    _reaction_coefficients_inclusion[i][key] = inclusion(np.count_nonzero(np.array(value, dtype = float))/self.adict["iterations_ensemble"])
+
+            ensemble_plot(_reaction_coefficients_list, _reaction_coefficients_distribution, _reaction_coefficients_inclusion)
 
 
     def _casadi_model(self, x : np.ndarray, t : np.ndarray):
@@ -334,8 +375,10 @@ if __name__ == "__main__":
     model = DynamicModel("kinetic_kosir", np.arange(0, 5, 0.01), n_expt = 15)
     features = model.integrate() # list of features
     target = model.approx_derivative # list of target value
+    features = model.add_noise(0, 0.2)
+    target = model.approx_derivative
 
-    opti = Optimizer_casadi(FunctionalLibrary(2) , alpha = 0.0, threshold = 0.1, solver_dict={"ipopt.print_level" : 0, "print_time":0})
+    opti = Optimizer_casadi(FunctionalLibrary(2) , alpha = 0.0, threshold = 0.5, solver_dict={"ipopt.print_level" : 0, "print_time":0}, max_iter = 1)
     stoichiometry = np.array([-1, -1, -1, 0, 0, 2, 1, 0, 0, 0, 1, 0]).reshape(4, -1)
     include_column = [[0, 2], [0, 3], [0, 1]]
     # stoichiometry = None
@@ -343,13 +386,15 @@ if __name__ == "__main__":
     #         constraints_dict = {})
     opti.fit(features, target, include_column = [], 
                 constraints_dict= {"mass_balance" : [], "formation" : [], "consumption" : [], 
-                                    "stoichiometry" : 0}, ensemble_iterations = 1000)
+                                    "stoichiometry" : stoichiometry}, ensemble_iterations = 1, seed = 10)
     opti.print()
     print("--"*20)
     print("mean squared error :", opti.score(features, target))
-    print(opti.complexity)
+    print("model complexity", opti.complexity)
     print("Total number of iterations", opti.adict["iterations"])
     print("--"*20)
-    print("coefficients value", opti.adict["coefficients_value"])
+    # print("coefficients ensemble", opti.adict["coefficients_casadi_ensemble"])
     print("--"*20)
-    print("coefficients standard deviation", opti.adict["coefficients_deviation"])
+    # print("coefficients standard deviation", opti.adict["coefficients_deviation"])
+    print("--"*20)
+    print("coefficients list of dict", opti.plot_distribution(reaction_coefficients = False))

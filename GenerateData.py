@@ -46,7 +46,7 @@ class DynamicModel():
     
     @staticmethod
     def kinetic_kosir(x, t, *args) -> np.ndarray:
-
+        # A -> 2B; A <-> C; A <-> D
         return np.array([-15.693*x[0] + 5.743*x[2] + 1.534*x[3],
             8.566*x[0],
             1.191*x[0] - 5.743*x[2],
