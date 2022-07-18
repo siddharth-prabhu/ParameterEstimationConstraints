@@ -100,7 +100,7 @@ class HyperOpt():
                     result_dict["r2_test_sim"].append(self.model.score(_integration_test, self.X_clean_test, metric = r2_score, predict = False))
                     result_dict["r2_train_sim"].append(self.model.score(_integration_train, self.X_clean_train, metric = r2_score, predict = False))                    
 
-                    result_dict["AIC"].append(np.log((result_dict["MSE_test_sim"][-1] + result_dict["MSE_test_pred"][-1])/2) + result_dict["complexity"][-1])
+                    result_dict["AIC"].append(2*np.log((result_dict["MSE_test_sim"][-1] + result_dict["MSE_test_pred"][-1])/2) + result_dict["complexity"][-1])
 
         # sort value and remove duplicates
         self.df_result = pd.DataFrame(result_dict)
