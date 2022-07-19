@@ -145,6 +145,7 @@ class Optimizer_casadi(Base):
         # assert solution.success, "The solution did not converge" add assertion 
         return solution
 
+    # function for multiprocessing
     def _stlsq_solve_optimization(self, library : list, target : np.ndarray, constraints_dict : dict, permutations : list, seed : int) -> list:
         # create problem from scratch since casadi cannot run the same problem once optimized
         # steps should follow a sequence 
@@ -177,12 +178,11 @@ class Optimizer_casadi(Base):
             with ProcessPoolExecutor(max_workers = max_workers) as executor:
                 permutations = [rng.choice(range(self.adict["library_dimension"][0][0]), self.adict["library_dimension"][0][0], replace = (ensemble_iterations > 1))
                                 for _ in range(self.adict["iterations_ensemble"])]
-                aloop = executor.map(self._stlsq_solve_optimization, repeat(library), repeat(target), repeat(constraints_dict), 
-                                    permutations, repeat(seed))
+                _coefficients_ensemble = list(executor.map(self._stlsq_solve_optimization, repeat(library), repeat(target), repeat(constraints_dict), 
+                                    permutations, repeat(seed)))
 
-                for alist in aloop:
-                    for key in range(self._functional_library):
-                        self.adict["coefficients_casadi_ensemble"][key].append(alist[key])
+                for key in range(self._functional_library):
+                    self.adict["coefficients_casadi_ensemble"][key].extend(alist[key] for alist in _coefficients_ensemble)
 
             # calculating mean and standard deviation 
             _mean, _deviation = [], []
@@ -390,7 +390,8 @@ if __name__ == "__main__":
     features = model.add_noise(0, 0.2)
     target = model.approx_derivative
 
-    opti = Optimizer_casadi(FunctionalLibrary(2) , alpha = 0.0, threshold = 0.5, solver_dict={"ipopt.print_level" : 0, "print_time":0}, max_iter = 2)
+    opti = Optimizer_casadi(FunctionalLibrary(2) , alpha = 0.0, threshold = 0.5, solver_dict={"ipopt.print_level" : 0, "print_time":0, "ipopt.sb" : "yes"}, 
+                            max_iter = 2)
     stoichiometry = np.array([-1, -1, -1, 0, 0, 2, 1, 0, 0, 0, 1, 0]).reshape(4, -1)
     include_column = [[0, 2], [0, 3], [0, 1]]
     # stoichiometry = None
