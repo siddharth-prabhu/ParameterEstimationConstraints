@@ -4,6 +4,8 @@ from typing import Optional, Callable
 from functools import reduce
 from collections import defaultdict, namedtuple
 from tqdm import tqdm
+from concurrent.futures import ProcessPoolExecutor
+from itertools import repeat
 
 from FunctionalLibrary import FunctionalLibrary
 from utils import ensemble_plot
@@ -143,35 +145,45 @@ class Optimizer_casadi(Base):
         # assert solution.success, "The solution did not converge" add assertion 
         return solution
 
-    def _stlsq(self, target : np.ndarray, constraints_dict : dict, ensemble_iterations : int, seed : int = 12345) -> list[np.ndarray]:
+    def _stlsq_solve_optimization(self, library : list, target : np.ndarray, constraints_dict : dict, permutations : list, seed : int) -> list:
+        # create problem from scratch since casadi cannot run the same problem once optimized
+        # steps should follow a sequence 
+        # dont replace if there is only one ensemble iteration. Dataset rows are constant for all reactions 
+        self._create_decision_variables()  
+        self.adict["library"] = [value[permutations]*self.adict["mask"][ind] for ind, value in enumerate(library)]
+        self._update_cost(target[permutations])
+        if constraints_dict:
+            self._add_constraints(constraints_dict, seed)
+        _solution = self._minimize(self.solver_dict) # no need to save for every iteration
+
+        # list[np.ndarray]. additional layer of np.array and flatten to account for singular value, which casadi outputs as float
+        return [np.array([_solution.value(coeff)]).flatten() for coeff in self.adict["coefficients"]]
+
+
+    def _stlsq(self, target : np.ndarray, constraints_dict : dict, ensemble_iterations : int, max_workers : Optional[int] = None,
+                seed : int = 12345) -> list[np.ndarray]:
         
         rng = np.random.default_rng(seed)
         self._create_mask()
         coefficients_prev = [np.ones(dimension[-1]) for dimension in self.adict["library_dimension"]]
         self.adict["iterations"] = 0
         self.adict["iterations_ensemble"] = ensemble_iterations
-        library = self.adict["library"]
+        library = self.adict["library"] # use the original library terms
 
         for _ in tqdm(range(self.max_iter)):
             
             self.adict["coefficients_casadi_ensemble"] = defaultdict(list)
 
-            for _ in range(ensemble_iterations):
-                # create problem from scratch since casadi cannot run the same problem once optimized
-                # steps should follow a sequence 
-                # dont replace if there is only one ensemble iteration. Dataset rows are constant for all reactions 
-                permutations = rng.choice(range(self.adict["library_dimension"][0][0]), self.adict["library_dimension"][0][0], replace = (ensemble_iterations > 1))
-                self._create_decision_variables()  
-                self.adict["library"] = [value[permutations]*self.adict["mask"][ind] for ind, value in enumerate(library)]
-                self._update_cost(target[permutations])
-                if constraints_dict:
-                    self._add_constraints(constraints_dict, seed)
-                self.adict["solution"] = self._minimize(self.solver_dict) # no need to save for every iteration
+            with ProcessPoolExecutor(max_workers = max_workers) as executor:
+                permutations = [rng.choice(range(self.adict["library_dimension"][0][0]), self.adict["library_dimension"][0][0], replace = (ensemble_iterations > 1))
+                                for _ in range(self.adict["iterations_ensemble"])]
+                aloop = executor.map(self._stlsq_solve_optimization, repeat(library), repeat(target), repeat(constraints_dict), 
+                                    permutations, repeat(seed))
 
-                # list[np.ndarray]. additional layer of np.array and flatten to account for singular value, which casadi outputs as float
-                for key, coeff in enumerate(self.adict["coefficients"]):
-                    self.adict["coefficients_casadi_ensemble"][key].append(np.array([self.adict["solution"].value(coeff)]).flatten())
-            
+                for alist in aloop:
+                    for key in range(self._functional_library):
+                        self.adict["coefficients_casadi_ensemble"][key].append(alist[key])
+
             # calculating mean and standard deviation 
             _mean, _deviation = [], []
             for key in self.adict["coefficients_casadi_ensemble"].keys():
@@ -205,7 +217,7 @@ class Optimizer_casadi(Base):
         return _mean, _deviation
 
     def fit(self, features : list[np.ndarray], target : list[np.ndarray], include_column : Optional[list[np.ndarray]] = None, 
-            constraints_dict : dict = {} , ensemble_iterations : int = 1, seed : int = 12345) -> None:
+            constraints_dict : dict = {} , ensemble_iterations : int = 1, max_workers : Optional[int] = None, seed : int = 12345) -> None:
 
         # constraints_dict should be of the form {"mass_balance" : [], "consumption" : [], "formation" : [], 
         #                                           "stoichiometry" : np.ndarray}
@@ -230,7 +242,7 @@ class Optimizer_casadi(Base):
         features, target = np.vstack(features), np.vstack(target)
         self._generate_library(features, include_column)
 
-        self.adict["coefficients_value"], self.adict["coefficients_deviation"] = self._stlsq(target, constraints_dict, ensemble_iterations, seed)
+        self.adict["coefficients_value"], self.adict["coefficients_deviation"] = self._stlsq(target, constraints_dict, ensemble_iterations, max_workers, seed)
         self._create_equations()
 
     # need to consider when stoichiometric in present
@@ -378,7 +390,7 @@ if __name__ == "__main__":
     features = model.add_noise(0, 0.2)
     target = model.approx_derivative
 
-    opti = Optimizer_casadi(FunctionalLibrary(2) , alpha = 0.0, threshold = 0.5, solver_dict={"ipopt.print_level" : 0, "print_time":0}, max_iter = 1)
+    opti = Optimizer_casadi(FunctionalLibrary(2) , alpha = 0.0, threshold = 0.5, solver_dict={"ipopt.print_level" : 0, "print_time":0}, max_iter = 2)
     stoichiometry = np.array([-1, -1, -1, 0, 0, 2, 1, 0, 0, 0, 1, 0]).reshape(4, -1)
     include_column = [[0, 2], [0, 3], [0, 1]]
     # stoichiometry = None
@@ -386,15 +398,15 @@ if __name__ == "__main__":
     #         constraints_dict = {})
     opti.fit(features, target, include_column = [], 
                 constraints_dict= {"mass_balance" : [], "formation" : [], "consumption" : [], 
-                                    "stoichiometry" : stoichiometry}, ensemble_iterations = 1, seed = 10)
+                                    "stoichiometry" : stoichiometry}, ensemble_iterations = 1000, seed = 10, max_workers = None)
     opti.print()
     print("--"*20)
     print("mean squared error :", opti.score(features, target))
     print("model complexity", opti.complexity)
     print("Total number of iterations", opti.adict["iterations"])
     print("--"*20)
-    # print("coefficients ensemble", opti.adict["coefficients_casadi_ensemble"])
+    print("coefficients ensemble", opti.adict["coefficients_casadi_ensemble"])
     print("--"*20)
-    # print("coefficients standard deviation", opti.adict["coefficients_deviation"])
+    print("coefficients standard deviation", opti.adict["coefficients_deviation"])
     print("--"*20)
-    print("coefficients list of dict", opti.plot_distribution(reaction_coefficients = False))
+    opti.plot_distribution(reaction_coefficients = False)
