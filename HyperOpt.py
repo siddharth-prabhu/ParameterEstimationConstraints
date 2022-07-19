@@ -57,17 +57,20 @@ class HyperOpt():
         # using multiple cores to run gridsearch
         with ProcessPoolExecutor(max_workers = max_workers) as executor:
             
-            _gridsearch_results = executor.map(self._gridsearch_optimization, combinations, itertools.repeat(parameter_key))
+            _gridsearch_results = executor.map(self._gridsearch_optimization, combinations, itertools.repeat(parameter_key), itertools.repeat(max_workers))
             individual_results_keyword = ["complexity", "MSE_test_pred", "MSE_train_pred", "r2_test_pred", "r2_train_pred", "MSE_test_sim", "MSE_train_sim", 
                     "r2_test_sim", "r2_train_sim", "AIC"]
             
             for individual_results in _gridsearch_results:    
-                param_dict = individual_results[0]
-                for key, value in param_dict.items():
-                    result_dict[key].append(value)
-                
-                for key, value in zip(individual_results_keyword, individual_results[1:]):
-                    result_dict[key].append(value)
+                if individual_results :
+                    param_dict = individual_results[0]
+                    for key, value in param_dict.items():
+                        result_dict[key].append(value)
+                    
+                    for key, value in zip(individual_results_keyword, individual_results[1:]):
+                        result_dict[key].append(value)
+                else:
+                    continue
 
         # sort value and remove duplicates
         self.df_result = pd.DataFrame(result_dict)
@@ -79,7 +82,7 @@ class HyperOpt():
             print(self.df_result.head(10))
 
     # function to be looped for multiprocessing
-    def _gridsearch_optimization(self, combination, parameter_key):
+    def _gridsearch_optimization(self, combination, parameter_key, max_workers):
         
         param_dict = dict(zip(parameter_key, combination)) # combine the key value part and fit the model
         self.model.set_params(**param_dict)
@@ -87,8 +90,8 @@ class HyperOpt():
         print("Running for parameter combination", param_dict)
 
         try:
-            self.model.fit(self.X_train, self.y_train, include_column = self.include_column,
-                        constraints_dict = self.constraints_dict, ensemble_iterations = self.ensemble_iterations, seed = self.seed)  
+            self.model.fit(self.X_train, self.y_train, include_column = self.include_column, constraints_dict = self.constraints_dict, 
+                        ensemble_iterations = self.ensemble_iterations, max_workers = max_workers, seed = self.seed)  
 
         except Exception as error:
             print(error)
@@ -186,10 +189,10 @@ if __name__ == "__main__":
     target = model_actual.approx_derivative
     # model_actual.plot(features[-1], t_span, "Time", "Concentration", ["A", "B", "C", "D"])
 
-    params = {"optimizer__threshold": [0.01], 
+    params = {"optimizer__threshold": [0.5], 
         "optimizer__alpha": [0], 
         "feature_library__include_bias" : [False],
-        "feature_library__degree": [1, 2]}
+        "feature_library__degree": [3, 4]}
 
     opt = HyperOpt(features, target, features, target, t_span, params, Optimizer_casadi(solver_dict = {"ipopt.print_level" : 0, "print_time":0, "ipopt.sb" : "yes"}), 
                     include_column = [[0, 1], [0, 2], [0, 3]], constraints_dict = {"mass_balance" : [], "consumption" : [], "formation" : [], 
