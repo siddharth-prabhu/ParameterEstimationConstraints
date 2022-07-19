@@ -62,7 +62,7 @@ class HyperOpt():
                     "r2_test_sim", "r2_train_sim", "AIC"]
             
             for individual_results in _gridsearch_results:    
-                if individual_results :
+                if individual_results : # exceptions in optimizer returns None
                     param_dict = individual_results[0]
                     for key, value in param_dict.items():
                         result_dict[key].append(value)
