@@ -9,6 +9,8 @@ import itertools
 from dataclasses import dataclass, field
 from collections import defaultdict
 from functools import reduce
+from concurrent.futures import ProcessPoolExecutor
+from typing import Optional
 
 from bokeh.plotting import figure, output_file, save
 from bokeh.models import ColumnDataSource
@@ -43,7 +45,7 @@ class HyperOpt():
     
         return X[:sample], y[:sample], X_clean[:sample], y_clean[:sample], t, X[sample:], y[sample:], X_clean[sample:], y_clean[sample:], t
 
-    def gridsearch(self, display_results : bool = True):
+    def gridsearch(self, max_workers : Optional[int] = None, display_results : bool = True):
 
         (self.X_train, self.y_train, self.X_clean_train, self.y_clean_train, self.t_train, self.X_test, self.y_test, 
         self.X_clean_test, self.y_clean_test, self.t_test) = self.train_test_split(self.X, self.y, self.X_clean, self.y_clean, self.t)
@@ -52,55 +54,23 @@ class HyperOpt():
         parameter_key, parameter_value = zip(*self.parameters.items()) # separate the key value pairs
         combinations = itertools.product(*parameter_value)
 
-        for combination in combinations: # use combinations of values
-            param_dict = dict(zip(parameter_key, combination)) # combine the key value pari and fit the model
-            self.model.set_params(**param_dict)
-            print("--"*100)
-            print("Running for parameter combination", param_dict)
-            try:
-                # self.model.fit(self.X_train, x_dot = self.y_train, quiet = True, multiple_trajectories = True) # for sindy
-                self.model.fit(self.X_train, self.y_train, include_column = self.include_column,
-                            constraints_dict = self.constraints_dict, ensemble_iterations = self.ensemble_iterations, seed = self.seed)  
-                            # {"mass_balance" : [56.108, 28.05, 56.106, 56.108], "consumption" : [], "formation" : []}) # for casadi
-
-            except Exception as error:
-                print(error)
-                print("Failed for the parameter combination", param_dict)
-                print("--"*100)
-                continue
-            else:
-                result_dict["complexity"].append(self.model.complexity)
-
-                # calculate error
-                for key in param_dict:
-                    result_dict[key].append(param_dict[key])
-
-                result_dict["MSE_test_pred"].append(self.model.score(self.X_clean_test, self.y_clean_test, metric = mean_squared_error))
-                result_dict["MSE_train_pred"].append(self.model.score(self.X_clean_train, self.y_clean_train, metric = mean_squared_error))
-
-                result_dict["r2_test_pred"].append(self.model.score(self.X_clean_test, self.y_clean_test, metric = r2_score))
-                result_dict["r2_train_pred"].append(self.model.score(self.X_clean_train, self.y_clean_train, metric = r2_score))
-
-                # add integration results
-                try :
-                    _integration_test = self.model.simulate(self.X_clean_test, self.t_test)
-                    _integration_train = self.model.simulate(self.X_clean_train, self.t_train)
-                except:
-                    result_dict["MSE_test_sim"].append(np.nan)
-                    result_dict["MSE_train_sim"].append(np.nan)
-
-                    result_dict["r2_test_sim"].append(np.nan)
-                    result_dict["r2_train_sim"].append(np.nan)
-
-                    result_dict["AIC"].append(np.nan)
+        # using multiple cores to run gridsearch
+        with ProcessPoolExecutor(max_workers = max_workers) as executor:
+            
+            _gridsearch_results = executor.map(self._gridsearch_optimization, combinations, itertools.repeat(parameter_key), itertools.repeat(max_workers))
+            individual_results_keyword = ["complexity", "MSE_test_pred", "MSE_train_pred", "r2_test_pred", "r2_train_pred", "MSE_test_sim", "MSE_train_sim", 
+                    "r2_test_sim", "r2_train_sim", "AIC"]
+            
+            for individual_results in _gridsearch_results:    
+                if individual_results : # exceptions in optimizer returns None
+                    param_dict = individual_results[0]
+                    for key, value in param_dict.items():
+                        result_dict[key].append(value)
+                    
+                    for key, value in zip(individual_results_keyword, individual_results[1:]):
+                        result_dict[key].append(value)
                 else:
-                    result_dict["MSE_test_sim"].append(self.model.score(_integration_test, self.X_clean_test, metric=mean_squared_error, predict = False))
-                    result_dict["MSE_train_sim"].append(self.model.score(_integration_train, self.X_clean_train, metric = mean_squared_error, predict = False))
-
-                    result_dict["r2_test_sim"].append(self.model.score(_integration_test, self.X_clean_test, metric = r2_score, predict = False))
-                    result_dict["r2_train_sim"].append(self.model.score(_integration_train, self.X_clean_train, metric = r2_score, predict = False))                    
-
-                    result_dict["AIC"].append(2*np.log((result_dict["MSE_test_sim"][-1] + result_dict["MSE_test_pred"][-1])/2) + result_dict["complexity"][-1])
+                    continue
 
         # sort value and remove duplicates
         self.df_result = pd.DataFrame(result_dict)
@@ -111,6 +81,53 @@ class HyperOpt():
         if display_results:
             print(self.df_result.head(10))
 
+    # function to be looped for multiprocessing
+    def _gridsearch_optimization(self, combination, parameter_key, max_workers):
+        
+        param_dict = dict(zip(parameter_key, combination)) # combine the key value part and fit the model
+        self.model.set_params(**param_dict)
+        print("--"*100)
+        print("Running for parameter combination", param_dict)
+
+        try:
+            self.model.fit(self.X_train, self.y_train, include_column = self.include_column, constraints_dict = self.constraints_dict, 
+                        ensemble_iterations = self.ensemble_iterations, max_workers = max_workers, seed = self.seed)  
+
+        except Exception as error:
+            print(error)
+            print("Failed for the parameter combination", param_dict)
+            print("--"*100)
+        else :
+            complexity = self.model.complexity
+            MSE_test_pred = self.model.score(self.X_clean_test, self.y_clean_test, metric = mean_squared_error)
+            MSE_train_pred = self.model.score(self.X_clean_train, self.y_clean_train, metric = mean_squared_error)
+
+            r2_test_pred = self.model.score(self.X_clean_test, self.y_clean_test, metric = r2_score)
+            r2_train_pred = self.model.score(self.X_clean_train, self.y_clean_train, metric = r2_score)
+
+            # add integration results
+            try :
+                _integration_test = self.model.simulate(self.X_clean_test, self.t_test)
+                _integration_train = self.model.simulate(self.X_clean_train, self.t_train)
+            
+            except:
+                MSE_test_sim = np.nan
+                MSE_train_sim = np.nan
+                r2_test_sim = np.nan
+                r2_train_sim = np.nan
+                AIC = np.nan
+
+            else:
+                MSE_test_sim = self.model.score(_integration_test, self.X_clean_test, metric=mean_squared_error, predict = False)
+                MSE_train_sim = self.model.score(_integration_train, self.X_clean_train, metric = mean_squared_error, predict = False)
+
+                r2_test_sim = self.model.score(_integration_test, self.X_clean_test, metric = r2_score, predict = False)
+                r2_train_sim = self.model.score(_integration_train, self.X_clean_train, metric = r2_score, predict = False)                   
+
+                AIC = 2*np.log((MSE_test_sim + MSE_test_pred)/2) + complexity
+            
+            return [param_dict, complexity, MSE_test_pred, MSE_train_pred, r2_test_pred, r2_train_pred, MSE_test_sim, MSE_train_sim, 
+                    r2_test_sim, r2_train_sim, AIC]
 
     @staticmethod
     def _bokeh_plot(fig : figure, x_label : str, y_label : str, title : str, height : int = 400, width : int = 700):
@@ -172,15 +189,15 @@ if __name__ == "__main__":
     target = model_actual.approx_derivative
     # model_actual.plot(features[-1], t_span, "Time", "Concentration", ["A", "B", "C", "D"])
 
-    params = {"optimizer__threshold": [0.01, 0.1], 
-        "optimizer__alpha": [0, 0.01], 
-        "feature_library__include_bias" : [False, True],
-        "feature_library__degree": [1, 2]}
+    params = {"optimizer__threshold": [0.5], 
+        "optimizer__alpha": [0], 
+        "feature_library__include_bias" : [False],
+        "feature_library__degree": [3, 4]}
 
-    opt = HyperOpt(features, target, features, target, t_span, params, Optimizer_casadi(solver_dict = {"ipopt.print_level" : 0, "print_time":0}), 
-                    include_column = [[0, 1], [0, 2], [0, 3]], constraints_dict = {"mass_balance" : [], "consumption" : [], "formation" : [3], 
+    opt = HyperOpt(features, target, features, target, t_span, params, Optimizer_casadi(solver_dict = {"ipopt.print_level" : 0, "print_time":0, "ipopt.sb" : "yes"}), 
+                    include_column = [[0, 1], [0, 2], [0, 3]], constraints_dict = {"mass_balance" : [], "consumption" : [], "formation" : [], 
                                 "stoichiometry" : np.array([-1, -1, -1, 1, 0, 0, 0, 1, 0, 0, 0, 2]).reshape(4, -1)})
-    opt.gridsearch()
-    opt.plot()
+    opt.gridsearch(max_workers = 2)
+    # opt.plot()
 
 
