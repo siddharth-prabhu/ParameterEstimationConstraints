@@ -169,23 +169,32 @@ class Optimizer_casadi(Base):
         coefficients_prev = [np.ones(dimension[-1]) for dimension in self.adict["library_dimension"]]
         self.adict["iterations"] = 0
         self.adict["iterations_ensemble"] = ensemble_iterations
+        self.adict["coefficients_iterations"] = []
+        # namedtuple to store distribution data at every iteration
+        distribution_iterations = namedtuple("distribution_iterations", ("mean", "standard_deviation", "variation_coefficient", "distribution"))
         library = self.adict["library"] # use the original library terms
 
         for _ in tqdm(range(self.max_iter)):
             
             self.adict["coefficients_casadi_ensemble"] = defaultdict(list)
-
-            with ProcessPoolExecutor(max_workers = max_workers) as executor:
-                permutations = [rng.choice(range(self.adict["library_dimension"][0][0]), self.adict["library_dimension"][0][0], replace = (ensemble_iterations > 1))
+            permutations = [rng.choice(range(self.adict["library_dimension"][0][0]), self.adict["library_dimension"][0][0], replace = (ensemble_iterations > 1))
                                 for _ in range(self.adict["iterations_ensemble"])]
-                _coefficients_ensemble = list(executor.map(self._stlsq_solve_optimization, repeat(library), repeat(target), repeat(constraints_dict), 
-                                    permutations, repeat(seed)))
+            
+            if max_workers: 
+                with ProcessPoolExecutor(max_workers = max_workers) as executor:    
+                    _coefficients_ensemble = list(executor.map(self._stlsq_solve_optimization, repeat(library), repeat(target), repeat(constraints_dict), 
+                                        permutations, repeat(seed)))
+
+                    for key in range(self._functional_library):
+                        self.adict["coefficients_casadi_ensemble"][key].extend(alist[key] for alist in _coefficients_ensemble)
+            else:
+                _coefficients_ensemble = [self._stlsq_solve_optimization(library, target, constraints_dict, permute, seed) for permute in permutations]
 
                 for key in range(self._functional_library):
                     self.adict["coefficients_casadi_ensemble"][key].extend(alist[key] for alist in _coefficients_ensemble)
 
             # calculating mean and standard deviation 
-            _mean, _deviation = [], []
+            _mean, _deviation, _iteration_dict = [], [], {}
             for key in self.adict["coefficients_casadi_ensemble"].keys():
                 stack = np.vstack(self.adict["coefficients_casadi_ensemble"][key])
                 _mean.append(np.mean(stack, axis = 0))
@@ -208,6 +217,9 @@ class Optimizer_casadi(Base):
                     raise RuntimeError("Thresholding parameter eliminated all the coefficients")
                     break
                 
+                # store values for every iteration
+                self.adict["coefficients_iterations"].append(distribution_iterations(_mean, _deviation, [np.abs(deviation)/(mean + 1e-10) for mean, deviation in zip(_mean, _deviation)], stack))
+
                 coefficients_prev = coefficients_next # boolean array
 
                 # update mask of small terms to zero
@@ -271,7 +283,7 @@ class Optimizer_casadi(Base):
         return expr
 
 
-    def plot_distribution(self, reaction_coefficients : bool = False) -> None:
+    def plot_distribution(self, reaction_coefficients : bool = False, coefficients_iterations : bool = False) -> None:
         # plotting the distribution of casadi coefficients
         # create list of dictionary with symbols as keys and arrays as values
         _coefficients_list = [defaultdict(list) for _ in range(self._functional_library)]
@@ -288,7 +300,7 @@ class Optimizer_casadi(Base):
                 _coefficients_distribution[i][_symbol] = distribution(self.adict["coefficients_value"][i][j], self.adict["coefficients_deviation"][i][j])
                 _coefficients_inclusion[i][_symbol] = inclusion(np.count_nonzero(_coefficients_list[i][_symbol])/self.adict["iterations_ensemble"])
 
-        ensemble_plot(_coefficients_list, _coefficients_distribution, _coefficients_inclusion)
+        # ensemble_plot(_coefficients_list, _coefficients_distribution, _coefficients_inclusion)
 
         if reaction_coefficients:
             # plotting the distribution of reaction equations
@@ -314,7 +326,33 @@ class Optimizer_casadi(Base):
 
             ensemble_plot(_reaction_coefficients_list, _reaction_coefficients_distribution, _reaction_coefficients_inclusion)
 
+        if coefficients_iterations :
+            
+            for key in range(self._functional_library):
+                fig, ax = plt.subplots(self.adict["iterations"], 3, figsize = (10, 4))
+                for i, _coefficients_iterations in enumerate(self.adict["coefficients_iterations"]):
+                    
+                    ax[i, 0].bar(self.adict["library_labels"][key], _coefficients_iterations.mean[key])
+                    ax[i, 1].bar(self.adict["library_labels"][key], _coefficients_iterations.standard_deviation[key])
+                    ax[i, 2].bar(self.adict["library_labels"][key], _coefficients_iterations.variation_coefficient[key])
+                    ax[i, 2].set(ylim = (-self.threshold, self.threshold))
 
+                    if i == 0:
+                        ax[i, 0].set(title = "Mean")
+                        ax[i, 1].set(title = "Sigma")
+                        ax[i, 2].set(title = "cv")
+                    
+                    if i != self.adict["iterations"] - 1 : 
+                        ax[i, 0].set(xticklabels = [])
+                        ax[i, 1].set(xticklabels = [])
+                        ax[i, 2].set( xticklabels = [])
+                    else:
+                        ax[i, 0].set_xticks(range(len(self.adict["library_labels"][key])), self.adict["library_labels"][key], rotation = 90)
+                        ax[i, 1].set_xticks(range(len(self.adict["library_labels"][key])), self.adict["library_labels"][key], rotation = 90)
+                        ax[i, 2].set_xticks(range(len(self.adict["library_labels"][key])), self.adict["library_labels"][key], rotation = 90)
+                        
+                plt.show()
+            
     def _casadi_model(self, x : np.ndarray, t : np.ndarray):
 
         return np.array([eqn(*x) for eqn in self.adict["equations_lambdify"]])
@@ -387,27 +425,25 @@ if __name__ == "__main__":
     model = DynamicModel("kinetic_kosir", np.arange(0, 5, 0.01), n_expt = 15)
     features = model.integrate() # list of features
     target = model.approx_derivative # list of target value
-    features = model.add_noise(0, 0.2)
+    features = model.add_noise(0, 0.0)
     target = model.approx_derivative
 
     opti = Optimizer_casadi(FunctionalLibrary(2) , alpha = 0.0, threshold = 0.5, solver_dict={"ipopt.print_level" : 0, "print_time":0, "ipopt.sb" : "yes"}, 
-                            max_iter = 2)
-    stoichiometry = np.array([-1, -1, -1, 0, 0, 2, 1, 0, 0, 0, 1, 0]).reshape(4, -1)
+                            max_iter = 20)
+    stoichiometry = np.array([-1, -1, -1, 0, 0, 2, 1, 0, 0, 0, 1, 0]).reshape(4, -1) # chemistry constraints
     include_column = [[0, 2], [0, 3], [0, 1]]
-    # stoichiometry = None
-    # opti.fit(features, target, include_column = [], 
-    #         constraints_dict = {})
+    stoichiometry =  np.array([1, 0, 0, 0, 1, 0, 0, 0, 1, -1, -0.5, -1]).reshape(4, -1) # mass balance constraints
+    stoichiometry = np.eye(4) # no constraints
+
     opti.fit(features, target, include_column = [], 
                 constraints_dict= {"mass_balance" : [], "formation" : [], "consumption" : [], 
-                                    "stoichiometry" : stoichiometry}, ensemble_iterations = 1000, seed = 10, max_workers = None)
+                                    "stoichiometry" : stoichiometry}, ensemble_iterations = 1000, seed = 10, max_workers = 0)
     opti.print()
     print("--"*20)
     print("mean squared error :", opti.score(features, target))
     print("model complexity", opti.complexity)
     print("Total number of iterations", opti.adict["iterations"])
     print("--"*20)
-    print("coefficients ensemble", opti.adict["coefficients_casadi_ensemble"])
+    # print("coefficients at each iteration", opti.adict["coefficients_iterations"])
     print("--"*20)
-    print("coefficients standard deviation", opti.adict["coefficients_deviation"])
-    print("--"*20)
-    opti.plot_distribution(reaction_coefficients = False)
+    opti.plot_distribution(reaction_coefficients = False, coefficients_iterations = True)
