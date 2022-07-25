@@ -179,18 +179,19 @@ class Optimizer_casadi(Base):
             permutations = [rng.choice(range(self.adict["library_dimension"][0][0]), self.adict["library_dimension"][0][0], replace = (ensemble_iterations > 1))
                                 for _ in range(self.adict["iterations_ensemble"])] 
             
-            if max_workers: 
+            if max_workers == 0: # Do not use multiprocessing.
+                _coefficients_ensemble = [self._stlsq_solve_optimization(library, target, constraints_dict, permute, seed) for permute in permutations]
+
+                for key in range(self._functional_library):
+                    self.adict["coefficients_casadi_ensemble"][key].extend(alist[key] for alist in _coefficients_ensemble)
+                    
+            else: # if none use all cores
                 with ProcessPoolExecutor(max_workers = max_workers) as executor:           
                     _coefficients_ensemble = list(executor.map(self._stlsq_solve_optimization, repeat(library), repeat(target), repeat(constraints_dict), 
                                         permutations, repeat(seed)))
 
                     for key in range(self._functional_library):
                         self.adict["coefficients_casadi_ensemble"][key].extend(alist[key] for alist in _coefficients_ensemble)
-            else:
-                _coefficients_ensemble = [self._stlsq_solve_optimization(library, target, constraints_dict, permute, seed) for permute in permutations]
-
-                for key in range(self._functional_library):
-                    self.adict["coefficients_casadi_ensemble"][key].extend(alist[key] for alist in _coefficients_ensemble)
 
             # calculating mean and standard deviation 
             _mean, _deviation = [], []
@@ -445,4 +446,4 @@ if __name__ == "__main__":
     print("--"*20)
     # print("coefficients at each iteration", opti.adict["coefficients_iterations"])
     print("--"*20)
-    opti.plot_distribution(reaction_coefficients = False, coefficients_iterations = True) 
+    opti.plot_distribution(reaction_coefficients = False, coefficients_iterations = True)
