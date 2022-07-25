@@ -2,7 +2,6 @@ import numpy as np
 
 import pandas as pd
 pd.set_option("display.max_columns", 20)
-import pysindy as ps
 from sklearn.metrics import mean_squared_error, r2_score
 
 import itertools
@@ -59,7 +58,7 @@ class HyperOpt():
             
             _gridsearch_results = executor.map(self._gridsearch_optimization, combinations, itertools.repeat(parameter_key), itertools.repeat(max_workers))
             individual_results_keyword = ["complexity", "MSE_test_pred", "MSE_train_pred", "r2_test_pred", "r2_train_pred", "MSE_test_sim", "MSE_train_sim", 
-                    "r2_test_sim", "r2_train_sim", "AIC"]
+                    "r2_test_sim", "r2_train_sim", "AIC", "iterations"]
             
             for individual_results in _gridsearch_results:    
                 if individual_results : # exceptions in optimizer returns None
@@ -127,7 +126,7 @@ class HyperOpt():
                 AIC = 2*np.log((MSE_test_sim + MSE_test_pred)/2) + complexity
             
             return [param_dict, complexity, MSE_test_pred, MSE_train_pred, r2_test_pred, r2_train_pred, MSE_test_sim, MSE_train_sim, 
-                    r2_test_sim, r2_train_sim, AIC]
+                    r2_test_sim, r2_train_sim, AIC, self.model.adict["iterations"]]
 
     @staticmethod
     def _bokeh_plot(fig : figure, x_label : str, y_label : str, title : str, height : int = 400, width : int = 700):
