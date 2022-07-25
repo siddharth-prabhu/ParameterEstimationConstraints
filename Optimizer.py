@@ -167,21 +167,20 @@ class Optimizer_casadi(Base):
         rng = np.random.default_rng(seed)
         self._create_mask()
         coefficients_prev = [np.ones(dimension[-1]) for dimension in self.adict["library_dimension"]]
+        # data structures compatible with multiprocessing : list, dict 
         self.adict["iterations"] = 0
         self.adict["iterations_ensemble"] = ensemble_iterations
-        self.adict["coefficients_iterations"] = []
-        # namedtuple to store distribution data at every iteration
-        distribution_iterations = namedtuple("distribution_iterations", ("mean", "standard_deviation", "variation_coefficient", "distribution"))
+        self.adict["coefficients_iterations"] : list[dict] = []
         library = self.adict["library"] # use the original library terms
 
         for _ in tqdm(range(self.max_iter)):
             
             self.adict["coefficients_casadi_ensemble"] = defaultdict(list)
             permutations = [rng.choice(range(self.adict["library_dimension"][0][0]), self.adict["library_dimension"][0][0], replace = (ensemble_iterations > 1))
-                                for _ in range(self.adict["iterations_ensemble"])]
+                                for _ in range(self.adict["iterations_ensemble"])] 
             
             if max_workers: 
-                with ProcessPoolExecutor(max_workers = max_workers) as executor:    
+                with ProcessPoolExecutor(max_workers = max_workers) as executor:           
                     _coefficients_ensemble = list(executor.map(self._stlsq_solve_optimization, repeat(library), repeat(target), repeat(constraints_dict), 
                                         permutations, repeat(seed)))
 
@@ -194,7 +193,7 @@ class Optimizer_casadi(Base):
                     self.adict["coefficients_casadi_ensemble"][key].extend(alist[key] for alist in _coefficients_ensemble)
 
             # calculating mean and standard deviation 
-            _mean, _deviation, _iteration_dict = [], [], {}
+            _mean, _deviation = [], []
             for key in self.adict["coefficients_casadi_ensemble"].keys():
                 stack = np.vstack(self.adict["coefficients_casadi_ensemble"][key])
                 _mean.append(np.mean(stack, axis = 0))
@@ -218,7 +217,8 @@ class Optimizer_casadi(Base):
                     break
                 
                 # store values for every iteration
-                self.adict["coefficients_iterations"].append(distribution_iterations(_mean, _deviation, [np.abs(deviation)/(mean + 1e-10) for mean, deviation in zip(_mean, _deviation)], stack))
+                self.adict["coefficients_iterations"].append({"mean" : _mean, "standard_deviation" : _deviation, 
+                                        "variation_coefficient" : [np.abs(deviation)/(mean + 1e-10) for mean, deviation in zip(_mean, _deviation)], "distribution" : stack})
 
                 coefficients_prev = coefficients_next # boolean array
 
@@ -231,7 +231,7 @@ class Optimizer_casadi(Base):
     def fit(self, features : list[np.ndarray], target : list[np.ndarray], include_column : Optional[list[np.ndarray]] = None, 
             constraints_dict : dict = {} , ensemble_iterations : int = 1, max_workers : Optional[int] = None, seed : int = 12345) -> None:
 
-        # constraints_dict should be of the form {"mass_balance" : [], "consumption" : [], "formation" : [], 
+        # constraints_dict should be of the form {"consumption" : [], "formation" : [], 
         #                                           "stoichiometry" : np.ndarray}
         self._flag_fit = True
         self._n_states = np.shape(features)[-1]
@@ -332,9 +332,9 @@ class Optimizer_casadi(Base):
                 fig, ax = plt.subplots(self.adict["iterations"], 3, figsize = (10, 4))
                 for i, _coefficients_iterations in enumerate(self.adict["coefficients_iterations"]):
                     
-                    ax[i, 0].bar(self.adict["library_labels"][key], _coefficients_iterations.mean[key])
-                    ax[i, 1].bar(self.adict["library_labels"][key], _coefficients_iterations.standard_deviation[key])
-                    ax[i, 2].bar(self.adict["library_labels"][key], _coefficients_iterations.variation_coefficient[key])
+                    ax[i, 0].bar(self.adict["library_labels"][key], _coefficients_iterations["mean"][key])
+                    ax[i, 1].bar(self.adict["library_labels"][key], _coefficients_iterations["standard_deviation"][key])
+                    ax[i, 2].bar(self.adict["library_labels"][key], _coefficients_iterations["variation_coefficient"][key])
                     ax[i, 2].set(ylim = (-self.threshold, self.threshold))
 
                     if i == 0:
@@ -437,7 +437,7 @@ if __name__ == "__main__":
 
     opti.fit(features, target, include_column = [], 
                 constraints_dict= {"mass_balance" : [], "formation" : [], "consumption" : [], 
-                                    "stoichiometry" : stoichiometry}, ensemble_iterations = 1000, seed = 10, max_workers = 0)
+                                    "stoichiometry" : stoichiometry}, ensemble_iterations = 2, seed = 10, max_workers = 2)
     opti.print()
     print("--"*20)
     print("mean squared error :", opti.score(features, target))
