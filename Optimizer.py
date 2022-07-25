@@ -204,7 +204,7 @@ class Optimizer_casadi(Base):
             if self.max_iter - self.adict["iterations"] - 1:
                 # list of boolean arrays
                 if ensemble_iterations > 1:
-                    coefficients_next = [np.abs(deviation/(mean + 1e-10)) < self.threshold for mean, deviation in zip(_mean, _deviation)]
+                    coefficients_next = [np.abs(mean/(deviation + 1e-15)) > self.threshold for mean, deviation in zip(_mean, _deviation)]
                 else:
                     coefficients_next = [np.abs(self.adict["coefficients_casadi_ensemble"][key]) > self.threshold for key in self.adict["coefficients_casadi_ensemble"].keys()]
 
@@ -214,11 +214,10 @@ class Optimizer_casadi(Base):
 
                 if not sum([np.sum(coeff) for coeff in coefficients_next]):
                     raise RuntimeError("Thresholding parameter eliminated all the coefficients")
-                    break
                 
                 # store values for every iteration
                 self.adict["coefficients_iterations"].append({"mean" : _mean, "standard_deviation" : _deviation, 
-                                        "variation_coefficient" : [np.abs(deviation)/(mean + 1e-10) for mean, deviation in zip(_mean, _deviation)], "distribution" : stack})
+                                        "z_critical" : [np.abs(mean)/(deviation + 1e-15) for mean, deviation in zip(_mean, _deviation)], "distribution" : stack})
 
                 coefficients_prev = coefficients_next # boolean array
 
@@ -334,13 +333,13 @@ class Optimizer_casadi(Base):
                     
                     ax[i, 0].bar(self.adict["library_labels"][key], _coefficients_iterations["mean"][key])
                     ax[i, 1].bar(self.adict["library_labels"][key], _coefficients_iterations["standard_deviation"][key])
-                    ax[i, 2].bar(self.adict["library_labels"][key], _coefficients_iterations["variation_coefficient"][key])
+                    ax[i, 2].bar(self.adict["library_labels"][key], _coefficients_iterations["z_critical"][key])
                     ax[i, 2].set(ylim = (-self.threshold, self.threshold))
 
                     if i == 0:
                         ax[i, 0].set(title = "Mean")
                         ax[i, 1].set(title = "Sigma")
-                        ax[i, 2].set(title = "cv")
+                        ax[i, 2].set(title = "z_critical")
                     
                     if i != self.adict["iterations"] - 1 : 
                         ax[i, 0].set(xticklabels = [])
@@ -428,16 +427,16 @@ if __name__ == "__main__":
     features = model.add_noise(0, 0.0)
     target = model.approx_derivative
 
-    opti = Optimizer_casadi(FunctionalLibrary(2) , alpha = 0.0, threshold = 0.5, solver_dict={"ipopt.print_level" : 0, "print_time":0, "ipopt.sb" : "yes"}, 
+    opti = Optimizer_casadi(FunctionalLibrary(2) , alpha = 0.0, threshold = 2, solver_dict={"ipopt.print_level" : 0, "print_time":0, "ipopt.sb" : "yes"}, 
                             max_iter = 20)
     stoichiometry = np.array([-1, -1, -1, 0, 0, 2, 1, 0, 0, 0, 1, 0]).reshape(4, -1) # chemistry constraints
     include_column = [[0, 2], [0, 3], [0, 1]]
     stoichiometry =  np.array([1, 0, 0, 0, 1, 0, 0, 0, 1, -1, -0.5, -1]).reshape(4, -1) # mass balance constraints
-    stoichiometry = np.eye(4) # no constraints
+    # stoichiometry = np.eye(4) # no constraints
 
     opti.fit(features, target, include_column = [], 
                 constraints_dict= {"mass_balance" : [], "formation" : [], "consumption" : [], 
-                                    "stoichiometry" : stoichiometry}, ensemble_iterations = 2, seed = 10, max_workers = 2)
+                                    "stoichiometry" : stoichiometry}, ensemble_iterations = 1000, seed = 10, max_workers = 2)
     opti.print()
     print("--"*20)
     print("mean squared error :", opti.score(features, target))
@@ -446,4 +445,4 @@ if __name__ == "__main__":
     print("--"*20)
     # print("coefficients at each iteration", opti.adict["coefficients_iterations"])
     print("--"*20)
-    opti.plot_distribution(reaction_coefficients = False, coefficients_iterations = True)
+    opti.plot_distribution(reaction_coefficients = False, coefficients_iterations = True) 
