@@ -201,30 +201,28 @@ class Optimizer_casadi(Base):
                 _deviation.append(np.std(stack, axis = 0))
                 self.adict["coefficients_casadi_ensemble"][key] = stack
             
-            # do not threshold last iteration. Helpful for visualizing after every iteration
-            if self.max_iter - self.adict["iterations"] - 1:
-                # list of boolean arrays
-                if ensemble_iterations > 1:
-                    coefficients_next = [np.abs(mean/(deviation + 1e-15)) > self.threshold for mean, deviation in zip(_mean, _deviation)]
-                else:
-                    coefficients_next = [np.abs(self.adict["coefficients_casadi_ensemble"][key]) > self.threshold for key in self.adict["coefficients_casadi_ensemble"].keys()]
+            # list of boolean arrays
+            if ensemble_iterations > 1:
+                coefficients_next = [np.abs(mean/(deviation + 1e-15)) > self.threshold for mean, deviation in zip(_mean, _deviation)]
+            else:
+                coefficients_next = [np.abs(self.adict["coefficients_casadi_ensemble"][key]) > self.threshold for key in self.adict["coefficients_casadi_ensemble"].keys()]
 
-                if np.array([np.allclose(coeff_prev, coeff_next) for coeff_prev, coeff_next in zip(coefficients_prev, coefficients_next)]).all():
-                    print("Solution converged")
-                    break
+            if np.array([np.allclose(coeff_prev, coeff_next) for coeff_prev, coeff_next in zip(coefficients_prev, coefficients_next)]).all():
+                print("Solution converged")
+                break
 
-                if not sum([np.sum(coeff) for coeff in coefficients_next]):
-                    raise RuntimeError("Thresholding parameter eliminated all the coefficients")
-                
-                # store values for every iteration
-                self.adict["coefficients_iterations"].append({"mean" : _mean, "standard_deviation" : _deviation, 
-                                        "z_critical" : [np.abs(mean)/(deviation + 1e-15) for mean, deviation in zip(_mean, _deviation)], "distribution" : stack})
+            if not sum([np.sum(coeff) for coeff in coefficients_next]):
+                raise RuntimeError("Thresholding parameter eliminated all the coefficients")
+            
+            # store values for every iteration
+            self.adict["coefficients_iterations"].append({"mean" : _mean, "standard_deviation" : _deviation, 
+                                    "z_critical" : [np.abs(mean)/(deviation + 1e-15) for mean, deviation in zip(_mean, _deviation)], "distribution" : stack})
 
-                coefficients_prev = coefficients_next # boolean array
+            coefficients_prev = coefficients_next # boolean array
 
-                # update mask of small terms to zero
-                self.adict["mask"] = [mask*coefficients_next[i] for i, mask in enumerate(self.adict["mask"])]
-                self.adict["iterations"] += 1
+            # update mask of small terms to zero
+            self.adict["mask"] = [mask*coefficients_next[i] for i, mask in enumerate(self.adict["mask"])]
+            self.adict["iterations"] += 1
         
         return _mean, _deviation
 

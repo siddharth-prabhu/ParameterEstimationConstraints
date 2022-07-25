@@ -59,7 +59,7 @@ if __name__ == "__main__":
         "feature_library__include_bias" : [False],
         "feature_library__degree": [1, 2]} # 1, 2, 3
 
-    ensemble_params = {"optimizer__threshold": [0.01, 0.1, 1, 10], 
+    ensemble_params = {"optimizer__threshold": [2, 1.25, 1.6], 
         "optimizer__alpha": [0], 
         "feature_library__include_bias" : [False],
         "feature_library__degree": [1, 2, 3]}
@@ -67,7 +67,7 @@ if __name__ == "__main__":
     adict = defaultdict(list)
     noise_level = [0.0, 0.1, 0.2]
     for noise in noise_level:
-        run_gridsearch(noise_level = noise, parameters = params, ensemble_iterations=1, max_workers = 3, seed = 10) 
+        run_gridsearch(15, 0.01, noise_level = noise, parameters = ensemble_params, ensemble_iterations=1000, max_workers = 3, seed = 10) 
 
     # plotting results
     for key in adict.keys():
