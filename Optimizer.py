@@ -434,7 +434,7 @@ if __name__ == "__main__":
     # stoichiometry = np.eye(4) # no constraints
 
     opti.fit(features, target, include_column = [], 
-                constraints_dict= {"mass_balance" : [], "formation" : [], "consumption" : [], 
+                constraints_dict= {"formation" : [], "consumption" : [], 
                                     "stoichiometry" : stoichiometry}, ensemble_iterations = 1000, seed = 10, max_workers = 2)
     opti.print()
     print("--"*20)
