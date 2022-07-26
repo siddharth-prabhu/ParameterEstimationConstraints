@@ -3,32 +3,32 @@ Lmod is automatically replacing "python/3.8.6" with "anaconda3/2020.07".
 
 Running simulation for 0.0 noise and without constraints
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Running for parameter combination {'optimizer__threshold': 0.5, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
+Running for parameter combination {'optimizer__threshold': 2, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
   0%|          | 0/20 [00:00<?, ?it/s]--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Running for parameter combination {'optimizer__threshold': 0.5, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
+Running for parameter combination {'optimizer__threshold': 2, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
   0%|          | 0/20 [00:00<?, ?it/s]--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Running for parameter combination {'optimizer__threshold': 0.6, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
+Running for parameter combination {'optimizer__threshold': 1.25, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Running for parameter combination {'optimizer__threshold': 0.5, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 3}
+Running for parameter combination {'optimizer__threshold': 2, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 3}
   0%|          | 0/20 [00:00<?, ?it/s]  0%|          | 0/20 [00:00<?, ?it/s]--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Running for parameter combination {'optimizer__threshold': 0.6, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
+Running for parameter combination {'optimizer__threshold': 1.25, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
   0%|          | 0/20 [00:00<?, ?it/s]--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Running for parameter combination {'optimizer__threshold': 0.8, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 3}
---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Running for parameter combination {'optimizer__threshold': 0.8, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
+Running for parameter combination {'optimizer__threshold': 1.6, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
   0%|          | 0/20 [00:00<?, ?it/s]--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Running for parameter combination {'optimizer__threshold': 0.6, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 3}
-  0%|          | 0/20 [00:00<?, ?it/s]  0%|          | 0/20 [00:00<?, ?it/s]--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Running for parameter combination {'optimizer__threshold': 0.8, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
-  0%|          | 0/20 [00:00<?, ?it/s]  5%|▌         | 1/20 [00:46<14:46, 46.66s/it]  5%|▌         | 1/20 [00:48<15:25, 48.69s/it]  5%|▌         | 1/20 [00:51<16:09, 51.05s/it] 10%|█         | 2/20 [01:53<17:26, 58.12s/it] 10%|█         | 2/20 [01:53<17:37, 58.77s/it] 10%|█         | 2/20 [01:57<18:04, 60.25s/it]  5%|▌         | 1/20 [02:06<39:59, 126.31s/it]  5%|▌         | 1/20 [02:09<41:02, 129.59s/it]  5%|▌         | 1/20 [02:10<41:24, 130.78s/it] 10%|█         | 2/20 [02:56<26:24, 88.04s/it]
- 15%|█▌        | 3/20 [02:58<17:18, 61.09s/it] 10%|█         | 2/20 [02:58<26:45, 89.20s/it]
- 15%|█▌        | 3/20 [03:52<21:59, 77.61s/it]
- 10%|█         | 2/20 [04:40<42:40, 142.23s/it] 10%|█         | 2/20 [04:45<43:41, 145.63s/it] 10%|█         | 2/20 [04:48<44:01, 146.72s/it]  5%|▌         | 1/20 [05:13<1:39:11, 313.26s/it]  5%|▌         | 1/20 [05:18<1:40:46, 318.22s/it]  5%|▌         | 1/20 [05:18<1:40:50, 318.47s/it] 15%|█▌        | 3/20 [06:30<36:07, 127.51s/it] 15%|█▌        | 3/20 [06:39<37:12, 131.34s/it] 15%|█▌        | 3/20 [06:44<37:30, 132.40s/it] 20%|██        | 4/20 [08:21<32:14, 120.90s/it] 20%|██        | 4/20 [08:43<33:59, 127.47s/it] 20%|██        | 4/20 [08:44<34:17, 128.62s/it] 25%|██▌       | 5/20 [10:04<28:35, 114.38s/it] 25%|██▌       | 5/20 [10:44<31:16, 125.12s/it] 25%|██▌       | 5/20 [10:46<31:33, 126.24s/it] 25%|██▌       | 5/20 [11:51<35:33, 142.25s/it]
- 10%|█         | 2/20 [12:02<1:50:35, 368.65s/it] 25%|██▌       | 5/20 [12:30<37:30, 150.05s/it]
- 25%|██▌       | 5/20 [12:34<37:44, 150.99s/it]
- 10%|█         | 2/20 [13:07<2:02:08, 407.13s/it] 10%|█         | 2/20 [13:11<2:03:08, 410.45s/it] 15%|█▌        | 3/20 [15:08<1:20:53, 285.52s/it] 15%|█▌        | 3/20 [17:49<1:39:09, 349.96s/it] 20%|██        | 4/20 [18:03<1:04:29, 241.84s/it] 15%|█▌        | 3/20 [18:04<1:41:06, 356.83s/it] 25%|██▌       | 5/20 [21:21<56:26, 225.80s/it]   20%|██        | 4/20 [21:50<1:21:50, 306.89s/it] 20%|██        | 4/20 [22:26<1:25:05, 319.09s/it] 30%|███       | 6/20 [24:40<50:33, 216.68s/it] 20%|██        | 4/20 [25:49<1:43:16, 387.30s/it]
- 20%|██        | 4/20 [26:31<1:46:07, 397.96s/it]
- 30%|███       | 6/20 [26:53<1:02:45, 268.97s/it]
+Running for parameter combination {'optimizer__threshold': 1.25, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 3}
+  0%|          | 0/20 [00:00<?, ?it/s]--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 1.6, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
+  0%|          | 0/20 [00:00<?, ?it/s]--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 1.6, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 3}
+  0%|          | 0/20 [00:00<?, ?it/s]  5%|▌         | 1/20 [00:47<14:54, 47.05s/it]  5%|▌         | 1/20 [00:47<15:00, 47.37s/it]  5%|▌         | 1/20 [00:48<15:22, 48.57s/it]  5%|▌         | 1/20 [01:51<35:11, 111.12s/it]
+  5%|▌         | 1/20 [01:53<35:59, 113.68s/it]
+ 10%|█         | 2/20 [01:55<17:53, 59.64s/it]  5%|▌         | 1/20 [02:07<40:26, 127.70s/it]  5%|▌         | 1/20 [02:07<40:31, 127.95s/it]  5%|▌         | 1/20 [02:09<40:54, 129.21s/it] 10%|█         | 2/20 [02:48<25:17, 84.30s/it]
+ 10%|█         | 2/20 [04:26<40:10, 133.92s/it] 10%|█         | 2/20 [04:29<40:47, 135.99s/it] 10%|█         | 2/20 [04:33<41:24, 138.01s/it]  5%|▌         | 1/20 [04:54<1:33:14, 294.47s/it]  5%|▌         | 1/20 [04:56<1:33:51, 296.39s/it]  5%|▌         | 1/20 [04:56<1:33:55, 296.62s/it] 15%|█▌        | 3/20 [06:24<36:00, 127.06s/it] 15%|█▌        | 3/20 [06:27<36:12, 127.77s/it] 15%|█▌        | 3/20 [06:32<36:40, 129.44s/it] 20%|██        | 4/20 [08:19<32:34, 122.18s/it] 15%|█▌        | 3/20 [08:20<47:17, 166.93s/it]
+ 20%|██        | 4/20 [08:36<33:55, 127.20s/it] 20%|██        | 4/20 [09:55<39:42, 148.88s/it]
+ 20%|██        | 4/20 [10:16<41:07, 154.21s/it]
+ 10%|█         | 2/20 [10:42<1:37:36, 325.37s/it] 10%|█         | 2/20 [11:38<1:47:32, 358.47s/it] 10%|█         | 2/20 [11:46<1:49:05, 363.63s/it] 15%|█▌        | 3/20 [13:55<1:15:10, 265.35s/it] 15%|█▌        | 3/20 [15:25<1:24:36, 298.61s/it] 15%|█▌        | 3/20 [16:21<1:31:36, 323.34s/it] 20%|██        | 4/20 [17:10<1:03:19, 237.49s/it] 15%|█▌        | 3/20 [19:19<1:49:32, 386.59s/it]
+ 25%|██▌       | 5/20 [20:05<53:41, 214.79s/it]   15%|█▌        | 3/20 [20:11<1:54:25, 403.85s/it]
+ 25%|██▌       | 5/20 [21:11<1:03:34, 254.28s/it]
 Solution converged
 Solution converged
 Solution converged
@@ -39,15 +39,15 @@ Solution converged
 Solution converged
 Solution converged
    optimizer__threshold  optimizer__alpha  feature_library__include_bias  \
-0                   0.6                 0                          False   
-1                   0.5                 0                          False   
-2                   0.5                 0                          False   
-3                   0.5                 0                          False   
-4                   0.6                 0                          False   
-5                   0.6                 0                          False   
-6                   0.8                 0                          False   
-7                   0.8                 0                          False   
-8                   0.8                 0                          False   
+0                  1.60                 0                          False   
+1                  2.00                 0                          False   
+2                  2.00                 0                          False   
+3                  2.00                 0                          False   
+4                  1.25                 0                          False   
+5                  1.60                 0                          False   
+6                  1.60                 0                          False   
+7                  1.25                 0                          False   
+8                  1.25                 0                          False   
 
    feature_library__degree  complexity  MSE_test_pred  MSE_train_pred  \
 0                        3           8       0.001085        0.001604   
@@ -55,8 +55,8 @@ Solution converged
 2                        2           8       0.001248        0.002022   
 3                        3           8       0.001248        0.002022   
 4                        1           8       0.001248        0.002022   
-5                        2           8       0.001248        0.002022   
-6                        1           8       0.001248        0.002022   
+5                        1           8       0.001248        0.002022   
+6                        2           8       0.001248        0.002022   
 7                        2           8       0.001279        0.002058   
 8                        3           8       0.001016        0.001408   
 
@@ -71,44 +71,44 @@ Solution converged
 7      0.999975       0.999977      0.001644       0.003797     0.999971   
 8      0.999981       0.999984      0.002232       0.005584     0.999966   
 
-   r2_train_sim       AIC  
-0      0.999993 -6.698205  
-1      0.999994 -5.733269  
-2      0.999994 -5.733269  
-3      0.999994 -5.733269  
-4      0.999994 -5.733269  
-5      0.999994 -5.733269  
-6      0.999994 -5.733269  
-7      0.999973 -5.056540  
-8      0.999968 -4.846032  
+   r2_train_sim       AIC  iterations  
+0      0.999993 -6.698205           3  
+1      0.999994 -5.733269           1  
+2      0.999994 -5.733269           4  
+3      0.999994 -5.733269           5  
+4      0.999994 -5.733269           2  
+5      0.999994 -5.733269           1  
+6      0.999994 -5.733269           3  
+7      0.999973 -5.056540           4  
+8      0.999968 -4.846032           3  
 Running simulation for 0.0 noise and with constraints
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Running for parameter combination {'optimizer__threshold': 0.5, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
+Running for parameter combination {'optimizer__threshold': 2, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
   0%|          | 0/20 [00:00<?, ?it/s]--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Running for parameter combination {'optimizer__threshold': 0.5, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
+Running for parameter combination {'optimizer__threshold': 2, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
   0%|          | 0/20 [00:00<?, ?it/s]--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Running for parameter combination {'optimizer__threshold': 0.6, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
+Running for parameter combination {'optimizer__threshold': 1.25, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
   0%|          | 0/20 [00:00<?, ?it/s]--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Running for parameter combination {'optimizer__threshold': 0.5, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 3}
+Running for parameter combination {'optimizer__threshold': 2, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 3}
   0%|          | 0/20 [00:00<?, ?it/s]--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Running for parameter combination {'optimizer__threshold': 0.6, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
+Running for parameter combination {'optimizer__threshold': 1.25, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
   0%|          | 0/20 [00:00<?, ?it/s]--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Running for parameter combination {'optimizer__threshold': 0.8, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
+Running for parameter combination {'optimizer__threshold': 1.6, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
   0%|          | 0/20 [00:00<?, ?it/s]--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Running for parameter combination {'optimizer__threshold': 0.6, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 3}
+Running for parameter combination {'optimizer__threshold': 1.25, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 3}
   0%|          | 0/20 [00:00<?, ?it/s]--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Running for parameter combination {'optimizer__threshold': 0.8, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
+Running for parameter combination {'optimizer__threshold': 1.6, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
   0%|          | 0/20 [00:00<?, ?it/s]--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Running for parameter combination {'optimizer__threshold': 0.8, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 3}
-  0%|          | 0/20 [00:00<?, ?it/s]  5%|▌         | 1/20 [00:44<14:00, 44.23s/it]  5%|▌         | 1/20 [00:44<14:12, 44.89s/it]  5%|▌         | 1/20 [00:50<16:01, 50.58s/it] 10%|█         | 2/20 [01:49<16:56, 56.48s/it] 10%|█         | 2/20 [01:52<17:24, 58.02s/it] 10%|█         | 2/20 [02:00<18:34, 61.93s/it]  5%|▌         | 1/20 [02:01<38:34, 121.84s/it]  5%|▌         | 1/20 [02:03<39:01, 123.23s/it]  5%|▌         | 1/20 [02:04<39:19, 124.20s/it] 10%|█         | 2/20 [02:54<26:08, 87.17s/it]
- 15%|█▌        | 3/20 [02:57<17:26, 61.57s/it] 10%|█         | 2/20 [03:02<27:23, 91.31s/it]
- 15%|█▌        | 3/20 [03:57<22:27, 79.28s/it]
- 10%|█         | 2/20 [04:32<41:36, 138.70s/it] 10%|█         | 2/20 [04:39<42:48, 142.67s/it] 10%|█         | 2/20 [04:58<46:10, 153.90s/it]  5%|▌         | 1/20 [05:26<1:43:31, 326.93s/it]  5%|▌         | 1/20 [05:27<1:43:39, 327.32s/it]  5%|▌         | 1/20 [05:27<1:43:42, 327.52s/it] 15%|█▌        | 3/20 [06:25<35:56, 126.87s/it] 15%|█▌        | 3/20 [06:29<36:15, 127.95s/it] 15%|█▌        | 3/20 [06:58<39:11, 138.31s/it] 20%|██        | 4/20 [08:23<32:54, 123.41s/it] 20%|██        | 4/20 [08:30<33:21, 125.11s/it] 20%|██        | 4/20 [09:06<35:47, 134.24s/it] 20%|██        | 4/20 [10:19<41:18, 154.90s/it]
- 20%|██        | 4/20 [10:31<42:07, 157.96s/it]
- 25%|██▌       | 5/20 [10:59<31:36, 126.45s/it] 25%|██▌       | 5/20 [12:25<37:17, 149.17s/it]
- 10%|█         | 2/20 [12:32<1:55:32, 385.12s/it] 10%|█         | 2/20 [14:26<2:15:38, 452.13s/it] 10%|█         | 2/20 [14:31<2:16:25, 454.75s/it] 15%|█▌        | 3/20 [16:04<1:26:42, 306.04s/it] 15%|█▌        | 3/20 [19:57<1:52:26, 396.85s/it] 20%|██        | 4/20 [19:58<1:13:58, 277.40s/it] 15%|█▌        | 3/20 [21:02<2:00:39, 425.87s/it] 25%|██▌       | 5/20 [23:44<1:04:45, 259.00s/it] 20%|██        | 4/20 [25:13<1:37:16, 364.76s/it] 20%|██        | 4/20 [25:56<1:39:42, 373.91s/it] 30%|███       | 6/20 [27:27<57:33, 246.65s/it]   25%|██▌       | 5/20 [30:26<1:24:03, 336.24s/it] 20%|██        | 4/20 [30:26<2:01:47, 456.75s/it]
- 35%|███▌      | 7/20 [30:42<49:47, 229.79s/it] 35%|███▌      | 7/20 [33:01<1:01:19, 283.02s/it]
- 30%|███       | 6/20 [33:09<1:04:42, 277.29s/it] 30%|███       | 6/20 [34:36<1:20:44, 346.01s/it]
+Running for parameter combination {'optimizer__threshold': 1.6, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 3}
+  0%|          | 0/20 [00:00<?, ?it/s]  5%|▌         | 1/20 [00:43<13:41, 43.22s/it]  5%|▌         | 1/20 [00:45<14:19, 45.24s/it]  5%|▌         | 1/20 [00:47<15:00, 47.38s/it]  5%|▌         | 1/20 [01:53<36:03, 113.85s/it]
+ 10%|█         | 2/20 [01:58<18:35, 61.98s/it]  5%|▌         | 1/20 [01:59<37:42, 119.09s/it]  5%|▌         | 1/20 [02:02<38:39, 122.06s/it]
+  5%|▌         | 1/20 [02:02<38:52, 122.77s/it]  5%|▌         | 1/20 [02:02<38:55, 122.90s/it] 10%|█         | 2/20 [02:49<25:24, 84.69s/it]
+ 10%|█         | 2/20 [04:18<39:20, 131.17s/it] 10%|█         | 2/20 [04:23<39:56, 133.15s/it] 10%|█         | 2/20 [04:35<42:07, 140.42s/it]  5%|▌         | 1/20 [05:10<1:38:21, 310.58s/it]  5%|▌         | 1/20 [05:11<1:38:46, 311.91s/it]  5%|▌         | 1/20 [05:12<1:38:53, 312.31s/it] 15%|█▌        | 3/20 [06:12<34:54, 123.18s/it] 15%|█▌        | 3/20 [06:16<35:12, 124.29s/it] 15%|█▌        | 3/20 [06:36<37:12, 131.34s/it] 15%|█▌        | 3/20 [08:13<46:35, 164.47s/it]
+ 15%|█▌        | 3/20 [08:14<46:43, 164.89s/it]
+ 20%|██        | 4/20 [08:36<33:50, 126.93s/it] 20%|██        | 4/20 [10:03<40:14, 150.89s/it]
+ 10%|█         | 2/20 [11:16<1:42:56, 343.15s/it] 10%|█         | 2/20 [13:19<2:04:27, 414.89s/it] 10%|█         | 2/20 [13:25<2:05:35, 418.65s/it] 15%|█▌        | 3/20 [14:53<1:20:56, 285.66s/it] 15%|█▌        | 3/20 [17:12<1:34:01, 331.88s/it] 20%|██        | 4/20 [18:41<1:10:05, 262.85s/it] 15%|█▌        | 3/20 [19:47<1:53:51, 401.85s/it] 15%|█▌        | 3/20 [21:01<1:59:10, 420.63s/it]
+ 25%|██▌       | 5/20 [21:58<59:43, 238.92s/it]   20%|██        | 4/20 [23:35<1:28:56, 333.52s/it] 30%|███       | 6/20 [24:22<48:14, 206.72s/it] 30%|███       | 6/20 [26:32<1:01:56, 265.50s/it]
+ 25%|██▌       | 5/20 [26:43<1:10:12, 280.85s/it] 25%|██▌       | 5/20 [28:12<1:24:37, 338.49s/it]
 Solution converged
 Solution converged
 Solution converged
@@ -119,15 +119,15 @@ Solution converged
 Solution converged
 Solution converged
    optimizer__threshold  optimizer__alpha  feature_library__include_bias  \
-0                   0.8                 0                          False   
-1                   0.5                 0                          False   
-2                   0.5                 0                          False   
-3                   0.5                 0                          False   
-4                   0.6                 0                          False   
-5                   0.6                 0                          False   
-6                   0.8                 0                          False   
-7                   0.6                 0                          False   
-8                   0.8                 0                          False   
+0                  1.25                 0                          False   
+1                  2.00                 0                          False   
+2                  2.00                 0                          False   
+3                  2.00                 0                          False   
+4                  1.25                 0                          False   
+5                  1.60                 0                          False   
+6                  1.60                 0                          False   
+7                  1.25                 0                          False   
+8                  1.60                 0                          False   
 
    feature_library__degree  complexity  MSE_test_pred  MSE_train_pred  \
 0                        2           8       0.001018        0.001455   
@@ -135,10 +135,10 @@ Solution converged
 2                        2           8       0.001201        0.001909   
 3                        3           8       0.001201        0.001909   
 4                        1           8       0.001201        0.001909   
-5                        2           8       0.001201        0.001909   
-6                        1           8       0.001201        0.001909   
-7                        3           9       0.000961        0.001275   
-8                        3           9       0.001334        0.002175   
+5                        1           8       0.001201        0.001909   
+6                        2           8       0.001201        0.001909   
+7                        3           9       0.001472        0.002552   
+8                        3           9       0.001098        0.001645   
 
    r2_test_pred  r2_train_pred  MSE_test_sim  MSE_train_sim  r2_test_sim  \
 0      0.999980       0.999983      0.000471       0.001151     0.999996   
@@ -148,47 +148,47 @@ Solution converged
 4      0.999977       0.999977      0.000653       0.001592     0.999994   
 5      0.999977       0.999977      0.000653       0.001592     0.999994   
 6      0.999977       0.999977      0.000653       0.001592     0.999994   
-7      0.999981       0.999985      0.000389       0.000950     0.999996   
-8      0.999972       0.999975      0.000150       0.000364     0.999992   
+7      0.999969       0.999970      0.000172       0.000418     0.999990   
+8      0.999979       0.999981      0.000550       0.001341     0.999995   
 
-   r2_train_sim       AIC  
-0      0.999997 -6.405413  
-1      0.999995 -5.967335  
-2      0.999995 -5.967335  
-3      0.999995 -5.967335  
-4      0.999995 -5.967335  
-5      0.999995 -5.967335  
-6      0.999995 -5.967335  
-7      0.999997 -5.601056  
-8      0.999991 -5.412888  
+   r2_train_sim       AIC  iterations  
+0      0.999997 -6.405413           4  
+1      0.999995 -5.967335           1  
+2      0.999995 -5.967335           3  
+3      0.999995 -5.967335           6  
+4      0.999995 -5.967335           2  
+5      0.999995 -5.967335           1  
+6      0.999995 -5.967335           3  
+7      0.999990 -5.207344           5  
+8      0.999996 -5.202053           3  
 Running simulation for 0.0 noise and with stoichiometry
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Running for parameter combination {'optimizer__threshold': 0.5, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
+Running for parameter combination {'optimizer__threshold': 2, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
   0%|          | 0/20 [00:00<?, ?it/s]--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Running for parameter combination {'optimizer__threshold': 0.5, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
+Running for parameter combination {'optimizer__threshold': 2, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
   0%|          | 0/20 [00:00<?, ?it/s]--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Running for parameter combination {'optimizer__threshold': 0.5, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 3}
+Running for parameter combination {'optimizer__threshold': 2, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 3}
   0%|          | 0/20 [00:00<?, ?it/s]--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Running for parameter combination {'optimizer__threshold': 0.6, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
+Running for parameter combination {'optimizer__threshold': 1.25, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
   0%|          | 0/20 [00:00<?, ?it/s]--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Running for parameter combination {'optimizer__threshold': 0.6, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
+Running for parameter combination {'optimizer__threshold': 1.25, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
   0%|          | 0/20 [00:00<?, ?it/s]--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Running for parameter combination {'optimizer__threshold': 0.8, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
+Running for parameter combination {'optimizer__threshold': 1.25, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 3}
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Running for parameter combination {'optimizer__threshold': 0.6, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 3}
+Running for parameter combination {'optimizer__threshold': 1.6, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
   0%|          | 0/20 [00:00<?, ?it/s]  0%|          | 0/20 [00:00<?, ?it/s]--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Running for parameter combination {'optimizer__threshold': 0.8, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
+Running for parameter combination {'optimizer__threshold': 1.6, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
   0%|          | 0/20 [00:00<?, ?it/s]--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Running for parameter combination {'optimizer__threshold': 0.8, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 3}
-  0%|          | 0/20 [00:00<?, ?it/s]  0%|          | 0/20 [00:31<?, ?it/s]
-  5%|▌         | 1/20 [00:34<10:49, 34.18s/it]  5%|▌         | 1/20 [00:36<11:32, 36.45s/it]  5%|▌         | 1/20 [00:43<13:52, 43.82s/it]  5%|▌         | 1/20 [00:43<13:52, 43.82s/it]  5%|▌         | 1/20 [00:44<13:56, 44.01s/it]  5%|▌         | 1/20 [01:12<22:48, 72.03s/it] 10%|█         | 2/20 [01:12<10:47, 35.99s/it]  5%|▌         | 1/20 [01:12<23:05, 72.92s/it] 10%|█         | 2/20 [01:13<11:14, 37.45s/it]  5%|▌         | 1/20 [01:16<24:07, 76.20s/it] 10%|█         | 2/20 [01:27<13:11, 43.99s/it] 10%|█         | 2/20 [01:31<13:54, 46.34s/it] 10%|█         | 2/20 [01:35<14:34, 48.59s/it] 10%|█         | 2/20 [01:42<15:22, 51.23s/it]
- 10%|█         | 2/20 [01:46<16:00, 53.35s/it]
- 15%|█▌        | 3/20 [02:19<13:25, 47.41s/it] 15%|█▌        | 3/20 [02:23<13:48, 48.76s/it] 10%|█         | 2/20 [02:24<21:36, 72.04s/it] 15%|█▌        | 3/20 [02:25<13:55, 49.17s/it] 10%|█         | 2/20 [02:26<21:59, 73.28s/it] 10%|█         | 2/20 [02:28<22:07, 73.76s/it] 15%|█▌        | 3/20 [03:01<17:07, 60.46s/it]
- 20%|██        | 4/20 [03:01<11:52, 44.55s/it] 15%|█▌        | 3/20 [03:05<17:32, 61.92s/it]
- 15%|█▌        | 3/20 [03:20<18:23, 64.91s/it] 15%|█▌        | 3/20 [03:24<18:50, 66.52s/it] 10%|█         | 2/20 [03:28<31:12, 104.02s/it]
- 25%|██▌       | 5/20 [03:32<09:52, 39.53s/it] 25%|██▌       | 5/20 [03:53<11:41, 46.74s/it]
- 20%|██        | 4/20 [03:56<14:18, 53.67s/it] 20%|██        | 4/20 [03:57<14:10, 53.15s/it] 20%|██        | 4/20 [04:20<17:20, 65.01s/it]
- 20%|██        | 4/20 [04:20<17:22, 65.15s/it]
+Running for parameter combination {'optimizer__threshold': 1.6, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 3}
+  0%|          | 0/20 [00:00<?, ?it/s]  0%|          | 0/20 [00:35<?, ?it/s]
+  5%|▌         | 1/20 [00:35<11:23, 35.98s/it]  5%|▌         | 1/20 [00:36<11:26, 36.14s/it]  5%|▌         | 1/20 [00:45<14:16, 45.07s/it]  5%|▌         | 1/20 [00:45<14:28, 45.69s/it]  5%|▌         | 1/20 [00:45<14:31, 45.85s/it]  5%|▌         | 1/20 [01:09<21:51, 69.01s/it]
+  5%|▌         | 1/20 [01:11<22:33, 71.26s/it]
+  5%|▌         | 1/20 [01:11<22:35, 71.34s/it]  5%|▌         | 1/20 [01:11<22:46, 71.95s/it]  5%|▌         | 1/20 [01:12<23:06, 72.97s/it] 10%|█         | 2/20 [01:36<14:33, 48.52s/it] 10%|█         | 2/20 [01:40<15:19, 51.09s/it] 10%|█         | 2/20 [01:41<15:28, 51.59s/it]  5%|▌         | 1/20 [02:13<42:23, 133.86s/it]
+ 10%|█         | 2/20 [02:15<20:00, 66.71s/it] 10%|█         | 2/20 [02:15<20:08, 67.11s/it] 10%|█         | 2/20 [02:21<21:11, 70.63s/it]
+ 10%|█         | 2/20 [02:23<21:33, 71.86s/it]
+ 10%|█         | 2/20 [02:26<21:56, 73.17s/it]
+ 15%|█▌        | 3/20 [02:43<13:55, 49.14s/it] 15%|█▌        | 3/20 [02:43<13:59, 49.39s/it] 15%|█▌        | 3/20 [03:05<17:33, 61.95s/it]
+ 15%|█▌        | 3/20 [03:07<17:41, 62.42s/it]
 Solution converged
 Solution converged
 Solution converged
@@ -199,81 +199,80 @@ Solution converged
 Solution converged
 Solution converged
    optimizer__threshold  optimizer__alpha  feature_library__include_bias  \
-0                   0.6                 0                          False   
-1                   0.8                 0                          False   
-2                   0.5                 0                          False   
-3                   0.5                 0                          False   
-4                   0.5                 0                          False   
-5                   0.6                 0                          False   
-6                   0.6                 0                          False   
-7                   0.8                 0                          False   
-8                   0.8                 0                          False   
+0                  1.25                 0                          False   
+1                  1.25                 0                          False   
+2                  1.60                 0                          False   
+3                  2.00                 0                          False   
+4                  2.00                 0                          False   
+5                  2.00                 0                          False   
+6                  1.25                 0                          False   
+7                  1.60                 0                          False   
+8                  1.60                 0                          False   
 
    feature_library__degree  complexity  MSE_test_pred  MSE_train_pred  \
-0                        3           8       0.001281        0.002092   
+0                        2           8       0.001118        0.001716   
 1                        3           8       0.001281        0.002092   
-2                        1           8       0.001483        0.002581   
-3                        2           8       0.001483        0.002581   
-4                        3           8       0.001483        0.002581   
-5                        1           8       0.001483        0.002581   
-6                        2           8       0.001483        0.002581   
+2                        3           8       0.001281        0.002092   
+3                        1           8       0.001483        0.002581   
+4                        2           8       0.001483        0.002581   
+5                        3           8       0.001483        0.002581   
+6                        1           8       0.001483        0.002581   
 7                        1           8       0.001483        0.002581   
-8                        2           8       0.001926        0.003633   
+8                        2           8       0.001483        0.002581   
 
    r2_test_pred  r2_train_pred  MSE_test_sim  MSE_train_sim  r2_test_sim  \
-0      0.999975       0.999976      0.000446       0.001090     0.999995   
+0      0.999978       0.999980      0.000156       0.000379     0.999992   
 1      0.999975       0.999976      0.000446       0.001090     0.999995   
-2      0.999971       0.999969      0.000488       0.001191     0.999994   
+2      0.999975       0.999976      0.000446       0.001090     0.999995   
 3      0.999971       0.999969      0.000488       0.001191     0.999994   
 4      0.999971       0.999969      0.000488       0.001191     0.999994   
 5      0.999971       0.999969      0.000488       0.001191     0.999994   
 6      0.999971       0.999969      0.000488       0.001191     0.999994   
 7      0.999971       0.999969      0.000488       0.001191     0.999994   
-8      0.999963       0.999957      0.000676       0.001647     0.999992   
+8      0.999971       0.999969      0.000488       0.001191     0.999994   
 
-   r2_train_sim       AIC  
-0      0.999995 -6.108411  
-1      0.999995 -6.108411  
-2      0.999995 -5.844755  
-3      0.999995 -5.844755  
-4      0.999995 -5.844755  
-5      0.999995 -5.844755  
-6      0.999995 -5.844755  
-7      0.999995 -5.844755  
-8      0.999993 -5.289661  
+   r2_train_sim       AIC  iterations  
+0      0.999992 -6.718499           2  
+1      0.999995 -6.108411           3  
+2      0.999995 -6.108411           1  
+3      0.999995 -5.844755           1  
+4      0.999995 -5.844755           2  
+5      0.999995 -5.844755           3  
+6      0.999995 -5.844755           0  
+7      0.999995 -5.844755           1  
+8      0.999995 -5.844755           2  
 Running simulation for 0.1 noise and without constraints
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Running for parameter combination {'optimizer__threshold': 0.5, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
+Running for parameter combination {'optimizer__threshold': 2, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
   0%|          | 0/20 [00:00<?, ?it/s]--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Running for parameter combination {'optimizer__threshold': 0.5, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
+Running for parameter combination {'optimizer__threshold': 2, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
   0%|          | 0/20 [00:00<?, ?it/s]--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Running for parameter combination {'optimizer__threshold': 0.6, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
+Running for parameter combination {'optimizer__threshold': 1.25, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
   0%|          | 0/20 [00:00<?, ?it/s]--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Running for parameter combination {'optimizer__threshold': 0.5, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 3}
+Running for parameter combination {'optimizer__threshold': 2, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 3}
   0%|          | 0/20 [00:00<?, ?it/s]--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Running for parameter combination {'optimizer__threshold': 0.6, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
+Running for parameter combination {'optimizer__threshold': 1.6, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
   0%|          | 0/20 [00:00<?, ?it/s]--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Running for parameter combination {'optimizer__threshold': 0.6, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 3}
+Running for parameter combination {'optimizer__threshold': 1.6, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
   0%|          | 0/20 [00:00<?, ?it/s]--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Running for parameter combination {'optimizer__threshold': 0.8, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
+Running for parameter combination {'optimizer__threshold': 1.25, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 3}
   0%|          | 0/20 [00:00<?, ?it/s]--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Running for parameter combination {'optimizer__threshold': 0.8, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
+Running for parameter combination {'optimizer__threshold': 1.25, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
   0%|          | 0/20 [00:00<?, ?it/s]--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Running for parameter combination {'optimizer__threshold': 0.8, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 3}
-  0%|          | 0/20 [00:00<?, ?it/s]  5%|▌         | 1/20 [00:45<14:33, 45.96s/it]  5%|▌         | 1/20 [00:48<15:15, 48.21s/it]  5%|▌         | 1/20 [00:48<15:18, 48.33s/it] 10%|█         | 2/20 [01:50<17:09, 57.17s/it] 10%|█         | 2/20 [01:55<17:44, 59.15s/it] 10%|█         | 2/20 [01:55<17:51, 59.52s/it]  5%|▌         | 1/20 [02:04<39:23, 124.41s/it]  5%|▌         | 1/20 [02:10<41:14, 130.24s/it]  5%|▌         | 1/20 [02:15<42:54, 135.51s/it] 10%|█         | 2/20 [02:51<25:45, 85.84s/it]
- 10%|█         | 2/20 [02:54<26:10, 87.25s/it]
- 10%|█         | 2/20 [02:54<26:14, 87.49s/it]
- 10%|█         | 2/20 [04:22<39:40, 132.27s/it] 10%|█         | 2/20 [04:31<41:00, 136.67s/it] 10%|█         | 2/20 [04:31<40:46, 135.92s/it]  5%|▌         | 1/20 [05:10<1:38:24, 310.78s/it]  5%|▌         | 1/20 [05:11<1:38:40, 311.60s/it]  5%|▌         | 1/20 [05:11<1:38:46, 311.91s/it]  5%|▌         | 1/20 [05:34<1:45:50, 334.25s/it]
-  5%|▌         | 1/20 [05:39<1:47:22, 339.06s/it]
- 15%|█▌        | 3/20 [05:58<32:48, 115.81s/it] 15%|█▌        | 3/20 [06:07<33:17, 117.47s/it] 15%|█▌        | 3/20 [06:10<33:52, 119.55s/it] 15%|█▌        | 3/20 [07:19<41:29, 146.47s/it]
- 15%|█▌        | 3/20 [07:26<42:11, 148.89s/it]
+Running for parameter combination {'optimizer__threshold': 1.6, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 3}
+  0%|          | 0/20 [00:00<?, ?it/s]  5%|▌         | 1/20 [00:47<15:05, 47.66s/it]  5%|▌         | 1/20 [00:48<15:18, 48.34s/it]  5%|▌         | 1/20 [00:49<15:47, 49.89s/it]  5%|▌         | 1/20 [01:57<37:10, 117.38s/it]
+  5%|▌         | 1/20 [01:58<37:36, 118.76s/it]
+  5%|▌         | 1/20 [02:00<38:07, 120.39s/it]
+  5%|▌         | 1/20 [02:08<40:47, 128.82s/it]  5%|▌         | 1/20 [02:09<40:53, 129.13s/it]  5%|▌         | 1/20 [02:09<41:01, 129.56s/it] 10%|█         | 2/20 [04:08<37:03, 123.52s/it] 10%|█         | 2/20 [04:15<38:17, 127.66s/it] 10%|█         | 2/20 [04:17<38:34, 128.58s/it]  5%|▌         | 1/20 [04:47<1:30:55, 287.14s/it]  5%|▌         | 1/20 [04:51<1:32:15, 291.36s/it]  5%|▌         | 1/20 [04:53<1:32:53, 293.37s/it]  5%|▌         | 1/20 [05:17<1:40:23, 317.04s/it]
+  5%|▌         | 1/20 [05:22<1:42:07, 322.49s/it]
+ 10%|█         | 2/20 [05:48<52:16, 174.25s/it]
+ 10%|█         | 2/20 [05:51<52:47, 176.00s/it]
 /home/scp220/.conda/envs/sindy/lib/python3.9/site-packages/scipy/integrate/_odepack_py.py:247: ODEintWarning: Excess work done on this call (perhaps wrong Dfun type). Run with full_output = 1 to get quantitative information.
   warnings.warn(warning_msg, ODEintWarning)
- 15%|█▌        | 3/20 [07:30<42:33, 150.19s/it]
- 10%|█         | 2/20 [08:17<1:11:12, 237.37s/it] 15%|█▌        | 3/20 [09:38<47:04, 166.12s/it]   15%|█▌        | 3/20 [11:00<1:02:20, 220.04s/it]
+ 10%|█         | 2/20 [05:54<53:06, 177.04s/it]
+ 10%|█         | 2/20 [07:01<59:07, 197.11s/it]   10%|█         | 2/20 [08:22<1:15:19, 251.07s/it]
 /home/scp220/.conda/envs/sindy/lib/python3.9/site-packages/scipy/integrate/_odepack_py.py:247: ODEintWarning: Excess work done on this call (perhaps wrong Dfun type). Run with full_output = 1 to get quantitative information.
   warnings.warn(warning_msg, ODEintWarning)
-Solution converged
 Solution converged
 Solution converged
 Error in Opti::value [OptiNode] at .../casadi/core/optistack.cpp:175:
@@ -281,82 +280,83 @@ Error in Opti::value [OptiNode] at .../casadi/core/optistack.cpp:175:
 This expression has symbols that do not appear in the constraints and objective:
   Opti decision variable 'opti0_x_2' of shape 34x1, defined at /share/ceph/hawk/srr516_093025/scp220/ParameterEstimationConstraints/Optimizer.py:84 in <listcomp>
     self.adict["coefficients"] = [self.opti.variable(dimension[-1], 1) for dimension in self.adict["library_dimension"]]
-Failed for the parameter combination {'optimizer__threshold': 0.5, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 3}
+Failed for the parameter combination {'optimizer__threshold': 2, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 3}
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Solution converged
 Error in Opti::value [OptiNode] at .../casadi/core/optistack.cpp:175:
 .../casadi/core/optistack_internal.cpp:1111: Assertion "symbol_active_[meta(e).count]" failed:
 This expression has symbols that do not appear in the constraints and objective:
   Opti decision variable 'opti0_x_3' of shape 34x1, defined at /share/ceph/hawk/srr516_093025/scp220/ParameterEstimationConstraints/Optimizer.py:84 in <listcomp>
     self.adict["coefficients"] = [self.opti.variable(dimension[-1], 1) for dimension in self.adict["library_dimension"]]
-Failed for the parameter combination {'optimizer__threshold': 0.6, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 3}
+Failed for the parameter combination {'optimizer__threshold': 1.6, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 3}
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 Solution converged
 Solution converged
 Solution converged
 Solution converged
    optimizer__threshold  optimizer__alpha  feature_library__include_bias  \
-0                   0.5                 0                          False   
-1                   0.6                 0                          False   
-2                   0.8                 0                          False   
-3                   0.5                 0                          False   
-4                   0.8                 0                          False   
-5                   0.6                 0                          False   
-6                   0.8                 0                          False   
+0                  2.00                 0                          False   
+1                  1.25                 0                          False   
+2                  1.60                 0                          False   
+3                  2.00                 0                          False   
+4                  1.25                 0                          False   
+5                  1.60                 0                          False   
+6                  1.25                 0                          False   
 
    feature_library__degree  complexity  MSE_test_pred  MSE_train_pred  \
-0                        1           9       0.069366        0.075362   
-1                        1           9       0.069366        0.075362   
-2                        1           9       0.069366        0.075362   
-3                        2          13       0.349227        0.855354   
-4                        2          19       0.676492        4.288897   
-5                        2          18       0.798237        4.295137   
-6                        3          17      14.886043       24.995297   
+0                        1           9       0.069256        0.075448   
+1                        1           9       0.069256        0.075448   
+2                        1           9       0.069256        0.075448   
+3                        2          13       0.356309        0.866614   
+4                        2          19       0.688775        4.322501   
+5                        2          18       0.810128        4.324536   
+6                        3          17      14.648180       24.939191   
 
    r2_test_pred  r2_train_pred  MSE_test_sim  MSE_train_sim  r2_test_sim  \
-0      0.998435       0.999102  5.806843e-03   9.261403e-03     0.999853   
-1      0.998435       0.999102  5.806843e-03   9.261403e-03     0.999853   
-2      0.998435       0.999102  5.806843e-03   9.261403e-03     0.999853   
-3      0.988041       0.987622  2.296612e+00   5.827689e+33     0.954006   
-4      0.985395       0.957047  5.468959e+00   2.607587e+01     0.900286   
-5      0.979696       0.956802  1.005618e+01   4.326770e+01     0.765548   
-6     -0.059495       0.756579  1.830237e+13   4.996246e+12    -0.400116   
+0      0.998436       0.999100  5.768434e-03   9.172542e-03     0.999853   
+1      0.998436       0.999100  5.768434e-03   9.172542e-03     0.999853   
+2      0.998436       0.999100  5.768434e-03   9.172542e-03     0.999853   
+3      0.987879       0.987458  2.113663e+00   1.408436e+33     0.957215   
+4      0.985115       0.956574  5.224739e+00   2.518375e+01     0.905112   
+5      0.979408       0.956403  9.746757e+00   4.224826e+01     0.774570   
+6     -0.014336       0.760865  1.209208e+13   4.334420e+13    -0.426188   
 
-   r2_train_sim        AIC  
-0      0.999927   2.437782  
-1      0.999927   2.437782  
-2      0.999927   2.437782  
-3      0.244648  13.559682  
-4      0.841829  21.245130  
-5      0.679586  21.382851  
-6     -0.551428  76.689809  
+   r2_train_sim        AIC  iterations  
+0      0.999926   2.433813           1  
+1      0.999926   2.433813           1  
+2      0.999926   2.433813           1  
+3      0.244637  13.422120           2  
+4      0.847568  21.168186           2  
+5      0.688569  21.327262           2  
+6     -0.539713  75.860849           2  
 Running simulation for 0.1 noise and with constraints
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Running for parameter combination {'optimizer__threshold': 0.5, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
+Running for parameter combination {'optimizer__threshold': 2, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
   0%|          | 0/20 [00:00<?, ?it/s]--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Running for parameter combination {'optimizer__threshold': 0.5, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
+Running for parameter combination {'optimizer__threshold': 2, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
   0%|          | 0/20 [00:00<?, ?it/s]--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Running for parameter combination {'optimizer__threshold': 0.6, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
+Running for parameter combination {'optimizer__threshold': 1.25, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 2, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 3}
+  0%|          | 0/20 [00:00<?, ?it/s]  0%|          | 0/20 [00:00<?, ?it/s]--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 1.25, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
   0%|          | 0/20 [00:00<?, ?it/s]--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Running for parameter combination {'optimizer__threshold': 0.5, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 3}
+Running for parameter combination {'optimizer__threshold': 1.6, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
   0%|          | 0/20 [00:00<?, ?it/s]--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Running for parameter combination {'optimizer__threshold': 0.6, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
-  0%|          | 0/20 [00:00<?, ?it/s]--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Running for parameter combination {'optimizer__threshold': 0.8, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
-  0%|          | 0/20 [00:00<?, ?it/s]--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Running for parameter combination {'optimizer__threshold': 0.6, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 3}
-  0%|          | 0/20 [00:00<?, ?it/s]--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Running for parameter combination {'optimizer__threshold': 0.8, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
-  0%|          | 0/20 [00:00<?, ?it/s]--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Running for parameter combination {'optimizer__threshold': 0.8, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 3}
-  0%|          | 0/20 [00:00<?, ?it/s]  5%|▌         | 1/20 [00:43<13:49, 43.68s/it]  5%|▌         | 1/20 [00:45<14:24, 45.51s/it]  5%|▌         | 1/20 [00:48<15:27, 48.82s/it] 10%|█         | 2/20 [01:54<17:50, 59.46s/it] 10%|█         | 2/20 [01:55<17:54, 59.72s/it] 10%|█         | 2/20 [02:00<18:37, 62.09s/it]  5%|▌         | 1/20 [02:00<38:05, 120.29s/it]  5%|▌         | 1/20 [02:00<38:17, 120.90s/it]  5%|▌         | 1/20 [02:02<38:42, 122.23s/it] 10%|█         | 2/20 [02:57<26:36, 88.67s/it]
- 10%|█         | 2/20 [02:57<26:40, 88.94s/it]
- 10%|█         | 2/20 [02:58<26:45, 89.22s/it]
- 10%|█         | 2/20 [04:18<39:14, 130.80s/it] 10%|█         | 2/20 [04:19<39:15, 130.84s/it] 10%|█         | 2/20 [04:19<39:22, 131.25s/it]  5%|▌         | 1/20 [05:19<1:41:10, 319.49s/it]  5%|▌         | 1/20 [05:22<1:42:10, 322.67s/it]  5%|▌         | 1/20 [05:23<1:42:33, 323.87s/it]  5%|▌         | 1/20 [05:49<1:50:42, 349.63s/it]
- 15%|█▌        | 3/20 [06:05<33:54, 119.69s/it] 15%|█▌        | 3/20 [06:06<34:02, 120.16s/it] 15%|█▌        | 3/20 [06:07<34:16, 120.95s/it] 15%|█▌        | 3/20 [07:41<43:36, 153.92s/it]
- 15%|█▌        | 3/20 [07:42<43:41, 154.23s/it]
- 20%|██        | 4/20 [07:44<29:44, 111.53s/it] 20%|██        | 4/20 [08:46<35:04, 131.54s/it]
- 10%|█         | 2/20 [10:20<1:32:39, 308.85s/it] 10%|█         | 2/20 [10:21<1:32:26, 308.14s/it] 15%|█▌        | 3/20 [12:54<1:07:26, 238.04s/it] 15%|█▌        | 3/20 [13:15<1:09:57, 246.90s/it] 20%|██        | 4/20 [15:29<54:44, 205.30s/it]   15%|█▌        | 3/20 [16:07<1:31:23, 322.57s/it]
- 20%|██        | 4/20 [17:06<1:08:24, 256.52s/it]
+Running for parameter combination {'optimizer__threshold': 1.6, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 1.25, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 3}
+  0%|          | 0/20 [00:00<?, ?it/s]  0%|          | 0/20 [00:00<?, ?it/s]--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 1.6, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 3}
+  0%|          | 0/20 [00:00<?, ?it/s]  5%|▌         | 1/20 [00:43<13:43, 43.37s/it]  5%|▌         | 1/20 [00:47<14:54, 47.08s/it]  5%|▌         | 1/20 [00:47<15:02, 47.52s/it]  5%|▌         | 1/20 [01:59<37:43, 119.14s/it]
+  5%|▌         | 1/20 [02:00<38:04, 120.26s/it]  5%|▌         | 1/20 [02:00<38:16, 120.86s/it]  5%|▌         | 1/20 [02:01<38:33, 121.77s/it]
+  5%|▌         | 1/20 [02:02<38:40, 122.15s/it]
+  5%|▌         | 1/20 [02:02<38:42, 122.22s/it] 10%|█         | 2/20 [04:01<36:11, 120.66s/it] 10%|█         | 2/20 [04:02<36:26, 121.46s/it] 10%|█         | 2/20 [04:04<36:45, 122.54s/it]  5%|▌         | 1/20 [05:02<1:35:49, 302.60s/it]  5%|▌         | 1/20 [05:06<1:37:02, 306.45s/it]  5%|▌         | 1/20 [05:08<1:37:41, 308.52s/it]  5%|▌         | 1/20 [05:33<1:45:39, 333.64s/it]
+ 15%|█▌        | 3/20 [05:42<31:35, 111.52s/it] 10%|█         | 2/20 [05:46<52:01, 173.44s/it]
+ 10%|█         | 2/20 [05:49<52:29, 174.98s/it]
+ 15%|█▌        | 3/20 [06:45<38:15, 135.01s/it]
+ 10%|█         | 2/20 [09:04<1:20:04, 266.89s/it] 10%|█         | 2/20 [09:08<1:20:23, 267.97s/it] 15%|█▌        | 3/20 [11:47<1:01:50, 218.29s/it] 10%|█         | 2/20 [11:50<1:46:31, 355.06s/it]
+ 15%|█▌        | 3/20 [13:05<1:14:13, 261.97s/it]
 /home/scp220/.conda/envs/sindy/lib/python3.9/site-packages/scipy/integrate/_odepack_py.py:247: ODEintWarning: Excess work done on this call (perhaps wrong Dfun type). Run with full_output = 1 to get quantitative information.
   warnings.warn(warning_msg, ODEintWarning)
 Solution converged
@@ -367,7 +367,7 @@ Error in Opti::value [OptiNode] at .../casadi/core/optistack.cpp:175:
 This expression has symbols that do not appear in the constraints and objective:
   Opti decision variable 'opti0_x_3' of shape 34x1, defined at /share/ceph/hawk/srr516_093025/scp220/ParameterEstimationConstraints/Optimizer.py:84 in <listcomp>
     self.adict["coefficients"] = [self.opti.variable(dimension[-1], 1) for dimension in self.adict["library_dimension"]]
-Failed for the parameter combination {'optimizer__threshold': 0.5, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 3}
+Failed for the parameter combination {'optimizer__threshold': 2, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 3}
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 Solution converged
 Solution converged
@@ -375,72 +375,72 @@ Solution converged
 Solution converged
 Solution converged
    optimizer__threshold  optimizer__alpha  feature_library__include_bias  \
-0                   0.5                 0                          False   
-1                   0.6                 0                          False   
-2                   0.8                 0                          False   
-3                   0.8                 0                          False   
-4                   0.5                 0                          False   
-5                   0.6                 0                          False   
-6                   0.8                 0                          False   
-7                   0.6                 0                          False   
+0                  2.00                 0                          False   
+1                  1.25                 0                          False   
+2                  1.60                 0                          False   
+3                  1.25                 0                          False   
+4                  2.00                 0                          False   
+5                  1.60                 0                          False   
+6                  1.25                 0                          False   
+7                  1.60                 0                          False   
 
    feature_library__degree  complexity  MSE_test_pred  MSE_train_pred  \
 0                        1           9       0.067136        0.073359   
 1                        1           9       0.067136        0.073359   
 2                        1           9       0.067136        0.073359   
-3                        3          15       0.432881        0.748668   
-4                        2          15       0.560110        1.721273   
-5                        2          15       0.560110        1.721273   
-6                        2          17       0.428494        1.677714   
-7                        3          14      14.403946       15.956691   
+3                        3          15       0.435528        0.755540   
+4                        2          15       0.566599        1.748820   
+5                        2          15       0.566599        1.748820   
+6                        2          17       0.415317        1.643698   
+7                        3          14      14.330233       15.108654   
 
    r2_test_pred  r2_train_pred  MSE_test_sim  MSE_train_sim  r2_test_sim  \
 0      0.998537       0.999089      0.002098   2.828007e-03     0.999908   
 1      0.998537       0.999089      0.002098   2.828007e-03     0.999908   
 2      0.998537       0.999089      0.002098   2.828007e-03     0.999908   
-3      0.987524       0.988796      0.129079   9.735275e+39     0.991696   
-4      0.985616       0.977864      0.120102   5.091249e+00     0.990499   
-5      0.985616       0.977864      0.120102   5.091249e+00     0.990499   
-6      0.989512       0.978815      0.172306   7.179792e+00     0.994860   
-7      0.168677       0.865998    170.462101   2.137101e+02    -3.225464   
+3      0.987467       0.988676      0.133195   8.671293e+37     0.991640   
+4      0.985506       0.977524      0.125648   5.144859e+00     0.990433   
+5      0.985506       0.977524      0.125648   5.144859e+00     0.990433   
+6      0.989783       0.979205      0.160218   7.100398e+00     0.995082   
+7      0.167755       0.873045    170.243368   2.142849e+02    -3.219042   
 
-   r2_train_sim        AIC  
-0      0.999954   2.273181  
-1      0.999954   2.273181  
-2      0.999954   2.273181  
-3      0.243825  12.461056  
-4      0.952255  12.843004  
-5      0.952255  12.843004  
-6      0.940664  14.594719  
-7     -0.367663  23.052969  
+   r2_train_sim        AIC  iterations  
+0      0.999954   2.273181           1  
+1      0.999954   2.273181           1  
+2      0.999954   2.273181           1  
+3      0.243839  12.484983           3  
+4      0.951853  12.878081           2  
+5      0.951853  12.878081           2  
+6      0.941208  14.508797           3  
+7     -0.277322  23.049802           2  
 Running simulation for 0.1 noise and with stoichiometry
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Running for parameter combination {'optimizer__threshold': 0.5, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
+Running for parameter combination {'optimizer__threshold': 2, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
   0%|          | 0/20 [00:00<?, ?it/s]--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Running for parameter combination {'optimizer__threshold': 0.5, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
+Running for parameter combination {'optimizer__threshold': 2, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
   0%|          | 0/20 [00:00<?, ?it/s]--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Running for parameter combination {'optimizer__threshold': 0.5, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 3}
+Running for parameter combination {'optimizer__threshold': 2, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 3}
   0%|          | 0/20 [00:00<?, ?it/s]--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Running for parameter combination {'optimizer__threshold': 0.6, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
+Running for parameter combination {'optimizer__threshold': 1.25, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
   0%|          | 0/20 [00:00<?, ?it/s]--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Running for parameter combination {'optimizer__threshold': 0.6, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Running for parameter combination {'optimizer__threshold': 0.6, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 3}
-  0%|          | 0/20 [00:00<?, ?it/s]  0%|          | 0/20 [00:00<?, ?it/s]--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Running for parameter combination {'optimizer__threshold': 0.8, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Running for parameter combination {'optimizer__threshold': 0.8, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 3}
---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Running for parameter combination {'optimizer__threshold': 0.8, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
-  0%|          | 0/20 [00:00<?, ?it/s]  0%|          | 0/20 [00:00<?, ?it/s]  0%|          | 0/20 [00:00<?, ?it/s]  5%|▌         | 1/20 [00:34<11:02, 34.89s/it]  5%|▌         | 1/20 [00:36<11:25, 36.06s/it]  5%|▌         | 1/20 [00:36<11:25, 36.09s/it]  5%|▌         | 1/20 [00:43<13:48, 43.60s/it]  5%|▌         | 1/20 [00:43<13:50, 43.69s/it]  5%|▌         | 1/20 [00:44<14:08, 44.64s/it] 10%|█         | 2/20 [01:07<10:08, 33.80s/it] 10%|█         | 2/20 [01:14<11:12, 37.36s/it] 10%|█         | 2/20 [01:15<11:25, 38.06s/it]  5%|▌         | 1/20 [01:18<24:45, 78.20s/it]  5%|▌         | 1/20 [01:18<24:59, 78.90s/it]  5%|▌         | 1/20 [01:20<25:24, 80.21s/it] 10%|█         | 2/20 [01:36<14:39, 48.85s/it] 10%|█         | 2/20 [01:37<14:54, 49.72s/it] 10%|█         | 2/20 [01:39<15:09, 50.51s/it] 10%|█         | 2/20 [01:46<15:59, 53.33s/it]
- 10%|█         | 2/20 [01:50<16:35, 55.33s/it]
- 10%|█         | 2/20 [01:50<16:37, 55.44s/it]
- 15%|█▌        | 3/20 [02:29<14:21, 50.68s/it] 10%|█         | 2/20 [02:31<22:41, 75.61s/it]
- 15%|█▌        | 3/20 [02:31<14:32, 51.30s/it] 10%|█         | 2/20 [02:37<23:34, 78.56s/it] 10%|█         | 2/20 [02:38<23:50, 79.49s/it] 10%|█         | 2/20 [02:38<23:46, 79.25s/it] 15%|█▌        | 3/20 [03:07<17:41, 62.43s/it]
- 15%|█▌        | 3/20 [03:08<17:49, 62.93s/it]
- 15%|█▌        | 3/20 [03:27<18:37, 65.76s/it] 10%|█         | 2/20 [03:28<31:19, 104.41s/it]
- 10%|█         | 2/20 [03:28<31:20, 104.46s/it]
- 15%|█▌        | 3/20 [03:42<20:58, 74.02s/it]
+Running for parameter combination {'optimizer__threshold': 1.25, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
+  0%|          | 0/20 [00:00<?, ?it/s]--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 1.25, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 3}
+  0%|          | 0/20 [00:00<?, ?it/s]--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 1.6, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
+  0%|          | 0/20 [00:00<?, ?it/s]--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 1.6, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
+  0%|          | 0/20 [00:00<?, ?it/s]--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 1.6, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 3}
+  0%|          | 0/20 [00:00<?, ?it/s]  5%|▌         | 1/20 [00:32<10:23, 32.83s/it]  5%|▌         | 1/20 [00:34<11:02, 34.85s/it]  5%|▌         | 1/20 [00:34<11:01, 34.83s/it]  5%|▌         | 1/20 [00:44<14:11, 44.82s/it]  5%|▌         | 1/20 [00:45<14:32, 45.94s/it]  5%|▌         | 1/20 [00:45<14:28, 45.71s/it]  5%|▌         | 1/20 [01:11<22:37, 71.45s/it]
+  5%|▌         | 1/20 [01:13<23:13, 73.34s/it]  5%|▌         | 1/20 [01:13<23:23, 73.87s/it]  5%|▌         | 1/20 [01:14<23:28, 74.15s/it]
+  5%|▌         | 1/20 [01:15<23:50, 75.29s/it]
+  5%|▌         | 1/20 [01:18<24:43, 78.10s/it] 10%|█         | 2/20 [01:40<15:22, 51.23s/it] 10%|█         | 2/20 [01:41<15:28, 51.56s/it]  5%|▌         | 1/20 [01:43<32:41, 103.26s/it]
+  5%|▌         | 1/20 [02:13<42:18, 133.59s/it]
+  5%|▌         | 1/20 [02:15<42:51, 135.32s/it]
+ 10%|█         | 2/20 [02:19<20:33, 68.54s/it] 10%|█         | 2/20 [02:20<21:00, 70.01s/it]
+ 10%|█         | 2/20 [02:20<21:02, 70.15s/it]
+ 10%|█         | 2/20 [02:33<23:02, 76.81s/it]
 Solution converged
 Solution converged
 Solution converged
@@ -451,76 +451,76 @@ Solution converged
 Solution converged
 Solution converged
    optimizer__threshold  optimizer__alpha  feature_library__include_bias  \
-0                   0.5                 0                          False   
-1                   0.6                 0                          False   
-2                   0.8                 0                          False   
-3                   0.5                 0                          False   
-4                   0.6                 0                          False   
-5                   0.8                 0                          False   
-6                   0.6                 0                          False   
-7                   0.8                 0                          False   
-8                   0.5                 0                          False   
+0                  2.00                 0                          False   
+1                  2.00                 0                          False   
+2                  1.25                 0                          False   
+3                  1.60                 0                          False   
+4                  1.60                 0                          False   
+5                  1.25                 0                          False   
+6                  1.60                 0                          False   
+7                  1.25                 0                          False   
+8                  2.00                 0                          False   
 
    feature_library__degree  complexity  MSE_test_pred  MSE_train_pred  \
-0                        1           8       0.019737        0.034853   
-1                        1           8       0.019737        0.034853   
-2                        1           8       0.019737        0.034853   
-3                        2           8       0.020472        0.036090   
-4                        2          10       0.045446        0.061723   
-5                        2          12       0.061759        0.069990   
-6                        3          12       0.060229        0.087927   
-7                        3          14       0.088844        0.157836   
-8                        3          11       0.440870        0.724998   
+0                        2           8       0.019737        0.034853   
+1                        1           8       0.019754        0.035132   
+2                        1           8       0.019754        0.035132   
+3                        1           8       0.019754        0.035132   
+4                        2          10       0.042381        0.060479   
+5                        2          12       0.056705        0.065588   
+6                        3          12       0.065799        0.104761   
+7                        3          14       0.079575        0.127097   
+8                        3          11       0.427147        0.714810   
 
    r2_test_pred  r2_train_pred  MSE_test_sim  MSE_train_sim  r2_test_sim  \
 0      0.999531       0.999554      0.000618       0.001446     0.999937   
-1      0.999531       0.999554      0.000618       0.001446     0.999937   
-2      0.999531       0.999554      0.000618       0.001446     0.999937   
-3      0.999518       0.999538      0.000661       0.001543     0.999935   
-4      0.998936       0.999216      0.003020       0.004129     0.999842   
-5      0.998098       0.999055      0.003013       0.004511     0.999499   
-6      0.998626       0.998903      0.010913       0.013076     0.999689   
-7      0.997637       0.997926      0.011787       0.012987     0.999419   
-8      0.985284       0.988355      0.025940       0.045491     0.994058   
+1      0.999539       0.999554      0.000631       0.001480     0.999941   
+2      0.999539       0.999554      0.000631       0.001480     0.999941   
+3      0.999539       0.999554      0.000631       0.001480     0.999941   
+4      0.998999       0.999235      0.001469       0.003531     0.999857   
+5      0.998248       0.999118      0.002364       0.004320     0.999535   
+6      0.998489       0.998679      0.010054       0.011782     0.999695   
+7      0.997845       0.998349      0.012478       0.013960     0.999409   
+8      0.985661       0.988564      0.023120       0.045695     0.994068   
 
-   r2_train_sim       AIC  
-0      0.999941 -1.175141  
-1      0.999941 -1.175141  
-2      0.999941 -1.175141  
-3      0.999940 -1.100210  
-4      0.999885  2.559923  
-5      0.999751  5.139947  
-6      0.999806  5.327565  
-7      0.999709  8.021117  
-8      0.994538  8.090040  
+   r2_train_sim       AIC  iterations  
+0      0.999941 -1.175141           2  
+1      0.999945 -1.172261           1  
+2      0.999945 -1.172261           1  
+3      0.999945 -1.172261           1  
+4      0.999873  2.359737           2  
+5      0.999762  4.955616           1  
+6      0.999808  5.455789           1  
+7      0.999715  7.842913           2  
+8      0.994478  8.017877           1  
 Running simulation for 0.2 noise and without constraints
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Running for parameter combination {'optimizer__threshold': 0.5, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
+Running for parameter combination {'optimizer__threshold': 2, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
   0%|          | 0/20 [00:00<?, ?it/s]--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Running for parameter combination {'optimizer__threshold': 0.5, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
+Running for parameter combination {'optimizer__threshold': 2, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
   0%|          | 0/20 [00:00<?, ?it/s]--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Running for parameter combination {'optimizer__threshold': 0.6, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
+Running for parameter combination {'optimizer__threshold': 2, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 3}
   0%|          | 0/20 [00:00<?, ?it/s]--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Running for parameter combination {'optimizer__threshold': 0.5, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 3}
+Running for parameter combination {'optimizer__threshold': 1.25, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
   0%|          | 0/20 [00:00<?, ?it/s]--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Running for parameter combination {'optimizer__threshold': 0.6, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
+Running for parameter combination {'optimizer__threshold': 1.25, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
   0%|          | 0/20 [00:00<?, ?it/s]--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Running for parameter combination {'optimizer__threshold': 0.8, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
+Running for parameter combination {'optimizer__threshold': 1.6, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
   0%|          | 0/20 [00:00<?, ?it/s]--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Running for parameter combination {'optimizer__threshold': 0.6, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 3}
+Running for parameter combination {'optimizer__threshold': 1.6, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
   0%|          | 0/20 [00:00<?, ?it/s]--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Running for parameter combination {'optimizer__threshold': 0.8, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
+Running for parameter combination {'optimizer__threshold': 1.25, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 3}
   0%|          | 0/20 [00:00<?, ?it/s]--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Running for parameter combination {'optimizer__threshold': 0.8, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 3}
-  0%|          | 0/20 [00:00<?, ?it/s]  5%|▌         | 1/20 [00:47<15:00, 47.39s/it]  5%|▌         | 1/20 [00:50<15:50, 50.01s/it]  5%|▌         | 1/20 [00:50<15:50, 50.04s/it] 10%|█         | 2/20 [01:53<17:29, 58.30s/it] 10%|█         | 2/20 [01:56<17:50, 59.49s/it] 10%|█         | 2/20 [01:59<18:24, 61.35s/it]  5%|▌         | 1/20 [02:07<40:17, 127.24s/it]  5%|▌         | 1/20 [02:07<40:28, 127.84s/it]  5%|▌         | 1/20 [02:07<40:30, 127.93s/it] 10%|█         | 2/20 [02:51<25:41, 85.66s/it]
- 15%|█▌        | 3/20 [02:53<16:30, 58.29s/it] 10%|█         | 2/20 [02:57<26:33, 88.54s/it]
- 15%|█▌        | 3/20 [03:48<21:34, 76.17s/it]
- 10%|█         | 2/20 [04:24<39:57, 133.21s/it] 10%|█         | 2/20 [04:24<39:58, 133.25s/it] 10%|█         | 2/20 [04:48<44:10, 147.25s/it]  5%|▌         | 1/20 [05:06<1:36:59, 306.26s/it]  5%|▌         | 1/20 [05:06<1:37:06, 306.66s/it]  5%|▌         | 1/20 [05:11<1:38:45, 311.88s/it]  5%|▌         | 1/20 [05:24<1:42:36, 324.02s/it]
-  5%|▌         | 1/20 [05:26<1:43:16, 326.13s/it]
-  5%|▌         | 1/20 [05:39<1:47:23, 339.15s/it]
- 15%|█▌        | 3/20 [05:50<31:32, 111.32s/it] 10%|█         | 2/20 [05:50<52:37, 175.41s/it]
- 15%|█▌        | 3/20 [05:57<31:37, 111.62s/it] 15%|█▌        | 3/20 [06:25<36:24, 128.49s/it]
- 15%|█▌        | 3/20 [06:30<36:51, 130.10s/it]
+Running for parameter combination {'optimizer__threshold': 1.6, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 3}
+  0%|          | 0/20 [00:00<?, ?it/s]  5%|▌         | 1/20 [00:46<14:46, 46.66s/it]  5%|▌         | 1/20 [00:48<15:17, 48.28s/it]  5%|▌         | 1/20 [00:48<15:29, 48.94s/it]  5%|▌         | 1/20 [01:55<36:29, 115.26s/it]
+ 10%|█         | 2/20 [01:57<18:07, 60.44s/it]  5%|▌         | 1/20 [01:58<37:31, 118.49s/it]
+  5%|▌         | 1/20 [02:08<40:38, 128.34s/it]  5%|▌         | 1/20 [02:08<40:39, 128.41s/it]  5%|▌         | 1/20 [02:10<41:24, 130.78s/it] 10%|█         | 2/20 [02:52<25:51, 86.17s/it]
+  5%|▌         | 1/20 [04:12<1:19:52, 252.26s/it]
+ 10%|█         | 2/20 [04:14<38:08, 127.14s/it] 10%|█         | 2/20 [04:17<38:26, 128.16s/it]  5%|▌         | 1/20 [04:48<1:31:27, 288.83s/it]  5%|▌         | 1/20 [04:49<1:31:31, 289.00s/it]  5%|▌         | 1/20 [04:49<1:31:39, 289.47s/it]  5%|▌         | 1/20 [05:01<1:35:20, 301.09s/it]
+  5%|▌         | 1/20 [05:01<1:35:27, 301.45s/it]
+  5%|▌         | 1/20 [05:01<1:35:32, 301.69s/it]
+ 10%|█         | 2/20 [05:19<47:54, 159.67s/it]
+ 10%|█         | 2/20 [05:20<48:05, 160.28s/it]
 Solution converged
 Solution converged
 Solution converged
@@ -529,223 +529,223 @@ Error in Opti::value [OptiNode] at .../casadi/core/optistack.cpp:175:
 This expression has symbols that do not appear in the constraints and objective:
   Opti decision variable 'opti0_x_2' of shape 34x1, defined at /share/ceph/hawk/srr516_093025/scp220/ParameterEstimationConstraints/Optimizer.py:84 in <listcomp>
     self.adict["coefficients"] = [self.opti.variable(dimension[-1], 1) for dimension in self.adict["library_dimension"]]
-Failed for the parameter combination {'optimizer__threshold': 0.5, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 3}
+Failed for the parameter combination {'optimizer__threshold': 2, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 3}
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 Error in Opti::value [OptiNode] at .../casadi/core/optistack.cpp:175:
 .../casadi/core/optistack_internal.cpp:1111: Assertion "symbol_active_[meta(e).count]" failed:
 This expression has symbols that do not appear in the constraints and objective:
   Opti decision variable 'opti0_x_2' of shape 34x1, defined at /share/ceph/hawk/srr516_093025/scp220/ParameterEstimationConstraints/Optimizer.py:84 in <listcomp>
     self.adict["coefficients"] = [self.opti.variable(dimension[-1], 1) for dimension in self.adict["library_dimension"]]
-Failed for the parameter combination {'optimizer__threshold': 0.6, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 3}
+Failed for the parameter combination {'optimizer__threshold': 1.6, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 3}
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Solution converged
 Error in Opti::value [OptiNode] at .../casadi/core/optistack.cpp:175:
 .../casadi/core/optistack_internal.cpp:1111: Assertion "symbol_active_[meta(e).count]" failed:
 This expression has symbols that do not appear in the constraints and objective:
   Opti decision variable 'opti0_x_3' of shape 34x1, defined at /share/ceph/hawk/srr516_093025/scp220/ParameterEstimationConstraints/Optimizer.py:84 in <listcomp>
     self.adict["coefficients"] = [self.opti.variable(dimension[-1], 1) for dimension in self.adict["library_dimension"]]
-Failed for the parameter combination {'optimizer__threshold': 0.8, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 3}
+Failed for the parameter combination {'optimizer__threshold': 1.25, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 3}
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 Solution converged
 Solution converged
-Solution converged
    optimizer__threshold  optimizer__alpha  feature_library__include_bias  \
-0                   0.6                 0                          False   
-1                   0.5                 0                          False   
-2                   0.8                 0                          False   
-3                   0.8                 0                          False   
-4                   0.5                 0                          False   
-5                   0.6                 0                          False   
+0                  2.00                 0                          False   
+1                  1.60                 0                          False   
+2                  1.25                 0                          False   
+3                  1.25                 0                          False   
+4                  2.00                 0                          False   
+5                  1.60                 0                          False   
 
    feature_library__degree  complexity  MSE_test_pred  MSE_train_pred  \
-0                        1           8       0.854488        1.084635   
+0                        1           8       0.857164        1.086988   
 1                        1           8       0.855748        1.085946   
-2                        1          10       0.919873        1.151054   
-3                        2          15       2.138568        2.901899   
-4                        2          13      12.743002       17.131857   
-5                        2          13      12.635088       16.994017   
+2                        1          10       0.915167        1.145827   
+3                        2          15       2.145354        2.885955   
+4                        2          13      12.723511       17.074979   
+5                        2          13      12.743002       17.131857   
 
    r2_test_pred  r2_train_pred  MSE_test_sim  MSE_train_sim  r2_test_sim  \
-0      0.973816       0.983116      1.845551       4.239793     0.965311   
+0      0.973747       0.983091      1.868355       4.291553     0.964856   
 1      0.973733       0.983081      1.877917       4.320353     0.964844   
-2      0.972656       0.982580      2.006233       4.336031     0.962798   
-3      0.960114       0.959985      6.267190      31.545964     0.900979   
-4      0.854792       0.861735     61.274730     123.348154    -1.547905   
-5      0.855017       0.861418     61.499531     124.844409    -1.566914   
+2      0.972776       0.982640      1.879236       4.039319     0.964393   
+3      0.960124       0.960271      5.733576      29.598015     0.905345   
+4      0.854935       0.862158     61.148460     122.633779    -1.534521   
+5      0.854792       0.861735     61.274730     123.348154    -1.547905   
 
-   r2_train_sim        AIC  
-0      0.973947   8.600239  
-1      0.973603   8.624992  
-2      0.973499  10.761051  
-3      0.732685  17.871540  
-4      0.058584  20.222315  
-5      0.024947  20.225471  
+   r2_train_sim        AIC  iterations  
+0      0.973617   8.619023           1  
+1      0.973603   8.624992           2  
+2      0.974359  10.668942           1  
+3      0.740833  17.742090           2  
+4      0.072631  20.218373           1  
+5      0.058584  20.222315           2  
 Running simulation for 0.2 noise and with constraints
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Running for parameter combination {'optimizer__threshold': 0.5, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
+Running for parameter combination {'optimizer__threshold': 2, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
   0%|          | 0/20 [00:00<?, ?it/s]--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Running for parameter combination {'optimizer__threshold': 0.5, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
+Running for parameter combination {'optimizer__threshold': 2, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
   0%|          | 0/20 [00:00<?, ?it/s]--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Running for parameter combination {'optimizer__threshold': 0.5, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 3}
+Running for parameter combination {'optimizer__threshold': 2, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 3}
   0%|          | 0/20 [00:00<?, ?it/s]--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Running for parameter combination {'optimizer__threshold': 0.6, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
+Running for parameter combination {'optimizer__threshold': 1.25, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
   0%|          | 0/20 [00:00<?, ?it/s]--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Running for parameter combination {'optimizer__threshold': 0.6, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
+Running for parameter combination {'optimizer__threshold': 1.25, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
   0%|          | 0/20 [00:00<?, ?it/s]--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Running for parameter combination {'optimizer__threshold': 0.8, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
+Running for parameter combination {'optimizer__threshold': 1.6, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
   0%|          | 0/20 [00:00<?, ?it/s]--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Running for parameter combination {'optimizer__threshold': 0.6, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 3}
---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Running for parameter combination {'optimizer__threshold': 0.8, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
-  0%|          | 0/20 [00:00<?, ?it/s]  0%|          | 0/20 [00:00<?, ?it/s]--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Running for parameter combination {'optimizer__threshold': 0.8, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 3}
-  0%|          | 0/20 [00:00<?, ?it/s]  5%|▌         | 1/20 [00:42<13:32, 42.76s/it]  5%|▌         | 1/20 [00:46<14:49, 46.80s/it]  5%|▌         | 1/20 [00:48<15:12, 48.00s/it] 10%|█         | 2/20 [01:55<17:53, 59.66s/it] 10%|█         | 2/20 [01:58<18:35, 61.96s/it] 10%|█         | 2/20 [02:01<18:50, 62.82s/it]  5%|▌         | 1/20 [02:01<38:29, 121.55s/it]  5%|▌         | 1/20 [02:03<39:11, 123.79s/it]  5%|▌         | 1/20 [02:04<39:22, 124.35s/it] 10%|█         | 2/20 [02:54<26:11, 87.31s/it]
- 10%|█         | 2/20 [03:03<27:33, 91.88s/it]
- 10%|█         | 2/20 [03:04<27:44, 92.47s/it]
- 10%|█         | 2/20 [04:29<41:00, 136.71s/it] 10%|█         | 2/20 [04:30<41:13, 137.42s/it] 10%|█         | 2/20 [04:30<41:12, 137.35s/it]  5%|▌         | 1/20 [05:33<1:45:35, 333.46s/it]  5%|▌         | 1/20 [05:33<1:45:41, 333.78s/it]  5%|▌         | 1/20 [05:35<1:46:20, 335.81s/it]  5%|▌         | 1/20 [05:49<1:50:47, 349.88s/it]
-  5%|▌         | 1/20 [05:53<1:51:57, 353.56s/it]
- 10%|█         | 2/20 [06:09<55:22, 184.56s/it]
- 15%|█▌        | 3/20 [06:11<34:16, 120.96s/it] 10%|█         | 2/20 [06:11<55:44, 185.79s/it]
- 15%|█▌        | 3/20 [07:01<39:46, 140.38s/it]
+Running for parameter combination {'optimizer__threshold': 1.6, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
+  0%|          | 0/20 [00:00<?, ?it/s]--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 1.25, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 3}
+  0%|          | 0/20 [00:00<?, ?it/s]--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 1.6, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 3}
+  0%|          | 0/20 [00:00<?, ?it/s]  5%|▌         | 1/20 [00:44<14:06, 44.58s/it]  5%|▌         | 1/20 [00:46<14:36, 46.12s/it]  5%|▌         | 1/20 [00:46<14:41, 46.42s/it]  5%|▌         | 1/20 [02:00<38:01, 120.06s/it]  5%|▌         | 1/20 [02:00<38:04, 120.25s/it]
+  5%|▌         | 1/20 [02:01<38:25, 121.32s/it]  5%|▌         | 1/20 [02:02<38:39, 122.08s/it]
+  5%|▌         | 1/20 [02:02<38:51, 122.70s/it]  5%|▌         | 1/20 [02:02<38:54, 122.87s/it]
+ 10%|█         | 2/20 [03:58<35:47, 119.31s/it]  5%|▌         | 1/20 [04:02<1:16:53, 242.80s/it]
+  5%|▌         | 1/20 [04:04<1:17:34, 244.95s/it]
+  5%|▌         | 1/20 [04:47<1:30:59, 287.33s/it]  5%|▌         | 1/20 [04:48<1:31:14, 288.11s/it]  5%|▌         | 1/20 [04:48<1:31:18, 288.34s/it]  5%|▌         | 1/20 [04:52<1:32:46, 292.95s/it]
+  5%|▌         | 1/20 [04:54<1:33:15, 294.49s/it]
+ 10%|█         | 2/20 [05:10<46:30, 155.02s/it]
 /home/scp220/.conda/envs/sindy/lib/python3.9/site-packages/scipy/integrate/_odepack_py.py:247: ODEintWarning: Excess work done on this call (perhaps wrong Dfun type). Run with full_output = 1 to get quantitative information.
   warnings.warn(warning_msg, ODEintWarning)
- 10%|█         | 2/20 [07:31<1:02:04, 206.92s/it] 10%|█         | 2/20 [08:40<1:18:04, 260.23s/it]
+  5%|▌         | 1/20 [06:05<1:55:47, 365.67s/it]
 /home/scp220/.conda/envs/sindy/lib/python3.9/site-packages/scipy/integrate/_odepack_py.py:247: ODEintWarning: Excess work done on this call (perhaps wrong Dfun type). Run with full_output = 1 to get quantitative information.
   warnings.warn(warning_msg, ODEintWarning)
+Solution converged
 Solution converged
 Solution converged
 Solution converged
 Error in Opti::value [OptiNode] at .../casadi/core/optistack.cpp:175:
 .../casadi/core/optistack_internal.cpp:1111: Assertion "symbol_active_[meta(e).count]" failed:
 This expression has symbols that do not appear in the constraints and objective:
-  Opti decision variable 'opti0_x_2' of shape 34x1, defined at /share/ceph/hawk/srr516_093025/scp220/ParameterEstimationConstraints/Optimizer.py:84 in <listcomp>
+  Opti decision variable 'opti0_x_3' of shape 34x1, defined at /share/ceph/hawk/srr516_093025/scp220/ParameterEstimationConstraints/Optimizer.py:84 in <listcomp>
     self.adict["coefficients"] = [self.opti.variable(dimension[-1], 1) for dimension in self.adict["library_dimension"]]
-Failed for the parameter combination {'optimizer__threshold': 0.6, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 3}
+Failed for the parameter combination {'optimizer__threshold': 1.6, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 3}
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Solution converged
 Error in Opti::value [OptiNode] at .../casadi/core/optistack.cpp:175:
 .../casadi/core/optistack_internal.cpp:1111: Assertion "symbol_active_[meta(e).count]" failed:
 This expression has symbols that do not appear in the constraints and objective:
   Opti decision variable 'opti0_x_2' of shape 34x1, defined at /share/ceph/hawk/srr516_093025/scp220/ParameterEstimationConstraints/Optimizer.py:84 in <listcomp>
     self.adict["coefficients"] = [self.opti.variable(dimension[-1], 1) for dimension in self.adict["library_dimension"]]
-Failed for the parameter combination {'optimizer__threshold': 0.5, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 3}
+Failed for the parameter combination {'optimizer__threshold': 2, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 3}
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Solution converged
-Solution converged
 Solution converged
 Solution converged
    optimizer__threshold  optimizer__alpha  feature_library__include_bias  \
-0                   0.5                 0                          False   
-1                   0.6                 0                          False   
-2                   0.8                 0                          False   
-3                   0.8                 0                          False   
-4                   0.5                 0                          False   
-5                   0.6                 0                          False   
-6                   0.8                 0                          False   
+0                  2.00                 0                          False   
+1                  1.60                 0                          False   
+2                  1.25                 0                          False   
+3                  1.25                 0                          False   
+4                  2.00                 0                          False   
+5                  1.60                 0                          False   
+6                  1.25                 0                          False   
 
    feature_library__degree  complexity  MSE_test_pred  MSE_train_pred  \
-0                        1           8       0.959594        1.274688   
-1                        1           8       0.959594        1.274688   
-2                        1          11       0.699534        0.751655   
-3                        2          20       1.799240        2.184716   
-4                        2          16      13.678470       17.449294   
-5                        2          16      13.678470       17.449294   
-6                        3          19      22.758303       39.520753   
+0                        1           8       0.958672        1.273029   
+1                        1           8       0.958672        1.273029   
+2                        1          11       0.697286        0.750048   
+3                        2          20       1.793622        2.185947   
+4                        2          16      13.678095       17.449184   
+5                        2          16      13.678095       17.449184   
+6                        3          19      22.767030       39.612653   
 
    r2_test_pred  r2_train_pred  MSE_test_sim  MSE_train_sim  r2_test_sim  \
-0      0.970631       0.979264      0.028240   4.344063e-02     0.993247   
-1      0.970631       0.979264      0.028240   4.344063e-02     0.993247   
-2      0.982489       0.989345      0.006123   9.095077e-03     0.999027   
-3      0.953970       0.970678      0.790552   1.217681e+38     0.978061   
-4      0.834218       0.850497     71.949545   1.276820e+02    -1.691342   
-5      0.834218       0.850497     71.949545   1.276820e+02    -1.691342   
-6     -1.845842       0.672471     51.364938   1.680219e+13    -0.247958   
+0      0.970745       0.979336      0.028430   4.344729e-02     0.993241   
+1      0.970745       0.979336      0.028430   4.344729e-02     0.993241   
+2      0.982518       0.989371      0.008966   1.507506e-02     0.998996   
+3      0.954224       0.970788      0.804961   1.534687e+39     0.977985   
+4      0.834120       0.850394     72.118542   1.287174e+02    -1.706925   
+5      0.834120       0.850394     72.118542   1.287174e+02    -1.706925   
+6     -1.844089       0.672590     51.583279   2.999592e+13    -0.254942   
 
-   r2_train_sim        AIC  
-0      0.994319   6.589224  
-1      0.994319   6.589224  
-2      0.999501   8.916453  
-3     -0.000167  20.516861  
-4     -0.202341  23.513731  
-5     -0.202341  23.513731  
-6      0.239250  26.225164  
+   r2_train_sim        AIC  iterations  
+0      0.994313   6.587742           1  
+1      0.994313   6.587742           1  
+2      0.999476   8.918140           1  
+3     -0.000167  20.523639           2  
+4     -0.219518  23.517665           1  
+5     -0.219518  23.517665           1  
+6      0.239452  26.231281           1  
 Running simulation for 0.2 noise and with stoichiometry
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Running for parameter combination {'optimizer__threshold': 0.5, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
+Running for parameter combination {'optimizer__threshold': 2, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
   0%|          | 0/20 [00:00<?, ?it/s]--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Running for parameter combination {'optimizer__threshold': 0.5, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
+Running for parameter combination {'optimizer__threshold': 2, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
   0%|          | 0/20 [00:00<?, ?it/s]--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Running for parameter combination {'optimizer__threshold': 0.5, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 3}
+Running for parameter combination {'optimizer__threshold': 2, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 3}
   0%|          | 0/20 [00:00<?, ?it/s]--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Running for parameter combination {'optimizer__threshold': 0.6, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
+Running for parameter combination {'optimizer__threshold': 1.25, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
   0%|          | 0/20 [00:00<?, ?it/s]--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Running for parameter combination {'optimizer__threshold': 0.6, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
+Running for parameter combination {'optimizer__threshold': 1.25, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
   0%|          | 0/20 [00:00<?, ?it/s]--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Running for parameter combination {'optimizer__threshold': 0.6, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 3}
+Running for parameter combination {'optimizer__threshold': 1.25, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 3}
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 1.6, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
+  0%|          | 0/20 [00:00<?, ?it/s]  0%|          | 0/20 [00:00<?, ?it/s]--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Running for parameter combination {'optimizer__threshold': 1.6, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
   0%|          | 0/20 [00:00<?, ?it/s]--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Running for parameter combination {'optimizer__threshold': 0.8, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 1}
-  0%|          | 0/20 [00:00<?, ?it/s]--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Running for parameter combination {'optimizer__threshold': 0.8, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 2}
-  0%|          | 0/20 [00:00<?, ?it/s]--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Running for parameter combination {'optimizer__threshold': 0.8, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 3}
-  0%|          | 0/20 [00:00<?, ?it/s]  5%|▌         | 1/20 [00:34<10:58, 34.65s/it]  5%|▌         | 1/20 [00:35<11:10, 35.31s/it]  5%|▌         | 1/20 [00:35<11:13, 35.47s/it]  5%|▌         | 1/20 [00:43<13:52, 43.81s/it]  5%|▌         | 1/20 [00:44<14:03, 44.40s/it]  5%|▌         | 1/20 [00:45<14:26, 45.59s/it]  5%|▌         | 1/20 [01:12<23:02, 72.77s/it] 10%|█         | 2/20 [01:15<11:25, 38.10s/it] 10%|█         | 2/20 [01:16<11:34, 38.59s/it] 10%|█         | 2/20 [01:16<11:37, 38.76s/it]  5%|▌         | 1/20 [01:17<24:40, 77.92s/it]  5%|▌         | 1/20 [01:20<25:34, 80.79s/it] 10%|█         | 2/20 [01:31<13:52, 46.26s/it] 10%|█         | 2/20 [01:32<14:02, 46.79s/it]  5%|▌         | 1/20 [01:36<30:33, 96.48s/it]
- 10%|█         | 2/20 [01:41<15:25, 51.42s/it] 10%|█         | 2/20 [01:52<16:52, 56.23s/it]
- 10%|█         | 2/20 [01:53<16:59, 56.63s/it]
- 10%|█         | 2/20 [01:53<17:01, 56.74s/it]
- 10%|█         | 2/20 [02:12<19:54, 66.36s/it]
- 10%|█         | 2/20 [02:20<21:05, 70.30s/it]
- 10%|█         | 2/20 [02:22<21:17, 70.95s/it] 10%|█         | 2/20 [02:23<21:30, 71.71s/it]
- 10%|█         | 2/20 [02:23<21:16, 70.91s/it] 15%|█▌        | 3/20 [02:46<13:49, 48.82s/it] 15%|█▌        | 3/20 [02:46<14:03, 49.64s/it] 15%|█▌        | 3/20 [03:09<17:53, 63.13s/it]
- 15%|█▌        | 3/20 [03:10<17:57, 63.37s/it]
+Running for parameter combination {'optimizer__threshold': 1.6, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 3}
+  0%|          | 0/20 [00:00<?, ?it/s]  5%|▌         | 1/20 [00:34<10:50, 34.24s/it]  5%|▌         | 1/20 [00:34<11:00, 34.79s/it]  5%|▌         | 1/20 [00:35<11:05, 35.03s/it]  5%|▌         | 1/20 [00:45<14:23, 45.47s/it]  5%|▌         | 1/20 [00:45<14:28, 45.69s/it]  5%|▌         | 1/20 [00:46<14:36, 46.14s/it]  5%|▌         | 1/20 [01:13<23:15, 73.47s/it]  5%|▌         | 1/20 [01:13<23:22, 73.79s/it]  5%|▌         | 1/20 [01:14<23:26, 74.03s/it]  5%|▌         | 1/20 [01:14<23:34, 74.47s/it]
+  5%|▌         | 1/20 [01:14<23:42, 74.87s/it]
+  5%|▌         | 1/20 [01:14<23:43, 74.94s/it]
+  5%|▌         | 1/20 [01:18<24:45, 78.18s/it]
+  5%|▌         | 1/20 [01:37<30:57, 97.76s/it]
+  5%|▌         | 1/20 [01:40<31:52, 100.67s/it]
+  5%|▌         | 1/20 [01:41<32:15, 101.89s/it]
+ 10%|█         | 2/20 [01:51<15:49, 52.73s/it] 10%|█         | 2/20 [01:52<15:55, 53.11s/it] 10%|█         | 2/20 [02:15<20:15, 67.50s/it]
+ 10%|█         | 2/20 [02:16<20:30, 68.34s/it]
+Solution converged
+Solution converged
+Solution converged
 Error in Opti::value [OptiNode] at .../casadi/core/optistack.cpp:175:
 .../casadi/core/optistack_internal.cpp:1111: Assertion "symbol_active_[meta(e).count]" failed:
 This expression has symbols that do not appear in the constraints and objective:
   Opti decision variable 'opti0_x_1' of shape 9x1, defined at /share/ceph/hawk/srr516_093025/scp220/ParameterEstimationConstraints/Optimizer.py:84 in <listcomp>
     self.adict["coefficients"] = [self.opti.variable(dimension[-1], 1) for dimension in self.adict["library_dimension"]]
-Failed for the parameter combination {'optimizer__threshold': 0.5, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 3}
+Failed for the parameter combination {'optimizer__threshold': 2, 'optimizer__alpha': 0, 'feature_library__include_bias': False, 'feature_library__degree': 3}
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 Solution converged
 Solution converged
 Solution converged
 Solution converged
 Solution converged
-Solution converged
-Solution converged
-Solution converged
    optimizer__threshold  optimizer__alpha  feature_library__include_bias  \
-0                   0.5                 0                          False   
-1                   0.6                 0                          False   
-2                   0.8                 0                          False   
-3                   0.5                 0                          False   
-4                   0.6                 0                          False   
-5                   0.8                 0                          False   
-6                   0.6                 0                          False   
-7                   0.8                 0                          False   
+0                  2.00                 0                          False   
+1                  1.25                 0                          False   
+2                  1.60                 0                          False   
+3                  2.00                 0                          False   
+4                  1.60                 0                          False   
+5                  1.25                 0                          False   
+6                  1.25                 0                          False   
+7                  1.60                 0                          False   
 
    feature_library__degree  complexity  MSE_test_pred  MSE_train_pred  \
-0                        1           8       0.224492        0.384933   
-1                        1           8       0.224492        0.384933   
-2                        1           8       0.224492        0.384933   
-3                        2          11       0.801197        0.936711   
+0                        1           8       0.223339        0.383882   
+1                        1           8       0.223339        0.383882   
+2                        1           8       0.223339        0.383882   
+3                        2          11       0.769667        0.910366   
 4                        3          10       2.259413        3.436759   
 5                        3          12       1.856483        2.666885   
-6                        2          15       0.805425        0.978605   
-7                        2          15       0.805425        0.978605   
+6                        2          15       0.833903        0.995852   
+7                        2          15       0.833903        0.995852   
 
    r2_test_pred  r2_train_pred  MSE_test_sim  MSE_train_sim  r2_test_sim  \
-0      0.993670       0.994321      0.006356       0.015513     0.998919   
-1      0.993670       0.994321      0.006356       0.015513     0.998919   
-2      0.993670       0.994321      0.006356       0.015513     0.998919   
-3      0.967439       0.985980      0.039366       0.082645     0.990778   
+0      0.993774       0.994368      0.006247       0.015278     0.998952   
+1      0.993774       0.994368      0.006247       0.015278     0.998952   
+2      0.993774       0.994368      0.006247       0.015278     0.998952   
+3      0.968613       0.986439      0.035144       0.087152     0.990959   
 4      0.928897       0.945761      1.042657       1.159517     0.972420   
 5      0.938680       0.965601      1.189567       1.296723     0.967335   
-6      0.967817       0.986080      0.154283       0.235048     0.988996   
-7      0.967817       0.986080      0.154283       0.235048     0.988996   
+6      0.967183       0.985715      0.179278       0.232482     0.988711   
+7      0.967183       0.985715      0.179278       0.232482     0.988711   
 
-   r2_train_sim        AIC  
-0      0.999005   3.681711  
-1      0.999005   3.681711  
-2      0.999005   3.681711  
-3      0.994479   9.266338  
-4      0.984303  11.002805  
-5      0.984360  12.841397  
-6      0.993431  13.531454  
-7      0.993431  13.531454  
+   r2_train_sim        AIC  iterations  
+0      0.999036   3.670756           1  
+1      0.999036   3.670756           1  
+2      0.999036   3.670756           1  
+3      0.994457   9.179409           1  
+4      0.984303  11.002805           2  
+5      0.984360  12.841397           2  
+6      0.993544  13.639896           1  
+7      0.993544  13.639896           1  
