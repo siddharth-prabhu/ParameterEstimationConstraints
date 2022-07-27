@@ -5,15 +5,17 @@ from Optimizer import Optimizer_casadi
 
 from collections import defaultdict
 from typing import Optional
+from concurrent.futures import ProcessPoolExecutor
+from functools import partial
+from itertools import repeat
 
 import numpy as np
 import matplotlib.pyplot as plt
 
 
 
-def run_gridsearch(n_expt : int, delta_t : float, noise_level : float, parameters : dict, perform_grid_search : bool = True, 
-                ensemble_iterations : int = 1, max_workers : Optional[int] = None, seed : int = 12345, name : str = "ensemble",
-                result_dict : dict = {}):
+def run_gridsearch(n_expt : int, delta_t : float, noise_level : float, parameters : dict, ensemble_iterations : int = 1, 
+                    max_workers : Optional[int] = None, seed : int = 12345, name : str = "ensemble"):
     
     solver_dict = {"ipopt.print_level" : 0, "print_time": 0, "ipopt.sb" : "yes"}
     # generate clean testing data to be used later for calculating errors
@@ -29,6 +31,7 @@ def run_gridsearch(n_expt : int, delta_t : float, noise_level : float, parameter
     features = model.add_noise(0, noise_level)
     target = model.approx_derivative
 
+    mse_pred, aic, mse_sim, comp = [], [], [], []
     for status in ["without constraints", "with constraints", "with stoichiometry"]:
 
         if status == "with constraints" : # mass balance constraints 
@@ -43,29 +46,22 @@ def run_gridsearch(n_expt : int, delta_t : float, noise_level : float, parameter
             include_column = None
             constraints_dict = {}
 
-        if perform_grid_search:
-            # does grid_serch over parameters 
-            print(f"Running simulation for {noise_level} noise, {n_expt} experiments, {delta_t} sampling time, and " + status)
-            opt = HyperOpt(features, target, features_clean, target_clean, time_span, time_span_clean, parameters, Optimizer_casadi(solver_dict = solver_dict), 
-                    include_column = include_column, constraints_dict = constraints_dict, ensemble_iterations = ensemble_iterations, seed = seed)
+        # does grid_serch over parameters 
+        print(f"Running simulation for {noise_level} noise, {n_expt} experiments, {delta_t} sampling time, and " + status)
+        opt = HyperOpt(features, target, features_clean, target_clean, time_span, time_span_clean, parameters, Optimizer_casadi(solver_dict = solver_dict), 
+                include_column = include_column, constraints_dict = constraints_dict, ensemble_iterations = ensemble_iterations, seed = seed)
 
-            opt.gridsearch(max_workers = max_workers)
-            opt.plot(filename = f"saved_data\Gridsearch_{name}_{status}_noise{noise_level}_eniter{ensemble_iterations}_expt{n_expt}_delta_{delta_t}.html", 
-                        title = f"{status} and {noise_level} noise")
-            df_result = opt.df_result
+        opt.gridsearch(max_workers = max_workers)
+        opt.plot(filename = f"saved_data\Gridsearch_{name}_{status}_noise{noise_level}_eniter{ensemble_iterations}_expt{n_expt}_delta_{delta_t}.html", 
+                    title = f"{status} and {noise_level} noise")
+        df_result = opt.df_result
 
-            result_dict["MSE_test_pred"].append(df_result.loc[0, "MSE_test_pred"])
-            result_dict["AIC"].append(df_result.loc[0, "AIC"])
-            result_dict["MSE_test_sim"].append(df_result.loc[0, "MSE_test_sim"])
-            result_dict["complexity"].append(df_result.loc[0, "complexity"])
+        mse_pred.append(df_result.loc[0, "MSE_test_pred"])
+        aic.append(df_result.loc[0, "AIC"])
+        mse_sim.append(df_result.loc[0, "MSE_test_sim"])
+        comp.append(df_result.loc[0, "complexity"])
 
-        else:
-            # does normal model fitting
-            opt = Optimizer_casadi(solver_dict = solver_dict)
-            opt.set_params(**parameters) # set parameters
-            opt.fit(features, target, include_column = include_column, constraints_dict = constraints_dict, ensemble_iterations = ensemble_iterations, 
-                    seed = seed, max_workers = max_workers)
-            opt.print()
+    return mse_pred, aic, mse_sim, comp 
 
 def plot_adict(x : list, adict : dict, x_label : str):
     # plotting results
@@ -79,13 +75,15 @@ def plot_adict(x : list, adict : dict, x_label : str):
         plt.savefig(f"{x_label}_{key}")
         plt.close()
 
+
 if __name__ == "__main__": 
 
     # with hyperparameter optmization
-    params = {"optimizer__threshold": [0.01, 0.1, 1], 
-        "optimizer__alpha": [0, 0.01, 0.1, 1], 
+    params = {"optimizer__threshold": [0.01], # 0.1, 1], 
+        "optimizer__alpha": [0], # 0.01, 0.1, 1], 
         "feature_library__include_bias" : [False],
-        "feature_library__degree": [1, 2, 3]}
+        "feature_library__degree": [1] #, 2, 3]
+        }
 
     ensemble_params = {"optimizer__threshold": [2, 1.25, 1.6], 
         "optimizer__alpha": [0], 
@@ -94,19 +92,25 @@ if __name__ == "__main__":
 
     # Perfrom simulations
     ensemble_study = True # if True performs bootstrapping to eliminate parameters else normal sindy
-    noise_study = False # if True performs hyperparameter optimization for varying noise levels
-    experiments_study = True # if True performs hyperparameter optimization for varying initial conditions
+    noise_study = True # if True performs hyperparameter optimization for varying noise levels
+    experiments_study = False # if True performs hyperparameter optimization for varying initial conditions
     sampling_study = False # if True performs hyperparameter optimization for varying sampling frequencies
+    max_workers = 2
 
     ########################################################################################################################
     if noise_study :
 
         adict_noise = defaultdict(list)
         noise_level = [0.0, 0.1, 0.2]
-        for noise in noise_level:
-            run_gridsearch(15, 0.01, noise_level = noise, parameters = ensemble_params if ensemble_study else params, 
-                            ensemble_iterations = 1000 if ensemble_study else 1, max_workers = 3, seed = 10, 
-                            name = "ensemble", result_dict = adict_noise)
+
+        with ProcessPoolExecutor(max_workers = max_workers) as executor:   
+            result = executor.map(partial(run_gridsearch, parameters = ensemble_params if ensemble_study else params, 
+                            ensemble_iterations = 1000 if ensemble_study else 1, max_workers = max_workers, seed = 10, 
+                            name = "sampling"), repeat(15), repeat(0.01), noise_level)
+
+            for alist in result:
+                for key, value in zip(["MSE_test_pred", "AIC", "MSE_test_sim", "complexity"], alist):
+                    adict_noise[key].extend(value)
 
         plot_adict(noise_level, adict_noise, x_label = "noise")
 
@@ -123,11 +127,16 @@ if __name__ == "__main__":
 
         experiments = [2, 4, 6]
         adict_experiments = defaultdict(list)
-        for expt in experiments: 
-            # change sampling time to 0.05 to notice difference
-            run_gridsearch(expt, 0.05, noise_level= 0, parameters = ensemble_params if ensemble_study else params, 
-                            ensemble_iterations = 2 if ensemble_study else 1, max_workers = 2, seed = 10, 
-                            name = "experiments", result_dict = adict_experiments)
+        
+        with ProcessPoolExecutor(max_workers = max_workers) as executor:   
+            result = executor.map(partial(run_gridsearch, delta_t = 0.05, noise_level = 0, parameters = ensemble_params if ensemble_study else params, 
+                            ensemble_iterations = 1000 if ensemble_study else 1, max_workers = max_workers, seed = 10, 
+                            name = "sampling"), experiments)
+
+            for alist in result:
+                for key, value in zip(["MSE_test_pred", "AIC", "MSE_test_sim", "complexity"], alist):
+                    adict_experiments[key].extend(value)
+        
         plot_adict(experiments, adict_experiments, x_label = "experiments")
     
     ########################################################################################################################
@@ -135,12 +144,16 @@ if __name__ == "__main__":
     
         print("------"*100)
         print("Starting sampling study")
-
-        sampling = [0.01, 0.05, 0.1]
         adict_sampling = defaultdict(list)
-        for sample in sampling:
-            run_gridsearch(15, sample, noise_level= 0, parameters = ensemble_params if ensemble_study else params, 
-                            ensemble_iterations = 1000 if ensemble_study else 1, max_workers = 2, seed = 10, 
-                            name = "sampling", result_dict = adict_sampling)
+        sampling = [0.01, 0.05, 0.1]
+
+        with ProcessPoolExecutor(max_workers = max_workers) as executor:   
+            result = executor.map(partial(run_gridsearch, noise_level = 0, parameters = ensemble_params if ensemble_study else params, 
+                            ensemble_iterations = 1000 if ensemble_study else 1, max_workers = max_workers, seed = 10, 
+                            name = "sampling"), repeat(15), sampling)
+
+            for alist in result:
+                for key, value in zip(["MSE_test_pred", "AIC", "MSE_test_sim", "complexity"], alist):
+                    adict_sampling[key].extend(value)
 
         plot_adict(sampling, adict_sampling, x_label = "sampling")
