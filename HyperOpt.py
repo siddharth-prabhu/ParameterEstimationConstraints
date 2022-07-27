@@ -29,11 +29,14 @@ class HyperOpt():
     time_clean : np.ndarray 
 
     parameters : dict = field(default_factory = dict)
-    model : Optimizer_casadi = field(default_factory = Optimizer_casadi()) 
+    model : Optimizer_casadi = field(default_factory = Optimizer_casadi) 
     include_column : list[list] = field(default = None)
     constraints_dict : dict = field(default_factory = dict)
     ensemble_iterations : int = field(default = 1)
     seed : int = field(default = 12345)
+
+    def __post_init__(self):
+        assert len(self.X) > 1 and len(self.X_clean) > 1, "Need atleast 2 experiments for hyperparameter optimization"
 
     @staticmethod
     def train_test_split(X : list[np.ndarray], y : list[np.ndarray], X_clean : list[np.ndarray], y_clean : list[np.ndarray], 
@@ -197,11 +200,9 @@ if __name__ == "__main__":
     params = {"optimizer__threshold": [0.5], 
         "optimizer__alpha": [0], 
         "feature_library__include_bias" : [False],
-        "feature_library__degree": [3, 4]}
+        "feature_library__degree": [1]}
 
-    opt = HyperOpt(features, target, features, target, t_span, params, Optimizer_casadi(solver_dict = {"ipopt.print_level" : 0, "print_time":0, "ipopt.sb" : "yes"}), 
-                    include_column = [[0, 1], [0, 2], [0, 3]], constraints_dict = {"mass_balance" : [], "consumption" : [], "formation" : [], 
-                                "stoichiometry" : np.array([-1, -1, -1, 1, 0, 0, 0, 1, 0, 0, 0, 2]).reshape(4, -1)})
+    opt = HyperOpt(features, target, features, target, t_span, t_span, params, Optimizer_casadi(solver_dict = {"ipopt.print_level" : 0, "print_time":0, "ipopt.sb" : "yes"}))
     opt.gridsearch(max_workers = 2)
     # opt.plot()
 

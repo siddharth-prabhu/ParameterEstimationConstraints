@@ -329,26 +329,27 @@ class Optimizer_casadi(Base):
             
             for key in range(self._functional_library):
                 fig, ax = plt.subplots(self.adict["iterations"], 3, figsize = (10, 4))
+                ax = np.ravel(ax)
                 for i, _coefficients_iterations in enumerate(self.adict["coefficients_iterations"]):
                     
-                    ax[i, 0].bar(self.adict["library_labels"][key], _coefficients_iterations["mean"][key])
-                    ax[i, 1].bar(self.adict["library_labels"][key], _coefficients_iterations["standard_deviation"][key])
-                    ax[i, 2].bar(self.adict["library_labels"][key], _coefficients_iterations["z_critical"][key])
-                    ax[i, 2].set(ylim = (-self.threshold, self.threshold))
+                    ax[3*i].bar(self.adict["library_labels"][key], _coefficients_iterations["mean"][key])
+                    ax[3*i + 1].bar(self.adict["library_labels"][key], _coefficients_iterations["standard_deviation"][key])
+                    ax[3*i + 2].bar(self.adict["library_labels"][key], _coefficients_iterations["z_critical"][key])
+                    ax[3*i + 2].set(ylim = (-self.threshold, self.threshold))
 
                     if i == 0:
-                        ax[i, 0].set(title = "Mean")
-                        ax[i, 1].set(title = "Sigma")
-                        ax[i, 2].set(title = "z_critical")
+                        ax[3*i].set(title = "Mean")
+                        ax[3*i + 1].set(title = "Sigma")
+                        ax[3*i + 2].set(title = "z_critical")
                     
                     if i != self.adict["iterations"] - 1 : 
-                        ax[i, 0].set(xticklabels = [])
-                        ax[i, 1].set(xticklabels = [])
-                        ax[i, 2].set( xticklabels = [])
+                        ax[3*i].set(xticklabels = [])
+                        ax[3*i + 1].set(xticklabels = [])
+                        ax[3*i + 2].set( xticklabels = [])
                     else:
-                        ax[i, 0].set_xticks(range(len(self.adict["library_labels"][key])), self.adict["library_labels"][key], rotation = 90)
-                        ax[i, 1].set_xticks(range(len(self.adict["library_labels"][key])), self.adict["library_labels"][key], rotation = 90)
-                        ax[i, 2].set_xticks(range(len(self.adict["library_labels"][key])), self.adict["library_labels"][key], rotation = 90)
+                        ax[3*i].set_xticks(range(len(self.adict["library_labels"][key])), self.adict["library_labels"][key], rotation = 90)
+                        ax[3*i + 1].set_xticks(range(len(self.adict["library_labels"][key])), self.adict["library_labels"][key], rotation = 90)
+                        ax[3*i + 2].set_xticks(range(len(self.adict["library_labels"][key])), self.adict["library_labels"][key], rotation = 90)
                         
                 plt.show()
             
@@ -421,13 +422,13 @@ if __name__ == "__main__":
 
     from GenerateData import DynamicModel
 
-    model = DynamicModel("kinetic_kosir", np.arange(0, 5, 0.01), n_expt = 15)
+    model = DynamicModel("kinetic_kosir", np.arange(0, 5, 0.01), n_expt = 1)
     features = model.integrate() # list of features
     target = model.approx_derivative # list of target value
     features = model.add_noise(0, 0.0)
     target = model.approx_derivative
 
-    opti = Optimizer_casadi(FunctionalLibrary(2) , alpha = 0.0, threshold = 2, solver_dict={"ipopt.print_level" : 0, "print_time":0, "ipopt.sb" : "yes"}, 
+    opti = Optimizer_casadi(FunctionalLibrary(2) , alpha = 0.0, threshold = 0.1, solver_dict={"ipopt.print_level" : 0, "print_time":0, "ipopt.sb" : "yes"}, 
                             max_iter = 20)
     stoichiometry = np.array([-1, -1, -1, 0, 0, 2, 1, 0, 0, 0, 1, 0]).reshape(4, -1) # chemistry constraints
     include_column = [[0, 2], [0, 3], [0, 1]]
@@ -436,7 +437,7 @@ if __name__ == "__main__":
 
     opti.fit(features, target, include_column = [], 
                 constraints_dict= {"formation" : [], "consumption" : [], 
-                                    "stoichiometry" : stoichiometry}, ensemble_iterations = 1000, seed = 10, max_workers = 2)
+                                    "stoichiometry" : stoichiometry}, ensemble_iterations = 1, seed = 10, max_workers = 2)
     opti.print()
     print("--"*20)
     print("mean squared error :", opti.score(features, target))

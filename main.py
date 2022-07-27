@@ -93,10 +93,10 @@ if __name__ == "__main__":
         "feature_library__degree": [1, 2, 3]}
 
     # Perfrom simulations
-    ensemble_study = False # if True performs bootstrapping to eliminate parameters else normal sindy
+    ensemble_study = True # if True performs bootstrapping to eliminate parameters else normal sindy
     noise_study = False # if True performs hyperparameter optimization for varying noise levels
-    experiments_study = False # if True performs hyperparameter optimization for varying initial conditions
-    sampling_study = True # if True performs hyperparameter optimization for varying sampling frequencies
+    experiments_study = True # if True performs hyperparameter optimization for varying initial conditions
+    sampling_study = False # if True performs hyperparameter optimization for varying sampling frequencies
 
     ########################################################################################################################
     if noise_study :
@@ -121,11 +121,11 @@ if __name__ == "__main__":
         print("------"*100)
         print("Starting experiment study")
 
-        experiments = [5, 10, 15]
+        experiments = [2, 4, 6]
         adict_experiments = defaultdict(list)
         for expt in experiments:
             run_gridsearch(expt, 0.01, noise_level= 0, parameters = ensemble_params if ensemble_study else params, 
-                            ensemble_iterations = 1000 if ensemble_study else 1, max_workers = 2, seed = 10, 
+                            ensemble_iterations = 2 if ensemble_study else 1, max_workers = 2, seed = 10, 
                             name = "experiments", result_dict = adict_experiments)
         plot_adict(experiments, adict_experiments, x_label = "experiments")
     
