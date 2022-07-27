@@ -25,7 +25,8 @@ class HyperOpt():
     y : list[np.ndarray]
     X_clean : list[np.ndarray]
     y_clean : list[np.ndarray]
-    t : np.ndarray
+    time : np.ndarray
+    time_clean : np.ndarray 
 
     parameters : dict = field(default_factory = dict)
     model : Optimizer_casadi = field(default_factory = Optimizer_casadi()) 
@@ -36,18 +37,22 @@ class HyperOpt():
 
     @staticmethod
     def train_test_split(X : list[np.ndarray], y : list[np.ndarray], X_clean : list[np.ndarray], y_clean : list[np.ndarray], 
-                        t : np.ndarray, train_percent : int = 80):
+                        t : np.ndarray, t_clean : np.ndarray, train_split_percent : int = 80):
         
-        assert np.shape(y) == np.shape(y_clean), "Targets and targets_clean should have same dimensions"
-        assert len(y) == len(y_clean) == len(X), "Features, target and target_clean should have the same length"
-        sample = len(y)*train_percent//100
-    
-        return X[:sample], y[:sample], X_clean[:sample], y_clean[:sample], t, X[sample:], y[sample:], X_clean[sample:], y_clean[sample:], t
+        t_len, t_clean_len = len(t), len(t_clean)
+        assert sum(map(lambda x : len(x[0]) == len(x[1]) == t_len, zip(X, y))) == len(X) == len(y), "Features and targets should match with time"
+        assert sum(map(lambda x : len(x[0]) == len(x[1]) == t_clean_len, zip(X_clean, y_clean))) == len(X_clean) == len(y_clean), "Clean features and clean targets should match with clean time"
+        
+        # each type (noisy and clean) of data can have different data points 
+        sample = len(y)*train_split_percent//100
+        sample_clean = len(y_clean)*train_split_percent//100
 
-    def gridsearch(self, max_workers : Optional[int] = None, display_results : bool = True):
+        return X[:sample], y[:sample], X_clean[:sample_clean], y_clean[:sample_clean], t, X[sample:], y[sample:], X_clean[sample_clean:], y_clean[sample_clean:], t_clean
+
+    def gridsearch(self, train_split_percent : int = 80, max_workers : Optional[int] = None, display_results : bool = True):
 
         (self.X_train, self.y_train, self.X_clean_train, self.y_clean_train, self.t_train, self.X_test, self.y_test, 
-        self.X_clean_test, self.y_clean_test, self.t_test) = self.train_test_split(self.X, self.y, self.X_clean, self.y_clean, self.t)
+        self.X_clean_test, self.y_clean_test, self.t_clean) = self.train_test_split(self.X, self.y, self.X_clean, self.y_clean, self.time, self.time_clean, train_split_percent)
         
         result_dict = defaultdict(list)
         parameter_key, parameter_value = zip(*self.parameters.items()) # separate the key value pairs
@@ -97,6 +102,7 @@ class HyperOpt():
             print("Failed for the parameter combination", param_dict)
             print("--"*100)
         else :
+            print(f"Model for parameter combination {param_dict}", self.model.print(), sep = "\n")
             complexity = self.model.complexity
             MSE_test_pred = self.model.score(self.X_clean_test, self.y_clean_test, metric = mean_squared_error)
             MSE_train_pred = self.model.score(self.X_clean_train, self.y_clean_train, metric = mean_squared_error)
@@ -106,8 +112,8 @@ class HyperOpt():
 
             # add integration results
             try :
-                _integration_test = self.model.simulate(self.X_clean_test, self.t_test)
-                _integration_train = self.model.simulate(self.X_clean_train, self.t_train)
+                _integration_test = self.model.simulate(self.X_clean_test, self.t_clean)
+                _integration_train = self.model.simulate(self.X_clean_train, self.t_clean)
             
             except:
                 MSE_test_sim = np.nan

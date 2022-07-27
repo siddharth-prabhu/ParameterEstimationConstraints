@@ -229,6 +229,7 @@ class Optimizer_casadi(Base):
     def fit(self, features : list[np.ndarray], target : list[np.ndarray], include_column : Optional[list[np.ndarray]] = None, 
             constraints_dict : dict = {} , ensemble_iterations : int = 1, max_workers : Optional[int] = None, seed : int = 12345) -> None:
 
+        # ensemble_iterations = 1 : do regular sindy else ensemble sindy
         # constraints_dict should be of the form {"consumption" : [], "formation" : [], 
         #                                           "stoichiometry" : np.ndarray}
         self._flag_fit = True
