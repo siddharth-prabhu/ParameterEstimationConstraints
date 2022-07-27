@@ -123,8 +123,9 @@ if __name__ == "__main__":
 
         experiments = [2, 4, 6]
         adict_experiments = defaultdict(list)
-        for expt in experiments:
-            run_gridsearch(expt, 0.01, noise_level= 0, parameters = ensemble_params if ensemble_study else params, 
+        for expt in experiments: 
+            # change sampling time to 0.05 to notice difference
+            run_gridsearch(expt, 0.05, noise_level= 0, parameters = ensemble_params if ensemble_study else params, 
                             ensemble_iterations = 2 if ensemble_study else 1, max_workers = 2, seed = 10, 
                             name = "experiments", result_dict = adict_experiments)
         plot_adict(experiments, adict_experiments, x_label = "experiments")
