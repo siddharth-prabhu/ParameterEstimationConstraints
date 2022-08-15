@@ -65,15 +65,16 @@ def run_gridsearch(n_expt : int, delta_t : float, noise_level : float, parameter
 
 def plot_adict(x : list, adict : dict, x_label : str):
     # plotting results
-    for key in adict.keys():
-        plt.plot(x, adict[key][0::3], "--o", label = "without") 
-        plt.plot(x, adict[key][1::3], "--*", label = "mass")
-        plt.plot(x, adict[key][2::3], "--+", label = "stoichiometry")
-        plt.xlabel(x_label)
-        plt.ylabel(key)
-        plt.legend()
-        plt.savefig(f"{x_label}_{key}")
-        plt.close()
+    with plt.style.context(["science", "notebook", "vibrant"]):
+        for key in adict.keys():
+            plt.plot(x, adict[key][0::3], "--o", linewidth = 2, markersize = 8, label = "without") 
+            plt.plot(x, adict[key][1::3], "--*", linewidth = 2, markersize = 8, label = "mass")
+            plt.plot(x, adict[key][2::3], "--+", linewidth = 2, markersize = 8, label = "stoichiometry")
+            plt.xlabel(x_label)
+            plt.ylabel(key)
+            plt.legend()
+            plt.savefig(f"{x_label}_{key}")
+            plt.close()
 
 
 if __name__ == "__main__": 
@@ -91,10 +92,10 @@ if __name__ == "__main__":
         "feature_library__degree": [1, 2, 3]}
 
     # Perfrom simulations
-    ensemble_study = True # if True performs bootstrapping to eliminate parameters else normal sindy
-    noise_study = True # if True performs hyperparameter optimization for varying noise levels
+    ensemble_study = False # if True performs bootstrapping to eliminate parameters else normal sindy
+    noise_study = False # if True performs hyperparameter optimization for varying noise levels
     experiments_study = False # if True performs hyperparameter optimization for varying initial conditions
-    sampling_study = False # if True performs hyperparameter optimization for varying sampling frequencies
+    sampling_study = True # if True performs hyperparameter optimization for varying sampling frequencies
     max_workers = 2
 
     ########################################################################################################################
