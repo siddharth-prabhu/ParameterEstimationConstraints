@@ -65,7 +65,7 @@ class HyperOpt():
         with ProcessPoolExecutor(max_workers = max_workers) as executor:
             
             _gridsearch_results = executor.map(self._gridsearch_optimization, combinations, itertools.repeat(parameter_key), itertools.repeat(max_workers))
-            individual_results_keyword = ["complexity", "MSE_test_pred", "MSE_train_pred", "r2_test_pred", "r2_train_pred", "MSE_test_sim", "MSE_train_sim", 
+            individual_results_keyword = ["complexity", "MSE_Prediction", "MSE_train_pred", "r2_test_pred", "r2_train_pred", "MSE_Integration", "MSE_train_sim", 
                     "r2_test_sim", "r2_train_sim", "AIC", "iterations"]
             
             for individual_results in _gridsearch_results:    
@@ -161,11 +161,11 @@ class HyperOpt():
                                                (updated_results["r2_test_sim"] >= 0) & (updated_results["r2_test_sim"] <= 1 )]
         
         source = ColumnDataSource(updated_results)
-        tooltips = [("Index", "$index"), ("complexity", "@complexity"), ("MSE", "@MSE_test_pred"), ("r2", "@r2_test_pred"), 
+        tooltips = [("Index", "$index"), ("complexity", "@complexity"), ("MSE", "@MSE_Prediction"), ("r2", "@r2_test_pred"), 
                     ("threshold", "@optimizer__threshold"), ("alpha", "@optimizer__alpha"), ("degree", "@feature_library__degree")]
 
         fig_mse = figure(tooltips = tooltips)
-        fig_mse.scatter(x = "complexity", y = "MSE_test_pred", size = 8, source = source)
+        fig_mse.scatter(x = "complexity", y = "MSE_Prediction", size = 8, source = source)
         self._bokeh_plot(fig_mse, "Complexity", "MSE Prediction", title)
         
         fig_r2 = figure(tooltips = tooltips)
@@ -173,8 +173,8 @@ class HyperOpt():
         self._bokeh_plot(fig_r2, "Complexity", "R squared Prediction", title)
         
         fig_mse_sim = figure(tooltips = tooltips)
-        fig_mse_sim.scatter(x = "complexity", y = "MSE_test_sim", size = 8, source = source)
-        self._bokeh_plot(fig_mse_sim, "Complexity", "MSE Simulation", title)
+        fig_mse_sim.scatter(x = "complexity", y = "MSE_Integration", size = 8, source = source)
+        self._bokeh_plot(fig_mse_sim, "Complexity", "MSE Integration", title)
         
         fig_r2_sim = figure(tooltips = tooltips)
         fig_r2_sim.scatter(x = "complexity", y = "r2_test_sim", size = 8, source = source)

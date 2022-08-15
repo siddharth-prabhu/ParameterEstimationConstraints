@@ -67,9 +67,9 @@ def plot_adict(x : list, adict : dict, x_label : str):
     # plotting results
     with plt.style.context(["science", "notebook", "vibrant"]):
         for key in adict.keys():
-            plt.plot(x, adict[key][0::3], "--o", linewidth = 2, markersize = 8, label = "without") 
-            plt.plot(x, adict[key][1::3], "--*", linewidth = 2, markersize = 8, label = "mass")
-            plt.plot(x, adict[key][2::3], "--+", linewidth = 2, markersize = 8, label = "stoichiometry")
+            plt.plot(x, adict[key][0::3], "--o", linewidth = 2, markersize = 8, label = "naive") 
+            plt.plot(x, adict[key][1::3], "--*", linewidth = 2, markersize = 8, label = "mass balance")
+            plt.plot(x, adict[key][2::3], "--+", linewidth = 2, markersize = 8, label = "chemistry")
             plt.xlabel(x_label)
             plt.ylabel(key)
             plt.legend()
