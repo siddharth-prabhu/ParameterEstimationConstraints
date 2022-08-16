@@ -56,9 +56,9 @@ def run_gridsearch(n_expt : int, delta_t : float, noise_level : float, parameter
                     title = f"{status} and {noise_level} noise")
         df_result = opt.df_result
 
-        mse_pred.append(df_result.loc[0, "MSE_test_pred"])
+        mse_pred.append(df_result.loc[0, "MSE_Prediction"])
         aic.append(df_result.loc[0, "AIC"])
-        mse_sim.append(df_result.loc[0, "MSE_test_sim"])
+        mse_sim.append(df_result.loc[0, "MSE_Integration"])
         comp.append(df_result.loc[0, "complexity"])
 
     return mse_pred, aic, mse_sim, comp 
@@ -110,7 +110,7 @@ if __name__ == "__main__":
                             name = "sampling"), repeat(15), repeat(0.01), noise_level)
 
             for alist in result:
-                for key, value in zip(["MSE_test_pred", "AIC", "MSE_test_sim", "complexity"], alist):
+                for key, value in zip(["MSE_Prediction", "AIC", "MSE_Integration", "complexity"], alist):
                     adict_noise[key].extend(value)
 
         plot_adict(noise_level, adict_noise, x_label = "noise")
@@ -135,7 +135,7 @@ if __name__ == "__main__":
                             name = "sampling"), experiments)
 
             for alist in result:
-                for key, value in zip(["MSE_test_pred", "AIC", "MSE_test_sim", "complexity"], alist):
+                for key, value in zip(["MSE_Prediction", "AIC", "MSE_Integration", "complexity"], alist):
                     adict_experiments[key].extend(value)
         
         plot_adict(experiments, adict_experiments, x_label = "experiments")
@@ -154,7 +154,7 @@ if __name__ == "__main__":
                             name = "sampling"), repeat(15), sampling)
 
             for alist in result:
-                for key, value in zip(["MSE_test_pred", "AIC", "MSE_test_sim", "complexity"], alist):
+                for key, value in zip(["MSE_Prediction", "AIC", "MSE_Integration", "complexity"], alist):
                     adict_sampling[key].extend(value)
 
         plot_adict(sampling, adict_sampling, x_label = "sampling")
