@@ -421,6 +421,7 @@ class Optimizer_casadi(Base):
 if __name__ == "__main__":
 
     from GenerateData import DynamicModel
+    from utils import coefficient_difference_plot
 
     model = DynamicModel("kinetic_kosir", np.arange(0, 5, 0.01), n_expt = 1)
     features = model.integrate() # list of features
@@ -446,4 +447,6 @@ if __name__ == "__main__":
     print("--"*20)
     # print("coefficients at each iteration", opti.adict["coefficients_iterations"])
     print("--"*20)
-    opti.plot_distribution(reaction_coefficients = False, coefficients_iterations = True)
+    # opti.plot_distribution(reaction_coefficients = False, coefficients_iterations = True)
+
+    coefficient_difference_plot(model.coefficients() , opti.adict["coefficients_dict"])

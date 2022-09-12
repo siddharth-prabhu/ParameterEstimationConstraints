@@ -27,3 +27,22 @@ def ensemble_plot(coefficients_list : list[dict], distribution : list[dict], inc
         
     plt.show()
 
+def coefficient_difference_plot(original_coefficients_list : list[dict], coefficients_list : list[dict]):
+
+    # calculate the difference betweeen the coefficients
+    def take_difference(ind, adict):
+        for key, value in original_coefficients_list[ind].items():
+            adict[key] = value - adict.get(key, 0)
+        
+    rows = -(-len(original_coefficients_list)//2)
+    fig, ax =  plt.subplots(rows, 2, figsize = (10, 15))
+    fig.subplots_adjust(hspace = 0.5, wspace = 0.5)
+    ax = np.ravel(ax)
+    for i, adict in enumerate(coefficients_list):
+        
+        take_difference(i, adict)
+        labels, value = zip(*adict.items())
+        ax[i].bar(list(map(str, labels)), value)
+        ax[i].set(xlabel = "coefficients", ylabel = "", title = f"dx{i}/di")
+
+    plt.show()

@@ -1,11 +1,14 @@
 from dataclasses import dataclass, field
 import numpy as np
+import sympy as smp
 
 import pickle
 from typing import ClassVar, Optional
 from scipy.integrate import odeint
 import matplotlib.pyplot as plt
 import pysindy as ps
+
+from functools import reduce
 
 @dataclass
 class DynamicModel():
@@ -31,6 +34,7 @@ class DynamicModel():
             assert len(self.initial_condition[-1]) == self._model_dict[self.model]["n_states"], "Incorrect number of states"
             assert len(self.initial_condition) == len(self.n_expt), "Initial conditions should match the number of experiments"
 
+        self._n_states = self._model_dict[self.model]["n_states"]
         self.model = self._model_dict[self.model]["function"]
 
     @staticmethod
@@ -51,6 +55,15 @@ class DynamicModel():
             8.566*x[0],
             1.191*x[0] - 5.743*x[2],
             10.219*x[0] - 1.535*x[3]])
+
+    def coefficients(self, x : Optional[tuple[smp.symbols]] = None, t : Optional[np.ndarray] = None, *args) -> list[dict]:
+
+        # if symbols are not provided
+        if not x:
+            x = smp.symbols(reduce(lambda accum, value : accum + value + ",", [f"x{i}" for i in range(self._n_states)], ""))
+
+        equations = self.model(x, t, *args)
+        return [eqn.as_coefficients_dict() for eqn in equations]
 
     # forward simulates the chosen model using scipy odeint
     def integrate(self, model_args: tuple = (), **odeint_kwargs) -> list:
