@@ -438,7 +438,7 @@ if __name__ == "__main__":
 
     opti.fit(features, target, include_column = [], 
                 constraints_dict= {"formation" : [], "consumption" : [], 
-                                    "stoichiometry" : stoichiometry}, ensemble_iterations = 1, seed = 10, max_workers = 2)
+                                    "stoichiometry" : stoichiometry}, ensemble_iterations = 2, seed = 10, max_workers = 2)
     opti.print()
     print("--"*20)
     print("mean squared error :", opti.score(features, target))
@@ -449,4 +449,4 @@ if __name__ == "__main__":
     print("--"*20)
     # opti.plot_distribution(reaction_coefficients = False, coefficients_iterations = True)
 
-    coefficient_difference_plot(model.coefficients() , opti.adict["coefficients_dict"])
+    coefficient_difference_plot(model.coefficients() , sigma = opti.adict["coefficients_dict"], sigma2 = opti.adict["coefficients_dict"])
