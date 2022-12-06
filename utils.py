@@ -51,3 +51,4 @@ def coefficient_difference_plot(original_coefficients_list : list[dict], **kwarg
                 ax[i].legend()
 
         plt.show()
+        plt.close()

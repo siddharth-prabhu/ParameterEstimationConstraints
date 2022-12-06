@@ -56,7 +56,7 @@ class Optimizer_casadi(Base):
         self.library.set_params(**kwargs)
 
 
-    def _generate_library(self, data : np.ndarray, include_column = list[np.ndarray]):
+    def _generate_library(self, data : np.ndarray, include_column : list[np.ndarray]):
         # given data creates list of matix of all possible combinations of terms 
         # returns a list of number of columns of each matrix
 
