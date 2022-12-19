@@ -28,6 +28,7 @@ class Optimizer_casadi(Base):
     num_points : float = field(default = 0.5)
     threshold : float = field(default = 0.01) # inverse of z_critical for boostrapping
     max_iter : int = field(default = 20)
+    plugin_dict : dict = field(default_factory = dict)
     solver_dict : dict = field(default_factory = dict)
 
     _flag_fit : bool = field(default = False, init = False)
@@ -137,10 +138,10 @@ class Optimizer_casadi(Base):
                 self.opti.subject_to(asum <= 0)
 
 
-    def _minimize(self, solver_dict : dict):
+    def _minimize(self, plugin_dict : dict, solver_dict : dict):
 
         self.opti.minimize(self.adict["cost"])
-        self.opti.solver("ipopt", solver_dict, {"max_iter" : 30})
+        self.opti.solver("ipopt", plugin_dict, solver_dict)
         solution = self.opti.solve()
         # assert solution.success, "The solution did not converge" add assertion 
         return solution
@@ -155,7 +156,7 @@ class Optimizer_casadi(Base):
         self._update_cost(target[permutations])
         if constraints_dict:
             self._add_constraints(constraints_dict, seed)
-        _solution = self._minimize(self.solver_dict) # no need to save for every iteration
+        _solution = self._minimize(self.plugin_dict, self.solver_dict) # no need to save for every iteration
 
         # list[np.ndarray]. additional layer of np.array and flatten to account for singular value, which casadi outputs as float
         return [np.array([_solution.value(coeff)]).flatten() for coeff in self.adict["coefficients"]]
@@ -427,7 +428,7 @@ if __name__ == "__main__":
     from GenerateData import DynamicModel
     from utils import coefficient_difference_plot
 
-    model = DynamicModel("kinetic_kosir", np.arange(0, 5, 0.01), n_expt = 1)
+    model = DynamicModel("kinetic_kosir", np.arange(0, 5, 0.01), arguments =(373, ), n_expt = 1)
     features = model.integrate() # list of features
     target = model.approx_derivative # list of target value
     features = model.add_noise(0, 0.0)
