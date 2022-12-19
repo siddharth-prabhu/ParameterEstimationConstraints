@@ -69,19 +69,14 @@ class EnergySindy(Optimizer_casadi):
 
             self.adict["cost"] += cd.sumsqr(target[:, i] - asum)
 
+        # add regularization to the cost function
+        for j in range(self._functional_library):
+            self.adict["cost"] += self.alpha*cd.einstein(cd.vec(reaction_rate[j]), cd.vec(reaction_rate[j]), 
+                                                    [*reaction_rate[j].shape], [*reaction_rate[j].shape], [], [-1, -2], [-1, -2], [])
+
         # normalize the cost by dividing by the number of data points
         self.adict["cost"] /= self.adict["library_dimension"][0][0] # first array with first dimension
 
-        # add regularization to the cost function
-        for j in range(self._functional_library):
-            self.adict["cost"] += self.alpha*cd.sumsqr(self.adict["coefficients"][j])
-
-        # normalize the cost by dividing by the number of data points
-        self.adict["cost"] /= self.adict["library_dimension"][0][0] # first array with first dimension
-
-        # add regularization to the cost function
-        for j in range(self._functional_library):
-            self.adict["cost"] += self.alpha*cd.sumsqr(self.adict["coefficients"][j])
 
     def _stlsq_solve_optimization(self, library: List, target: np.ndarray, 
                                     constraints_dict: dict, permutations: List, seed: int) -> List:
@@ -148,7 +143,7 @@ if __name__ == "__main__":
     from GenerateData import DynamicModel
     from utils import coefficient_difference_plot
 
-    model = DynamicModel("kinetic_kosir", np.arange(0, 5, 0.01), n_expt = 20)
+    model = DynamicModel("kinetic_kosir", np.arange(0, 5, 0.01), n_expt = 2)
     features = model.integrate() # list of features
     target = model.approx_derivative # list of target value
     features = model.add_noise(0, 0.0)
@@ -156,7 +151,7 @@ if __name__ == "__main__":
     temperature = np.array(model.arguments).flatten()
 
     opti = EnergySindy(FunctionalLibrary(2) , alpha = 0.0, threshold = 0.1, solver_dict={"max_iter" : 5000}, 
-                            plugin_dict = {"ipopt.print_level" : 5, "print_time":5, "ipopt.sb" : "yes", "ipopt.max_iter" : 5000}, max_iter = 20)
+                            plugin_dict = {"ipopt.print_level" : 5, "print_time":5, "ipopt.sb" : "yes", "ipopt.max_iter" : 10000}, max_iter = 20)
     
     stoichiometry = np.array([-1, -1, -1, 0, 0, 2, 1, 0, 0, 0, 1, 0]).reshape(4, -1) # chemistry constraints
     # include_column = [[0, 2], [0, 3], [0, 1]]
