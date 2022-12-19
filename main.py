@@ -11,13 +11,24 @@ from itertools import repeat
 
 import numpy as np
 import matplotlib.pyplot as plt
+from utils import coefficient_difference_plot
 
+import argparse
+
+
+parser = argparse.ArgumentParser("ParameterEstimationSINDy")
+parser.add_argument("--ensemble_study", choices = [0, 1], type = int, default = 0, help = "If True performs bootstrapping to eliminate parameters else normal sindy")
+parser.add_argument("--noise_study", choices = [0, 1], type = int, default = 0, help = "If True performs hyperparameter optimization for varying noise levels") 
+parser.add_argument("--experiments_study", choices = [0, 1], type = int, default = 0, help = "If True performs hyperparameter optimization for varying initial conditions") 
+parser.add_argument("--sampling_study", choices = [0, 1], type = int, default = 0, help = "If True performs hyperparameter optimization for varying sampling frequencies") 
+parser.add_argument("--max_workers", default = 0, type = int)
+args = parser.parse_args()
 
 
 def run_gridsearch(n_expt : int, delta_t : float, noise_level : float, parameters : dict, ensemble_iterations : int = 1, 
                     max_workers : Optional[int] = None, seed : int = 12345, name : str = "ensemble"):
     
-    solver_dict = {"ipopt.print_level" : 0, "print_time": 0, "ipopt.sb" : "yes"}
+    plugin_dict = {"ipopt.print_level" : 0, "print_time": 0, "ipopt.sb" : "yes"}
     # generate clean testing data to be used later for calculating errors
     time_span_clean = np.arange(0, 5, 0.01)
     model = DynamicModel("kinetic_kosir", time_span_clean, n_expt = 15)
@@ -48,7 +59,7 @@ def run_gridsearch(n_expt : int, delta_t : float, noise_level : float, parameter
 
         # does grid_serch over parameters 
         print(f"Running simulation for {noise_level} noise, {n_expt} experiments, {delta_t} sampling time, and " + status)
-        opt = HyperOpt(features, target, features_clean, target_clean, time_span, time_span_clean, parameters, Optimizer_casadi(solver_dict = solver_dict), 
+        opt = HyperOpt(features, target, features_clean, target_clean, time_span, time_span_clean, parameters, Optimizer_casadi(plugin_dict = plugin_dict), 
                 include_column = include_column, constraints_dict = constraints_dict, ensemble_iterations = ensemble_iterations, seed = seed)
 
         opt.gridsearch(max_workers = max_workers)
@@ -76,6 +87,38 @@ def plot_adict(x : list, adict : dict, x_label : str):
             plt.savefig(f"{x_label}_{key}")
             plt.close()
 
+def run_without_gridsearch(noise_level : list[float], ensemble_iterations : int = 1, 
+                    max_workers : Optional[int] = None, seed : int = 12345):
+    
+    plugin_dict = {"ipopt.print_level" : 0, "print_time": 0, "ipopt.sb" : "yes"}
+    # generate clean testing data to be used later for calculating errors
+    time_span_clean = np.arange(0, 5, 0.01)
+    model = DynamicModel("kinetic_kosir", time_span_clean, n_expt = 15)
+
+    # generate training data with varying experiments and sampling time
+    time_span = np.arange(0, 5, 0.01)
+    model = DynamicModel("kinetic_kosir", time_span, n_expt = 15)
+    alist = []
+
+    for noise in noise_level:
+        
+        features = model.integrate()
+        features = model.add_noise(0, noise)
+        target = model.approx_derivative
+
+        opti = Optimizer_casadi(FunctionalLibrary(2) , alpha = 0.0, threshold = 0.1, plugin_dict={"ipopt.print_level" : 0, "print_time":0, "ipopt.sb" : "yes"}, 
+                            max_iter = 20)
+        # stoichiometry = np.array([-1, -1, -1, 0, 0, 2, 1, 0, 0, 0, 1, 0]).reshape(4, -1) # chemistry constraints
+        # include_column = [[0, 2], [0, 3], [0, 1]]
+        # stoichiometry =  np.array([1, 0, 0, 0, 1, 0, 0, 0, 1, -1, -0.5, -1]).reshape(4, -1) # mass balance constraints
+        stoichiometry = np.eye(4)
+
+        opti.fit(features, target, include_column = [], 
+                constraints_dict= {"formation" : [], "consumption" : [], 
+                                    "stoichiometry" : stoichiometry}, ensemble_iterations = ensemble_iterations, seed = seed, max_workers = max_workers)
+
+        coefficient_difference_plot(model.coefficients(), sigma = opti.adict["coefficients_dict"])
+    
 
 if __name__ == "__main__": 
 
@@ -92,11 +135,11 @@ if __name__ == "__main__":
         "feature_library__degree": [1, 2, 3]}
 
     # Perfrom simulations
-    ensemble_study = False # if True performs bootstrapping to eliminate parameters else normal sindy
-    noise_study = False # if True performs hyperparameter optimization for varying noise levels
-    experiments_study = False # if True performs hyperparameter optimization for varying initial conditions
-    sampling_study = True # if True performs hyperparameter optimization for varying sampling frequencies
-    max_workers = 2
+    ensemble_study = args.ensemble_study # if True performs bootstrapping to eliminate parameters else normal sindy
+    noise_study = args.noise_study # if True performs hyperparameter optimization for varying noise levels
+    experiments_study = args.experiments_study # if True performs hyperparameter optimization for varying initial conditions
+    sampling_study = args.sampling_study # if True performs hyperparameter optimization for varying sampling frequencies
+    max_workers = None if args.max_workers <= 0 else args.max_workers 
 
     ########################################################################################################################
     if noise_study :
@@ -158,3 +201,46 @@ if __name__ == "__main__":
                     adict_sampling[key].extend(value)
 
         plot_adict(sampling, adict_sampling, x_label = "sampling")
+
+    ########################################################################################################################
+    # adding noise breaks down the method
+    time_span_clean = np.arange(0, 5, 0.01)
+    model = DynamicModel("kinetic_kosir", time_span_clean, n_expt = 15)
+
+    # generate training data with varying experiments and sampling time
+    time_span = np.arange(0, 5, 0.01)
+    model = DynamicModel("kinetic_kosir", time_span, n_expt = 15)
+        
+    features = model.integrate()
+    features = model.add_noise(0, 0)
+    target = model.approx_derivative
+
+    opti = Optimizer_casadi(FunctionalLibrary(2) , alpha = 0.0, threshold = 0.1, plugin_dict={"ipopt.print_level" : 0, "print_time":0, "ipopt.sb" : "yes"}, 
+                        max_iter = 20)
+    # stoichiometry = np.array([-1, -1, -1, 0, 0, 2, 1, 0, 0, 0, 1, 0]).reshape(4, -1) # chemistry constraints
+    # include_column = [[0, 2], [0, 3], [0, 1]]
+    # stoichiometry =  np.array([1, 0, 0, 0, 1, 0, 0, 0, 1, -1, -0.5, -1]).reshape(4, -1) # mass balance constraints
+    stoichiometry = np.eye(4)
+
+    opti.fit(features, target, include_column = [], 
+            constraints_dict= {"formation" : [], "consumption" : [], 
+                                "stoichiometry" : stoichiometry}, ensemble_iterations = 1, seed = 10, max_workers = max_workers)
+
+    coefficient_difference_plot(model.coefficients(), sigma = opti.adict["coefficients_dict"])
+
+    features = model.integrate()
+    features = model.add_noise(0, 0.1)
+    target = model.approx_derivative
+
+    opti = Optimizer_casadi(FunctionalLibrary(2) , alpha = 0.0, threshold = 0.1, plugin_dict={"ipopt.print_level" : 0, "print_time":0, "ipopt.sb" : "yes"}, 
+                        max_iter = 20)
+    # stoichiometry = np.array([-1, -1, -1, 0, 0, 2, 1, 0, 0, 0, 1, 0]).reshape(4, -1) # chemistry constraints
+    # include_column = [[0, 2], [0, 3], [0, 1]]
+    # stoichiometry =  np.array([1, 0, 0, 0, 1, 0, 0, 0, 1, -1, -0.5, -1]).reshape(4, -1) # mass balance constraints
+    stoichiometry = np.eye(4)
+
+    opti.fit(features, target, include_column = [], 
+            constraints_dict= {"formation" : [], "consumption" : [], 
+                                "stoichiometry" : stoichiometry}, ensemble_iterations = 1, seed = 10, max_workers = max_workers)
+
+    coefficient_difference_plot(model.coefficients(), sigma = opti.adict["coefficients_dict"])

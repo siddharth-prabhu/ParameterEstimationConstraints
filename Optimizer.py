@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from Base import Base
-from typing import Optional, Callable
+from typing import Optional, Callable, List
 from functools import reduce
 from collections import defaultdict, namedtuple
 from tqdm import tqdm
@@ -28,6 +28,7 @@ class Optimizer_casadi(Base):
     num_points : float = field(default = 0.5)
     threshold : float = field(default = 0.01) # inverse of z_critical for boostrapping
     max_iter : int = field(default = 20)
+    plugin_dict : dict = field(default_factory = dict)
     solver_dict : dict = field(default_factory = dict)
 
     _flag_fit : bool = field(default = False, init = False)
@@ -56,7 +57,7 @@ class Optimizer_casadi(Base):
         self.library.set_params(**kwargs)
 
 
-    def _generate_library(self, data : np.ndarray, include_column = list[np.ndarray]):
+    def _generate_library(self, data : np.ndarray, include_column : list[np.ndarray]):
         # given data creates list of matix of all possible combinations of terms 
         # returns a list of number of columns of each matrix
 
@@ -137,10 +138,10 @@ class Optimizer_casadi(Base):
                 self.opti.subject_to(asum <= 0)
 
 
-    def _minimize(self, solver_dict : dict):
+    def _minimize(self, plugin_dict : dict, solver_dict : dict):
 
         self.opti.minimize(self.adict["cost"])
-        self.opti.solver("ipopt", solver_dict, {"max_iter" : 30})
+        self.opti.solver("ipopt", plugin_dict, solver_dict)
         solution = self.opti.solve()
         # assert solution.success, "The solution did not converge" add assertion 
         return solution
@@ -155,7 +156,7 @@ class Optimizer_casadi(Base):
         self._update_cost(target[permutations])
         if constraints_dict:
             self._add_constraints(constraints_dict, seed)
-        _solution = self._minimize(self.solver_dict) # no need to save for every iteration
+        _solution = self._minimize(self.plugin_dict, self.solver_dict) # no need to save for every iteration
 
         # list[np.ndarray]. additional layer of np.array and flatten to account for singular value, which casadi outputs as float
         return [np.array([_solution.value(coeff)]).flatten() for coeff in self.adict["coefficients"]]
@@ -264,14 +265,18 @@ class Optimizer_casadi(Base):
         self.adict["coefficients_dict"] = []
         
         for i in range(self._n_states):
-            expr = self._create_sympy_expressions(self.adict["coefficients_value"], self.adict["library_labels"], self.adict["stoichiometry"][i])
+            expr = self._create_sympy_expressions(self.adict["stoichiometry"][i])
             self.adict["equations"].append(str(expr))
             self.adict["coefficients_dict"].append(expr.as_coefficients_dict())
             self.adict["equations_lambdify"].append(smp.lambdify(self.input_symbols, expr))
 
-    @staticmethod
-    def _create_sympy_expressions(coefficients_value : list[np.ndarray], library_labels : list[list[str]], stoichiometry_row : np.ndarray) -> str:
+
+    def _create_sympy_expressions(self, stoichiometry_row : np.ndarray) -> str:
+
+        coefficients_value : List[np.ndarray] = self.adict["coefficients_value"]
+        library_labels : List[List[str]] = self.adict["library_labels"]
         expr = 0
+
         for j in range(len(library_labels)):
             zero_filter = filter(lambda x : x[0], zip(coefficients_value[j], library_labels[j]))
             expr += stoichiometry_row[j]*smp.sympify(reduce(lambda accum, value : 
@@ -353,12 +358,12 @@ class Optimizer_casadi(Base):
                         
                 plt.show()
             
-    def _casadi_model(self, x : np.ndarray, t : np.ndarray):
+    def _casadi_model(self, x : np.ndarray, t : np.ndarray, *args):
 
-        return np.array([eqn(*x) for eqn in self.adict["equations_lambdify"]])
+        return np.array([eqn(*x, *args) for eqn in self.adict["equations_lambdify"]])
     
 
-    def predict(self, X : list[np.ndarray]) -> list:
+    def predict(self, X : list[np.ndarray], *args) -> list:
         assert self._flag_fit, "Fit the model before running predict"
         afunc = np.vectorize(self._casadi_model, signature = "(m),()->(m)")
 
@@ -423,7 +428,7 @@ if __name__ == "__main__":
     from GenerateData import DynamicModel
     from utils import coefficient_difference_plot
 
-    model = DynamicModel("kinetic_kosir", np.arange(0, 5, 0.01), n_expt = 1)
+    model = DynamicModel("kinetic_kosir", np.arange(0, 5, 0.01), arguments =(373, ), n_expt = 1)
     features = model.integrate() # list of features
     target = model.approx_derivative # list of target value
     features = model.add_noise(0, 0.0)
@@ -438,7 +443,7 @@ if __name__ == "__main__":
 
     opti.fit(features, target, include_column = [], 
                 constraints_dict= {"formation" : [], "consumption" : [], 
-                                    "stoichiometry" : stoichiometry}, ensemble_iterations = 1, seed = 10, max_workers = 2)
+                                    "stoichiometry" : stoichiometry}, ensemble_iterations = 2, seed = 10, max_workers = 2)
     opti.print()
     print("--"*20)
     print("mean squared error :", opti.score(features, target))
@@ -449,4 +454,4 @@ if __name__ == "__main__":
     print("--"*20)
     # opti.plot_distribution(reaction_coefficients = False, coefficients_iterations = True)
 
-    coefficient_difference_plot(model.coefficients() , opti.adict["coefficients_dict"])
+    coefficient_difference_plot(model.coefficients() , sigma = opti.adict["coefficients_dict"], sigma2 = opti.adict["coefficients_dict"])
