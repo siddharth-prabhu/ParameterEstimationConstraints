@@ -6,7 +6,7 @@ from sklearn.metrics import mean_squared_error
 from Optimizer import Optimizer_casadi
 from FunctionalLibrary import FunctionalLibrary
 
-from typing import List, Optional, Any, Callable
+from typing import List, Optional, Any, Callable, Tuple
 from functools import reduce
 
 class EnergySindy(Optimizer_casadi):
@@ -40,16 +40,17 @@ class EnergySindy(Optimizer_casadi):
                         self.solver_dict)
 
     def _create_decision_variables(self):
-        super()._create_decision_variables()
-        self.adict["coefficients_energy"] = [self.opti.variable(dimension[-1], 1) for dimension in self.adict["library_dimension"]]
+        super()._create_decision_variables() # reaction rates at reference temperature of 373 K
+        self.adict["coefficients_energy"] = [self.opti.variable(dimension[-1], 1) for dimension in self.adict["library_dimension"]] # activation energies
 
-    def _generate_library(self, data : np.ndarray, include_column : list[np.ndarray]):
+    def _generate_library(self, data : np.ndarray, include_column : List[np.ndarray]):
         
         super()._generate_library(data, include_column)
-        # create new symbol for temperature
-        self.input_symbols = (*self.input_symbols, smp.symbols("T"))
+        # create new symbol for temperature and universal gas constant
+        self.input_symbols = (*self.input_symbols, *smp.symbols("T, R"))
+        print("input symbols", self.input_symbols)
 
-    def _update_cost(self, target: np.ndarray, temperature : np.ndarray):
+    def _update_cost(self, target: np.ndarray):
 
         # initialize the cost to zero
         self.adict["cost"] = 0
@@ -57,7 +58,9 @@ class EnergySindy(Optimizer_casadi):
         # stoichiometric coefficient times the reactions 
         # need 2 for loops because of limitation of casadi 
         # the reaction rate will be arhenius equation
-        reaction_rate = [cd.vertcat(*[(A*cd.exp(-B/8.314/ti)).T for ti in temperature]) for A, B in zip(self.adict["coefficients"], self.adict["coefficients_energy"])]
+        reaction_rate = [cd.vertcat(*[(A*cd.exp(-B*1000*(1/ti - 1/373)/8.314)).T for ti in self.adict["temperature"]]) 
+                                    for A, B in zip(self.adict["coefficients"], self.adict["coefficients_energy"])]
+
         # self.adict["reactions"] = [cd.mtimes(self.adict["library"][j], reaction_rate[j]) for j in range(self._functional_library)]
         self.adict["reactions"] = [cd.einstein(cd.vec(A), cd.vec(x), [*A.shape], [*x.shape], [A.shape[0]], [-1, -2], [-1, -2], [-1]) 
                                     for A, x in zip(self.adict["library"], reaction_rate)]
@@ -69,89 +72,97 @@ class EnergySindy(Optimizer_casadi):
 
             self.adict["cost"] += cd.sumsqr(target[:, i] - asum)
 
-        # add regularization to the cost function
-        for j in range(self._functional_library):
-            self.adict["cost"] += self.alpha*cd.einstein(cd.vec(reaction_rate[j]), cd.vec(reaction_rate[j]), 
-                                                    [*reaction_rate[j].shape], [*reaction_rate[j].shape], [], [-1, -2], [-1, -2], [])
-
         # normalize the cost by dividing by the number of data points
         self.adict["cost"] /= self.adict["library_dimension"][0][0] # first array with first dimension
 
+        # add regularization to the cost function
+        for j in range(self._functional_library):
+            coefficients = self.adict["coefficients"][j]
+            self.adict["cost"] += self.alpha*cd.einstein(cd.vec(coefficients), cd.vec(coefficients), 
+                                                    [*coefficients.shape], [*coefficients.shape], [], [-1, -2], [-1, -2], [])
 
-    def _stlsq_solve_optimization(self, library: List, target: np.ndarray, 
-                                    constraints_dict: dict, permutations: List, seed: int) -> List:
-        # create problem from scratch since casadi cannot run the same problem once optimized
-        # steps should follow a sequence 
-        # dont replace if there is only one ensemble iteration. Dataset rows are constant for all reactions 
-        self._create_decision_variables()  
-        self.adict["library"] = [value[permutations]*self.adict["mask"][ind] for ind, value in enumerate(library)]
-        self._update_cost(target[permutations], self.adict["temperature"])
-        if constraints_dict:
-            self._add_constraints(constraints_dict, seed)
-        _solution = self._minimize(self.plugin_dict, self.solver_dict) # no need to save for every iteration
-
-        # list[np.ndarray]. additional layer of np.array and flatten to account for singular value, which casadi outputs as float
-        # use the reaction rate at 373K for thresholding
-        return [np.array([_solution.value(coeff)]).flatten()*np.exp(-np.array([_solution.value(coeff_energy)]).flatten()/8.314/373)
-                    for coeff, coeff_energy in zip(self.adict["coefficients"], self.adict["coefficients_energy"])]
+    def _create_parameters(self) -> List:
+        """
+        List of decision variables for which mean and standard deviation needs to be traced. 
+        The thresholding parameters always have to be the first ones
+        """
+        return [self.adict["coefficients"], self.adict["coefficients_energy"]]
 
 
-    def fit(self, features : list[np.ndarray], target : list[np.ndarray], temperature : np.ndarray, include_column : Optional[list[np.ndarray]] = None, 
+    def fit(self, features : List[np.ndarray], target : List[np.ndarray], temperature : np.ndarray, include_column : Optional[List[np.ndarray]] = None, 
             constraints_dict : dict = {} , ensemble_iterations : int = 1, max_workers : Optional[int] = None, seed : int = 12345) -> None:
+  
+        # ensemble_iterations = 1 : do regular sindy else ensemble sindy
+        # constraints_dict should be of the form {"consumption" : [], "formation" : [], 
+        #                                           "stoichiometry" : np.ndarray}
+        self._flag_fit = True
+        self._n_states = np.shape(features)[-1]
 
         assert temperature.ndim == 1 and len(temperature) == len(features) and temperature.ndim == 1, "Temperature values should be equal to the number of experiments and should be 1 dimensional"
         # match the temp with the number of data points (each array in features can have varying data points)
         self.adict["temperature"] = np.vstack([np.repeat(temp, len(feat)) for temp, feat in zip(temperature, features)]).flatten()
-        # self.adict["temperature"] = temperature
-        super().fit(features, target, include_column, constraints_dict, ensemble_iterations, max_workers, seed)
+
+        if "stoichiometry" in constraints_dict and isinstance(constraints_dict["stoichiometry"], np.ndarray):
+            rows, cols = constraints_dict["stoichiometry"].shape
+            assert rows == self._n_states, "The rows should match the number of states"
+            self._functional_library = cols
+            self.adict["stoichiometry"] = constraints_dict["stoichiometry"]
+        else:
+            self._functional_library = self._n_states
+            self.adict["stoichiometry"] = np.eye(self._n_states) 
+
+        if include_column:
+            assert len(include_column) == self._functional_library, "length of columns should match with the number of functional libraries"
+            include_column = [list(range(self._n_states)) if len(alist) == 0 else alist for alist in include_column] 
+        else:
+            include_column = [list(range(self._n_states)) for _ in range(self._functional_library)]
+
+        features, target = np.vstack(features), np.vstack(target)
+        self._generate_library(features, include_column)
+
+        _mean, _deviation = self._stlsq(target, constraints_dict, ensemble_iterations, max_workers, seed)
+        (self.adict["coefficients_value"], self.adict["coefficients_energy_value"], self.adict["coefficients_deviation"], 
+                                        self.adict["coefficients_energy_deviation"]) = (_mean[0], _mean[1], _deviation[0], _deviation[1])
+        self._create_equations()
 
     @property
     def coefficients(self):
-        return self.adict["coefficients_value"], self.adict["coefficients_energy"]
-
+        return self.adict["coefficients_value"], self.adict["coefficients_energy_value"]
 
     def _create_sympy_expressions(self, stoichiometry_row : np.ndarray) -> str:
 
+        #TODO do not round the coefficients here (Rounding may compromise accuracy while prediciton or scoring). 
+        # Round them only when printing
         coefficients_value : List[np.ndarray] = self.adict["coefficients_value"]
-        coefficients_energy : List[np.ndarray] = self.adict["coefficients_energy"]
+        coefficients_energy : List[np.ndarray] = self.adict["coefficients_energy_value"]
         library_labels : List[List[str]] = self.adict["library_labels"]
         expr = 0
         
         for j in range(len(library_labels)):
             zero_filter = filter(lambda x : x[0], zip(coefficients_value[j], coefficients_energy[j], library_labels[j]))
-            # modify expr to include arhenius equation
+            # modify expr to include arhenius equation (R and T are additional symbols that are defined)
             expr += stoichiometry_row[j]*smp.sympify(reduce(lambda accum, value : 
-                    accum + value[0] + "*e**(-" + value[1] + "/8.314/T)* " + value[-1].replace(" ", "*") + " + ",   
-                    map(lambda x : ("{:.2f}".format(x[0]), "{:.2f}".format(x[1]), x[-1]), zero_filter), "+").rstrip(" +")) 
+                    accum + value[0] + "*exp(-(" + value[1] + "/R)*(1/T - Rational(1, 373)))* " + value[-1].replace(" ", "*") + " + ",   
+                    map(lambda x : (str(x[0]), str(x[1]), x[-1]), zero_filter), "+").rstrip(" +"))
         # replaced whitespaces with multiplication element wise library labels
         # simpify already handles xor operation
         return expr
 
-    def predict(self, X : list[np.ndarray], T : float) -> list:
-        return super().predict(X, T)
 
-    def score(self, X : list[np.ndarray], y : list[np.ndarray], T : float, metric : Callable = mean_squared_error, predict : bool = True) -> float:
-        return super().score(X, y, metric, predict, T)
-
-    # integrate the model
-    def simulate(self, X : list[np.ndarray], time_span : np.ndarray, T : float, **integrator_kwargs) -> list[np.ndarray]:
-        return super().simulate(X, time_span, T, **integrator_kwargs)
-        
-        
 if __name__ == "__main__":
 
     from GenerateData import DynamicModel
     from utils import coefficient_difference_plot
 
-    model = DynamicModel("kinetic_kosir", np.arange(0, 5, 0.01), n_expt = 2)
+    model = DynamicModel("kinetic_kosir", np.arange(0, 5, 0.01), n_expt = 20)
     features = model.integrate() # list of features
     target = model.approx_derivative # list of target value
     features = model.add_noise(0, 0.0)
     target = model.approx_derivative
     temperature = np.array(model.arguments).flatten()
 
-    opti = EnergySindy(FunctionalLibrary(2) , alpha = 0.0, threshold = 0.1, solver_dict={"max_iter" : 5000}, 
-                            plugin_dict = {"ipopt.print_level" : 5, "print_time":5, "ipopt.sb" : "yes", "ipopt.max_iter" : 10000}, max_iter = 20)
+    opti = EnergySindy(FunctionalLibrary(1) , alpha = 0.1, threshold = 0.5, solver_dict={"max_iter" : 5000}, 
+                            plugin_dict = {"ipopt.print_level" : 5, "print_time":5, "ipopt.sb" : "yes", "ipopt.max_iter" : 10000, "ipopt.tol" : 1e-6}, max_iter = 20)
     
     stoichiometry = np.array([-1, -1, -1, 0, 0, 2, 1, 0, 0, 0, 1, 0]).reshape(4, -1) # chemistry constraints
     # include_column = [[0, 2], [0, 3], [0, 1]]
@@ -163,7 +174,7 @@ if __name__ == "__main__":
                                     "stoichiometry" : stoichiometry}, ensemble_iterations = 1, seed = 10, max_workers = 1)
     opti.print()
     print("--"*20)
-    print("mean squared error :", opti.score(features, target))
+    print("mean squared error :", opti.score(features, target, model_args = (373.0, 8.314)))
     print("model complexity", opti.complexity)
     print("Total number of iterations", opti.adict["iterations"])
     print("--"*20)
@@ -171,5 +182,5 @@ if __name__ == "__main__":
     print("--"*20)
     # opti.plot_distribution(reaction_coefficients = False, coefficients_iterations = True)
 
-    coefficient_difference_plot(model.coefficients(args = (373, )) , sigma = opti.adict["coefficients_dict"], sigma2 = opti.adict["coefficients_dict"])
+    # coefficient_difference_plot(model.coefficients , sigma = opti.adict["coefficients_dict"], sigma2 = opti.adict["coefficients_dict"])
     

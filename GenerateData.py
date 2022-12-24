@@ -16,7 +16,7 @@ class DynamicModel():
     model : str 
     time_span : np.ndarray
     initial_condition : List[np.ndarray] = field(default_factory = list)
-    arguments : Tuple = field(default_factory = tuple)
+    arguments : List[Tuple] = field(default_factory = list)
     n_expt : int = field(default = 1)
     seed : int = field(default = 12345)
 
@@ -34,10 +34,11 @@ class DynamicModel():
 
         if not self.arguments:
             # By default the data is generated for varying temperature values
-            self.arguments = [(rng.uniform(320, 420), ) for _ in range(self.n_expt)]
+            self.arguments = [(rng.uniform(353, 393), ) for _ in range(self.n_expt)]
         else:
             # use the same arguments for all the experiments
-            self.arguments = [self.arguments]*self.n_expt
+            if not len(self.arguments) == self.n_expt:
+                self.arguments = [self.arguments]*self.n_expt
 
         assert len(self.initial_condition[-1]) == self._model_dict[self.model]["n_states"], "Incorrect number of states"
         assert len(self.initial_condition) == self.n_expt, "Initial conditions should match the number of experiments"
@@ -83,11 +84,11 @@ class DynamicModel():
         Ead = 50*10**3
         Eda = 60*10**3
         
-        kab = 8.566/2/np.exp(-Eac/R/373)
+        kab = 8.566/2/np.exp(-Eab/R/373)
         kac = 1.191/np.exp(-Eac/R/373) 
-        kca = 5.743/np.exp(-Eac/R/373)
-        kad = 10.219/np.exp(-Eac/R/373)
-        kda = 1.535/np.exp(-Eac/R/373)
+        kca = 5.743/np.exp(-Eca/R/373)
+        kad = 10.219/np.exp(-Ead/R/373)
+        kda = 1.535/np.exp(-Eda/R/373)
 
         return [kab*np.exp(-Eab/R/T), kac*np.exp(-Eac/R/T), kca*np.exp(-Eca/R/T), 
                 kad*np.exp(-Ead/R/T), kda*np.exp(-Eda/R/T)]
