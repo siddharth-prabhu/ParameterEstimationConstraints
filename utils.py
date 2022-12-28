@@ -1,8 +1,17 @@
 import numpy as np
 import matplotlib.pyplot as plt
     
+from typing import List
     
-def ensemble_plot(coefficients_list : list[dict], distribution : list[dict], inclusion : list[dict]) -> None:
+def ensemble_plot(coefficients_list : List[dict], distribution : List[dict], inclusion : List[dict]) -> None:
+    """
+    coefficients_list : list of dictionaries containing symbols as keys and values at different bootstrapping samples
+    distribution : list of dictionaries that have symbols as keys and namedtuple(mean, deviation) as values
+    inclusion : list of dictionaries that have symbols as keys and namedtuple(inclusion probability) as values
+
+    plots histogram of the distribution of coefficients with mean and standard deviaiton in the tile. 
+    Bar plots for inclusion probabilities
+    """
 
     assert len(coefficients_list) == len(distribution) == len(inclusion), "arguments should be of same length"
     
@@ -27,9 +36,14 @@ def ensemble_plot(coefficients_list : list[dict], distribution : list[dict], inc
         
     plt.show()
 
-def coefficient_difference_plot(original_coefficients_list : list[dict], **kwargs):
+def coefficient_difference_plot(original_coefficients_list : List[dict], **kwargs):
+    """
+    kwargs value should be of type : List[dict] and len == len(original_coefficients_list)
 
-    # kwargs value should be of type : list[dict] 
+    Function that takes the difference of parameters in kwargs with the parameters in original_coefficient_list
+    and plots them as horizontal bar plots 
+    """
+    #  
 
     # calculate the difference betweeen the coefficients
     def take_difference(ind, adict):

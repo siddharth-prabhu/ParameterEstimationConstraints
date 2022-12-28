@@ -57,7 +57,7 @@ class Optimizer_casadi(Base):
         self.library.set_params(**kwargs)
 
 
-    def _generate_library(self, data : np.ndarray, include_column : list[np.ndarray]):
+    def _generate_library(self, data : np.ndarray, include_column : List[np.ndarray]):
         # given data creates list of matix of all possible combinations of terms 
         # returns a list of number of columns of each matrix
 
@@ -150,7 +150,7 @@ class Optimizer_casadi(Base):
         return [self.adict["coefficients"]]
 
     # function for multiprocessing
-    def _stlsq_solve_optimization(self, library : List, target : np.ndarray, constraints_dict : dict, permutations : List, seed : int) -> List[List]:
+    def _stlsq_solve_optimization(self, library : List, target : np.ndarray, constraints_dict : dict, permutations : List, seed : int) -> List[List[np.ndarray]]:
         # create problem from scratch since casadi cannot run the same problem once optimized
         # steps should follow a sequence 
         # dont replace if there is only one ensemble iteration. Dataset rows are constant for all reactions 
@@ -183,6 +183,7 @@ class Optimizer_casadi(Base):
 
         for _ in tqdm(range(self.max_iter)):
             
+            # keys are the reaction number while the values are np.ndarrays of coefficients
             self.adict["coefficients_casadi_ensemble"] : List[dict] = []
             permutations = [rng.choice(range(self.adict["library_dimension"][0][0]), self.adict["library_dimension"][0][0], replace = (ensemble_iterations > 1))
                                 for _ in range(self.adict["iterations_ensemble"])] 
@@ -283,6 +284,8 @@ class Optimizer_casadi(Base):
         features, target = np.vstack(features), np.vstack(target)
         self._generate_library(features, include_column)
 
+        # _mean and _deviation : List[dict]
+        # self.adict["coefficients_value"] and self.adict["coefficients_devaition"] : dict
         _mean, _deviation = self._stlsq(target, constraints_dict, ensemble_iterations, max_workers, seed)
         self.adict["coefficients_value"], self.adict["coefficients_deviation"] = _mean[0], _deviation[0]
         self._create_equations()
@@ -301,8 +304,10 @@ class Optimizer_casadi(Base):
             self.adict["equations_lambdify"].append(smp.lambdify(self.input_symbols, expr))
 
 
-    def _create_sympy_expressions(self, stoichiometry_row : np.ndarray) -> str:
-
+    def _create_sympy_expressions(self, stoichiometry_row : np.ndarray):
+        """
+        returns sympy expressions
+        """
         coefficients_value : List[np.ndarray] = self.adict["coefficients_value"]
         library_labels : List[List[str]] = self.adict["library_labels"]
         expr = 0
@@ -317,9 +322,22 @@ class Optimizer_casadi(Base):
         return expr
 
 
-    def plot_distribution(self, reaction_coefficients : bool = False, coefficients_iterations : bool = False) -> None:
+    def plot_distribution(self, coefficient_casadi_ensemble : Optional[dict] = None, mean : Optional[dict] = None, deviation : Optional[dict] = None,
+                            coefficients_iterations : Optional[dict] = None) -> None:
+        """
         # TODO updat this method to account for new data structure of self.adict["coefficients_casadi_ensemble"]
-        # plotting the distribution of casadi coefficients
+        parameter_ind gives the index of the coefficients/parameters defined in _create_parameters method to be plotted
+        plots the distribution of casadi coefficients 
+        """
+        if not coefficient_casadi_ensemble :
+            coefficients_casadi_ensemble = self.adict["coefficients_casadi_ensemble"][0]
+        if not mean:
+            mean = self.adict["coefficients_value"]
+        if not deviation :
+            deviation = self.adict["coefficients_deviation"]
+        if not coefficients_iterations:
+            coefficients_iterations = self.adict["coefficients_iterations"][0]
+
         # create list of dictionary with symbols as keys and arrays as values
         _coefficients_list = [defaultdict(list) for _ in range(self._functional_library)]
         
@@ -329,14 +347,16 @@ class Optimizer_casadi(Base):
         inclusion = namedtuple("probability", "inclusion")
         _coefficients_inclusion = [defaultdict(inclusion) for _ in range(self._functional_library)]
 
-        for i, key in enumerate(self.adict["coefficients_casadi_ensemble"].keys()):
+        for i, key in enumerate(coefficients_casadi_ensemble.keys()):
             for j, _symbol in enumerate(self.adict["library_labels"][i]):
-                _coefficients_list[i][_symbol].extend(self.adict["coefficients_casadi_ensemble"][key][:, j])
-                _coefficients_distribution[i][_symbol] = distribution(self.adict["coefficients_value"][i][j], self.adict["coefficients_deviation"][i][j])
+                _coefficients_list[i][_symbol].extend(coefficients_casadi_ensemble[key][:, j])
+                _coefficients_distribution[i][_symbol] = distribution(mean[i][j], deviation[i][j])
                 _coefficients_inclusion[i][_symbol] = inclusion(np.count_nonzero(_coefficients_list[i][_symbol])/self.adict["iterations_ensemble"])
 
-        # ensemble_plot(_coefficients_list, _coefficients_distribution, _coefficients_inclusion)
+        ensemble_plot(_coefficients_list, _coefficients_distribution, _coefficients_inclusion)
 
+        """
+        #TODO create sympy equations for every value in coefficient_casadi_ensemble
         if reaction_coefficients:
             # plotting the distribution of reaction equations
             _reaction_coefficients_list = [defaultdict(list) for _ in range(self._n_states)]
@@ -346,7 +366,7 @@ class Optimizer_casadi(Base):
             for i in range(self._n_states):
                 # for each iteration
                 for j in range(self.adict["iterations_ensemble"]):
-                    _expr = self._create_sympy_expressions([self.adict["coefficients_casadi_ensemble"][key][j] for key in range(self._functional_library)], 
+                    _expr = self._create_sympy_expressions([coefficients_casadi_ensemble[key][j] for key in range(self._functional_library)], 
                                                             self.adict["library_labels"], self.adict["stoichiometry"][i])
                     _expr_coeff = _expr.as_coefficients_dict()
 
@@ -360,34 +380,33 @@ class Optimizer_casadi(Base):
                     _reaction_coefficients_inclusion[i][key] = inclusion(np.count_nonzero(np.array(value, dtype = float))/self.adict["iterations_ensemble"])
 
             ensemble_plot(_reaction_coefficients_list, _reaction_coefficients_distribution, _reaction_coefficients_inclusion)
-
-        if coefficients_iterations :
+        """
             
-            for key in range(self._functional_library):
-                fig, ax = plt.subplots(self.adict["iterations"], 3, figsize = (10, 4))
-                ax = np.ravel(ax)
-                for i, _coefficients_iterations in enumerate(self.adict["coefficients_iterations"]):
-                    
-                    ax[3*i].bar(self.adict["library_labels"][key], _coefficients_iterations["mean"][key])
-                    ax[3*i + 1].bar(self.adict["library_labels"][key], _coefficients_iterations["standard_deviation"][key])
-                    ax[3*i + 2].bar(self.adict["library_labels"][key], _coefficients_iterations["z_critical"][key])
-                    ax[3*i + 2].set(ylim = (-self.threshold, self.threshold))
+        for key in range(self._functional_library):
+            fig, ax = plt.subplots(self.adict["iterations"], 3, figsize = (10, 4))
+            ax = np.ravel(ax)
+            for i, _coefficients_iterations in enumerate(coefficients_iterations):
+                
+                ax[3*i].bar(self.adict["library_labels"][key], _coefficients_iterations["mean"][key])
+                ax[3*i + 1].bar(self.adict["library_labels"][key], _coefficients_iterations["standard_deviation"][key])
+                ax[3*i + 2].bar(self.adict["library_labels"][key], _coefficients_iterations["z_critical"][key])
+                ax[3*i + 2].set(ylim = (-self.threshold, self.threshold))
 
-                    if i == 0:
-                        ax[3*i].set(title = "Mean")
-                        ax[3*i + 1].set(title = "Sigma")
-                        ax[3*i + 2].set(title = "z_critical")
+                if i == 0:
+                    ax[3*i].set(title = "Mean")
+                    ax[3*i + 1].set(title = "Sigma")
+                    ax[3*i + 2].set(title = "z_critical")
+                
+                if i != self.adict["iterations"] - 1 : 
+                    ax[3*i].set(xticklabels = [])
+                    ax[3*i + 1].set(xticklabels = [])
+                    ax[3*i + 2].set( xticklabels = [])
+                else:
+                    ax[3*i].set_xticks(range(len(self.adict["library_labels"][key])), self.adict["library_labels"][key], rotation = 90)
+                    ax[3*i + 1].set_xticks(range(len(self.adict["library_labels"][key])), self.adict["library_labels"][key], rotation = 90)
+                    ax[3*i + 2].set_xticks(range(len(self.adict["library_labels"][key])), self.adict["library_labels"][key], rotation = 90)
                     
-                    if i != self.adict["iterations"] - 1 : 
-                        ax[3*i].set(xticklabels = [])
-                        ax[3*i + 1].set(xticklabels = [])
-                        ax[3*i + 2].set( xticklabels = [])
-                    else:
-                        ax[3*i].set_xticks(range(len(self.adict["library_labels"][key])), self.adict["library_labels"][key], rotation = 90)
-                        ax[3*i + 1].set_xticks(range(len(self.adict["library_labels"][key])), self.adict["library_labels"][key], rotation = 90)
-                        ax[3*i + 2].set_xticks(range(len(self.adict["library_labels"][key])), self.adict["library_labels"][key], rotation = 90)
-                        
-                plt.show()
+            plt.show()
             
     def _casadi_model(self, x : np.ndarray, t : np.ndarray, model_args : np.ndarray):
         return np.array([eqn(*x, *model_args) for eqn in self.adict["equations_lambdify"]])

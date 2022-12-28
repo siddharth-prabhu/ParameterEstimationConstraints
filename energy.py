@@ -163,7 +163,7 @@ if __name__ == "__main__":
     arguments = model.arguments
 
     opti = EnergySindy(FunctionalLibrary(1) , alpha = 0.1, threshold = 0.5, solver_dict={"max_iter" : 5000}, 
-                            plugin_dict = {"ipopt.print_level" : 5, "print_time":5, "ipopt.sb" : "yes", "ipopt.max_iter" : 10000, "ipopt.tol" : 1e-6}, max_iter = 1)
+                            plugin_dict = {"ipopt.print_level" : 5, "print_time":5, "ipopt.sb" : "yes", "ipopt.max_iter" : 10000, "ipopt.tol" : 1e-6}, max_iter = 20)
     
     stoichiometry = np.array([-1, -1, -1, 0, 0, 2, 1, 0, 0, 0, 1, 0]).reshape(4, -1) # chemistry constraints
     # include_column = [[0, 2], [0, 3], [0, 1]]
@@ -172,7 +172,7 @@ if __name__ == "__main__":
 
     opti.fit(features, target, arguments, include_column = [], 
                 constraints_dict= {"formation" : [], "consumption" : [], 
-                                    "stoichiometry" : stoichiometry}, ensemble_iterations = 1, seed = 10, max_workers = 2)
+                                    "stoichiometry" : stoichiometry}, ensemble_iterations = 2, seed = 10, max_workers = 2)
     opti.print()
     print("--"*20)
     arguments = [np.array([373, 8.314])]*len(features)
@@ -182,9 +182,9 @@ if __name__ == "__main__":
     print("--"*20)
     print("coefficients at each iteration", opti.adict["coefficients_iterations"])
     print("--"*20)
-    print("model simulation", opti.simulate(features, time_span, arguments))
-    print("--"*20)
-    # opti.plot_distribution(reaction_coefficients = False, coefficients_iterations = True)
+    # print("model simulation", opti.simulate(features, time_span, arguments))
+    # print("--"*20)
+    opti.plot_distribution()
 
     # coefficient_difference_plot(model.coefficients , sigma = opti.adict["coefficients_dict"], sigma2 = opti.adict["coefficients_dict"])
     
