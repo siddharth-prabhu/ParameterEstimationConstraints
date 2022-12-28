@@ -2,6 +2,7 @@ from GenerateData import DynamicModel
 from FunctionalLibrary import FunctionalLibrary
 from HyperOpt import HyperOpt
 from Optimizer import Optimizer_casadi
+from energy import EnergySindy
 
 from collections import defaultdict
 from typing import Optional
@@ -22,25 +23,30 @@ parser.add_argument("--noise_study", choices = [0, 1], type = int, default = 0, 
 parser.add_argument("--experiments_study", choices = [0, 1], type = int, default = 0, help = "If True performs hyperparameter optimization for varying initial conditions") 
 parser.add_argument("--sampling_study", choices = [0, 1], type = int, default = 0, help = "If True performs hyperparameter optimization for varying sampling frequencies") 
 parser.add_argument("--max_workers", default = 0, type = int)
+parser.add_argument("--kind", choices = ["energy", "normal"], type = str, default = "normal", help = "Energy model calculates the activation energy")
 args = parser.parse_args()
 
 
-def run_gridsearch(n_expt : int, delta_t : float, noise_level : float, parameters : dict, ensemble_iterations : int = 1, 
+def run_gridsearch(n_expt : int, delta_t : float, noise_level : float, parameters : dict, kind : str = "normal", ensemble_iterations : int = 1, 
                     max_workers : Optional[int] = None, seed : int = 12345, name : str = "ensemble"):
     
     plugin_dict = {"ipopt.print_level" : 0, "print_time": 0, "ipopt.sb" : "yes"}
     # generate clean testing data to be used later for calculating errors
     time_span_clean = np.arange(0, 5, 0.01)
-    model = DynamicModel("kinetic_kosir", time_span_clean, n_expt = 15)
+    arguments = [(373, 8.314)] if kind == "normal" else None
+    model = DynamicModel("kinetic_kosir", time_span_clean, n_expt = 15, arguments = arguments)
     features_clean = model.integrate()
     target_clean = model.approx_derivative
+    arguments = model.arguments
 
     # generate training data with varying experiments and sampling time
     time_span = np.arange(0, 5, delta_t)
-    model = DynamicModel("kinetic_kosir", time_span, n_expt = n_expt)
+    arguments = [(373, 8.314)] if kind == "normal" else None
+    model = DynamicModel("kinetic_kosir", time_span, n_expt = n_expt, arguments = arguments)
     features = model.integrate()
     features = model.add_noise(0, noise_level)
     target = model.approx_derivative
+    arguments = model.arguments
 
     mse_pred, aic, mse_sim, comp = [], [], [], []
     for status in ["without constraints", "with constraints", "with stoichiometry"]:
@@ -59,8 +65,10 @@ def run_gridsearch(n_expt : int, delta_t : float, noise_level : float, parameter
 
         # does grid_serch over parameters 
         print(f"Running simulation for {noise_level} noise, {n_expt} experiments, {delta_t} sampling time, and " + status)
-        opt = HyperOpt(features, target, features_clean, target_clean, time_span, time_span_clean, parameters, Optimizer_casadi(plugin_dict = plugin_dict), 
-                include_column = include_column, constraints_dict = constraints_dict, ensemble_iterations = ensemble_iterations, seed = seed)
+        opt = HyperOpt(features, target, features_clean, target_clean, time_span, time_span_clean, parameters = parameters, 
+                        model = Optimizer_casadi(plugin_dict = plugin_dict) if kind == "normal" else EnergySindy(plugin_dict = plugin_dict), 
+                        include_column = include_column, constraints_dict = constraints_dict, ensemble_iterations = ensemble_iterations, seed = seed, 
+                        arguments = arguments if kind == "energy" else None)
 
         opt.gridsearch(max_workers = max_workers)
         opt.plot(filename = f"saved_data\Gridsearch_{name}_{status}_noise{noise_level}_eniter{ensemble_iterations}_expt{n_expt}_delta_{delta_t}.html", 
@@ -139,6 +147,7 @@ if __name__ == "__main__":
     noise_study = args.noise_study # if True performs hyperparameter optimization for varying noise levels
     experiments_study = args.experiments_study # if True performs hyperparameter optimization for varying initial conditions
     sampling_study = args.sampling_study # if True performs hyperparameter optimization for varying sampling frequencies
+    kind = args.kind # either normal sindy or energy sindy 
     max_workers = None if args.max_workers <= 0 else args.max_workers 
 
     ########################################################################################################################
@@ -150,7 +159,7 @@ if __name__ == "__main__":
         with ProcessPoolExecutor(max_workers = max_workers) as executor:   
             result = executor.map(partial(run_gridsearch, parameters = ensemble_params if ensemble_study else params, 
                             ensemble_iterations = 1000 if ensemble_study else 1, max_workers = max_workers, seed = 10, 
-                            name = "sampling"), repeat(15), repeat(0.01), noise_level)
+                            name = "sampling", kind = kind), repeat(15), repeat(0.01), noise_level)
 
             for alist in result:
                 for key, value in zip(["MSE_Prediction", "AIC", "MSE_Integration", "complexity"], alist):
@@ -175,7 +184,7 @@ if __name__ == "__main__":
         with ProcessPoolExecutor(max_workers = max_workers) as executor:   
             result = executor.map(partial(run_gridsearch, delta_t = 0.05, noise_level = 0, parameters = ensemble_params if ensemble_study else params, 
                             ensemble_iterations = 1000 if ensemble_study else 1, max_workers = max_workers, seed = 10, 
-                            name = "sampling"), experiments)
+                            name = "sampling", kind = kind), experiments)
 
             for alist in result:
                 for key, value in zip(["MSE_Prediction", "AIC", "MSE_Integration", "complexity"], alist):
@@ -194,7 +203,7 @@ if __name__ == "__main__":
         with ProcessPoolExecutor(max_workers = max_workers) as executor:   
             result = executor.map(partial(run_gridsearch, noise_level = 0, parameters = ensemble_params if ensemble_study else params, 
                             ensemble_iterations = 1000 if ensemble_study else 1, max_workers = max_workers, seed = 10, 
-                            name = "sampling"), repeat(15), sampling)
+                            name = "sampling", kind = kind), repeat(15), sampling)
 
             for alist in result:
                 for key, value in zip(["MSE_Prediction", "AIC", "MSE_Integration", "complexity"], alist):
@@ -203,7 +212,7 @@ if __name__ == "__main__":
         plot_adict(sampling, adict_sampling, x_label = "sampling")
 
     ########################################################################################################################
-    # adding noise breaks down the method
+    """ # adding noise breaks down the method (situational runs)
     time_span_clean = np.arange(0, 5, 0.01)
     model = DynamicModel("kinetic_kosir", time_span_clean, n_expt = 15)
 
@@ -243,4 +252,4 @@ if __name__ == "__main__":
             constraints_dict= {"formation" : [], "consumption" : [], 
                                 "stoichiometry" : stoichiometry}, ensemble_iterations = 1, seed = 10, max_workers = max_workers)
 
-    coefficient_difference_plot(model.coefficients(), sigma = opti.adict["coefficients_dict"])
+    coefficient_difference_plot(model.coefficients(), sigma = opti.adict["coefficients_dict"]) """

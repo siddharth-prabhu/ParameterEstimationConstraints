@@ -174,7 +174,8 @@ class Optimizer_casadi(Base):
         # however thresholding is only done with respect to the original parameters
         rng = np.random.default_rng(seed)
         self._create_mask()
-        coefficients_prev = [np.ones(dimension[-1]) for dimension in self.adict["library_dimension"]]
+        # initial boolean array with all coefficients assumed to be less than the threshold value
+        coefficients_prev = [np.zeros(dimension[-1]) for dimension in self.adict["library_dimension"]]
         # data structures compatible with multiprocessing : list, dict 
         self.adict["iterations"] = 0
         self.adict["iterations_ensemble"] = ensemble_iterations
@@ -225,6 +226,8 @@ class Optimizer_casadi(Base):
             
             # list of boolean arrays
             # thresholding parameters are always the first entries of self.adict["coefficients_casadi_ensemble"]
+            # thresholding is always performed on the original decision variables i.e. self.adict["coefficients"] and not the coefficients
+            # that we get after multiplying with the stoichiometric matrix
             if ensemble_iterations > 1:
                 coefficients_next = [np.abs(mean/(deviation + 1e-15)) > self.threshold for mean, deviation in zip(_mean[0], _deviation[0])]
             else:
@@ -240,10 +243,10 @@ class Optimizer_casadi(Base):
             # store values for every iteration
             if not self.adict.get("coefficients_iterations", None):
                 self.adict["coefficients_iterations"] : List[List[dict]] = [[] for _ in range(parameters_len)] # outer list is for each iteration, inner for each parameter
-            else:
-                for i in range(parameters_len):
-                    self.adict["coefficients_iterations"][i].append({"mean" : _mean[i], "standard_deviation" : _deviation[i], 
-                                            "z_critical" : [np.abs(mean)/(deviation + 1e-15) for mean, deviation in zip(_mean[i], _deviation[i])], "distribution" : stack})
+            
+            for i in range(parameters_len):
+                self.adict["coefficients_iterations"][i].append({"mean" : _mean[i], "standard_deviation" : _deviation[i], 
+                                        "z_critical" : [np.abs(mean)/(deviation + 1e-15) for mean, deviation in zip(_mean[i], _deviation[i])], "distribution" : stack})
 
             coefficients_prev = coefficients_next # boolean array
 
@@ -253,7 +256,7 @@ class Optimizer_casadi(Base):
         
         return _mean, _deviation
 
-    def fit(self, features : list[np.ndarray], target : list[np.ndarray], include_column : Optional[list[np.ndarray]] = None, 
+    def fit(self, features : List[np.ndarray], target : List[np.ndarray], arguments : Optional[List[np.ndarray]] = None, include_column : Optional[List[np.ndarray]] = None, 
             constraints_dict : dict = {} , ensemble_iterations : int = 1, max_workers : Optional[int] = None, seed : int = 12345) -> None:
 
         # ensemble_iterations = 1 : do regular sindy else ensemble sindy
@@ -315,6 +318,7 @@ class Optimizer_casadi(Base):
 
 
     def plot_distribution(self, reaction_coefficients : bool = False, coefficients_iterations : bool = False) -> None:
+        # TODO updat this method to account for new data structure of self.adict["coefficients_casadi_ensemble"]
         # plotting the distribution of casadi coefficients
         # create list of dictionary with symbols as keys and arrays as values
         _coefficients_list = [defaultdict(list) for _ in range(self._functional_library)]
@@ -385,33 +389,45 @@ class Optimizer_casadi(Base):
                         
                 plt.show()
             
-    def _casadi_model(self, x : np.ndarray, t : np.ndarray, model_args : Tuple):
+    def _casadi_model(self, x : np.ndarray, t : np.ndarray, model_args : np.ndarray):
         return np.array([eqn(*x, *model_args) for eqn in self.adict["equations_lambdify"]])
     
 
-    def predict(self, X : List[np.ndarray], model_args : Optional[Tuple] = None) -> List:
+    def predict(self, X : List[np.ndarray], model_args : Optional[List[np.ndarray]] = None) -> List[np.ndarray]:
+        
         assert self._flag_fit, "Fit the model before running predict"
-        afunc = np.vectorize(partial(self._casadi_model, t = 0, model_args = model_args if model_args else ()), signature = "(m)->(m)")
-
-        return [afunc(xi) for xi in X]
+        if model_args :
+            # np.vectorize fails for adding arguments in partial that are placed before the vectorized arguments
+            afunc = np.vectorize(self._casadi_model, signature = "(m),(),(k)->(m)")
+            return [afunc(xi, 0, argi) for xi, argi in zip(X, model_args)]
+        else:
+            afunc = np.vectorize(partial(self._casadi_model, model_args = ()), signature = "(m),()->(m)")
+            return [afunc(xi, 0) for xi in X]
         
 
-    def score(self, X : list[np.ndarray], y : list[np.ndarray], metric : Callable = mean_squared_error, predict : bool = True, model_args : Optional[Tuple] = None) -> float:
+    def score(self, X : list[np.ndarray], y : list[np.ndarray], metric : Callable = mean_squared_error, predict : bool = True, 
+                model_args : Optional[List[np.ndarray]] = None) -> float:
+        
         assert self._flag_fit, "Fit the model before running score"
         y_pred = self.predict(X, model_args) if predict else X
 
         return metric(np.vstack(y_pred), np.vstack(y))
 
     # integrate the model
-    def simulate(self, X : list[np.ndarray], time_span : np.ndarray, model_args : Tuple, **integrator_kwargs) -> list[np.ndarray]:
+    def simulate(self, X : list[np.ndarray], time_span : np.ndarray, model_args : Optional[np.ndarray] = None, **integrator_kwargs) -> list[np.ndarray]:
+        
+        """
+        X is a list of features whose first row is extracted as initial conditions
+        """
+        
         assert self._flag_fit, "Fit the model before running score"
         x_init = [xi[0].flatten() for xi in X]
         result = []
-        for xi in x_init:
+        for i, xi in enumerate(x_init):
             assert len(xi) == self._n_states, "Initial conditions should be of right dimensions"
 
             try:
-                _integration_solution = odeint(self._casadi_model, xi, time_span, args = model_args, **integrator_kwargs)
+                _integration_solution = odeint(self._casadi_model, xi, time_span, args = (model_args[i], ) if model_args else ((), ), **integrator_kwargs)
             except Exception as error:
                 print(error)
                 raise ValueError(f"Integration failed with error {error}") 
@@ -451,6 +467,8 @@ class Optimizer_casadi(Base):
         for i, eqn in enumerate(self.adict["equations"]):
             # traverser throught the expression graph. Replace floating numbers with rounded values
             # round down all the numbers in the sympy expression so that they are easier to visualize
+            # rounding down may substitute some coefficients to zero and therefore will be ignored while printing,
+            # but are counted in the complexity
             for atom in smp.preorder_traversal(eqn):
                 if atom.is_number:
                     eqn = eqn.subs(atom, round(atom, 2))
@@ -463,7 +481,7 @@ if __name__ == "__main__":
     from GenerateData import DynamicModel
     from utils import coefficient_difference_plot
 
-    model = DynamicModel("kinetic_kosir", np.arange(0, 5, 0.01), arguments = [(373, )], n_expt = 1)
+    model = DynamicModel("kinetic_kosir", np.arange(0, 5, 0.01), arguments = [(373, 8.314)], n_expt = 1)
     features = model.integrate() # list of features
     target = model.approx_derivative # list of target value
     features = model.add_noise(0, 0.0)
@@ -478,7 +496,7 @@ if __name__ == "__main__":
 
     opti.fit(features, target, include_column = [], 
                 constraints_dict= {"formation" : [], "consumption" : [], 
-                                    "stoichiometry" : stoichiometry}, ensemble_iterations = 1, seed = 10, max_workers = 2)
+                                    "stoichiometry" : stoichiometry}, ensemble_iterations = 3, seed = 10, max_workers = 2)
     opti.print()
     print("--"*20)
     print("mean squared error :", opti.score(features, target))

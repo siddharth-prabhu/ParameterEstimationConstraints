@@ -15,8 +15,8 @@ class DynamicModel():
 
     model : str 
     time_span : np.ndarray
-    initial_condition : List[np.ndarray] = field(default_factory = list)
-    arguments : List[Tuple] = field(default_factory = list)
+    initial_condition : Optional[List[np.ndarray]] = field(default_factory = list)
+    arguments : Optional[List[Tuple]] = field(default_factory = list)
     n_expt : int = field(default = 1)
     seed : int = field(default = 12345)
 
@@ -34,11 +34,11 @@ class DynamicModel():
 
         if not self.arguments:
             # By default the data is generated for varying temperature values
-            self.arguments = [(rng.uniform(353, 393), ) for _ in range(self.n_expt)]
+            self.arguments : List[Tuple] = [(rng.uniform(353, 393), 8.314) for _ in range(self.n_expt)]
         else:
             # use the same arguments for all the experiments
-            if not len(self.arguments) == self.n_expt:
-                self.arguments = [self.arguments]*self.n_expt
+            if not len(self.arguments) == self.n_expt and len(self.arguments) == 1:
+                self.arguments = self.arguments*self.n_expt
 
         assert len(self.initial_condition[-1]) == self._model_dict[self.model]["n_states"], "Incorrect number of states"
         assert len(self.initial_condition) == self.n_expt, "Initial conditions should match the number of experiments"
@@ -59,17 +59,17 @@ class DynamicModel():
                 k2*x[2]])
     
     @staticmethod
-    def kinetic_kosir(x, t, args : Tuple = (373, )) -> np.ndarray:
+    def kinetic_kosir(x, t, args : Tuple = (373, 8.314)) -> np.ndarray:
         # A -> 2B; A <-> C; A <-> D
-        T, = args
-        rates = DynamicModel.reaction_rate_kosir(T)
+        T, R = args
+        rates = DynamicModel.reaction_rate_kosir(T, R)
         return np.array([-(rates[0] + rates[1] + rates[3])*x[0] + rates[2]*x[2] + rates[4]*x[3],
                         2*rates[0]*x[0],
                         rates[1]*x[0] - rates[2]*x[2],
                         rates[3]*x[0] - rates[4]*x[3]])
 
     @staticmethod
-    def reaction_rate_kosir(T):
+    def reaction_rate_kosir(T, R) -> List:
 
         # original values are at reference temperature of 373 K
         # This function is called several times. Consider defining constants outside the function
@@ -77,7 +77,6 @@ class DynamicModel():
         if T == 373:
             return [8.566/2, 1.191, 5.743, 10.219, 1.535]
 
-        R = 8.314
         Eab = 30*10**3
         Eac = 40*10**3
         Eca = 45*10**3
@@ -94,7 +93,7 @@ class DynamicModel():
                 kad*np.exp(-Ead/R/T), kda*np.exp(-Eda/R/T)]
 
 
-    def coefficients(self, x : Optional[tuple[smp.symbols]] = None, t : Optional[np.ndarray] = None, args : Optional[Tuple] = None) -> List[dict]:
+    def coefficients(self, x : Optional[Tuple[smp.symbols]] = None, t : Optional[np.ndarray] = None, args : Optional[Tuple] = None) -> List[dict]:
 
         # if symbols are not provided
         if not x:
@@ -173,7 +172,7 @@ if __name__ == "__main__":
 
     t_span = np.arange(0, 10, 0.1)
     # x_init = np.array([1, 2, 3, 4])
-    model = DynamicModel("kinetic_kosir", t_span, arguments =(373, ) ,n_expt = 2)
+    model = DynamicModel("kinetic_kosir", t_span, arguments = [(373, 8.314)] ,n_expt = 2)
     solution = model.integrate()
     # model.plot(solution, t_span, "Time", "Concentration", ["A", "B", "C", "D"])
 
@@ -193,4 +192,4 @@ if __name__ == "__main__":
     print("--"*20)
     print(model.arguments)
     print("--"*20)
-    print(model.coefficients(args = (373, )))
+    print(model.coefficients(args = (373, 8.314)))

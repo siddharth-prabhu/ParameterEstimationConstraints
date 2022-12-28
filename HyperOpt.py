@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from collections import defaultdict
 from functools import reduce
 from concurrent.futures import ProcessPoolExecutor
-from typing import Optional
+from typing import Optional, List, Callable, Tuple
 
 from bokeh.plotting import figure, output_file, save
 from bokeh.models import ColumnDataSource
@@ -17,20 +17,24 @@ from bokeh.layouts import column, row
 
 from GenerateData import DynamicModel
 from Optimizer import Optimizer_casadi
+from energy import EnergySindy
+from FunctionalLibrary import FunctionalLibrary
 
 @dataclass()
 class HyperOpt():
 
-    X : list[np.ndarray] 
-    y : list[np.ndarray]
-    X_clean : list[np.ndarray]
-    y_clean : list[np.ndarray]
+    X : List[np.ndarray] 
+    y : List[np.ndarray]
+    X_clean : List[np.ndarray]
+    y_clean : List[np.ndarray]
     time : np.ndarray
     time_clean : np.ndarray 
+    model : Callable  
+    arguments : List[np.ndarray] = field(default = None)
 
     parameters : dict = field(default_factory = dict)
-    model : Optimizer_casadi = field(default_factory = Optimizer_casadi) 
-    include_column : list[list] = field(default = None)
+    # TODO update this class to integrate energy.py 
+    include_column : List[List] = field(default = None)
     constraints_dict : dict = field(default_factory = dict)
     ensemble_iterations : int = field(default = 1)
     seed : int = field(default = 12345)
@@ -39,24 +43,31 @@ class HyperOpt():
         assert len(self.X) > 1 and len(self.X_clean) > 1, "Need atleast 2 experiments for hyperparameter optimization"
 
     @staticmethod
-    def train_test_split(X : list[np.ndarray], y : list[np.ndarray], X_clean : list[np.ndarray], y_clean : list[np.ndarray], 
-                        t : np.ndarray, t_clean : np.ndarray, train_split_percent : int = 80):
+    def train_test_split(arrays : Tuple[List[np.ndarray]], arrays_clean : Tuple[List[np.ndarray]] = [], train_split_percent : int = 80) -> Tuple[List[np.array]]:
         
-        t_len, t_clean_len = len(t), len(t_clean)
-        assert sum(map(lambda x : len(x[0]) == len(x[1]) == t_len, zip(X, y))) == len(X) == len(y), "Features and targets should match with time"
-        assert sum(map(lambda x : len(x[0]) == len(x[1]) == t_clean_len, zip(X_clean, y_clean))) == len(X_clean) == len(y_clean), "Clean features and clean targets should match with clean time"
-        
-        # each type (noisy and clean) of data can have different data points 
-        sample = len(y)*train_split_percent//100
-        sample_clean = len(y_clean)*train_split_percent//100
+        dataset_size = len(arrays[0])
+        dataset_clean_size = len(arrays_clean[0])
+        assert all(len(_) == dataset_size for _ in arrays), "All features should have the same length"
+        assert all(len(_) == dataset_clean_size for _ in arrays_clean), "All clean features should have the same length"
 
-        return X[:sample], y[:sample], X_clean[:sample_clean], y_clean[:sample_clean], t, X[sample:], y[sample:], X_clean[sample_clean:], y_clean[sample_clean:], t_clean
+        # each type (noisy and clean) of data can have different data points 
+        sample = dataset_size*train_split_percent//100
+        sample_clean = dataset_clean_size*train_split_percent//100
+
+        return (*[arr[:sample] for arr in [*arrays, *arrays_clean]], *[arr[:sample] for arr in [*arrays, *arrays_clean]])
 
     def gridsearch(self, train_split_percent : int = 80, max_workers : Optional[int] = None, display_results : bool = True):
 
-        (self.X_train, self.y_train, self.X_clean_train, self.y_clean_train, self.t_train, self.X_test, self.y_test, 
-        self.X_clean_test, self.y_clean_test, self.t_clean) = self.train_test_split(self.X, self.y, self.X_clean, self.y_clean, self.time, self.time_clean, train_split_percent)
-        
+        (self.X_train, self.y_train, self.X_clean_train, self.y_clean_train, self.X_test, self.y_test, 
+        self.X_clean_test, self.y_clean_test) = self.train_test_split((self.X, self.y), (self.X_clean, self.y_clean), train_split_percent)
+
+        if self.arguments:
+            self.arguments_train, self.arguments_test = self.train_test_split((self.arguments, ), train_split_percent)
+        else:
+            self.arguments_train, self.arguments_test = None, None
+            
+        self.t_train, self.t_clean = self.time, self.time_clean
+
         result_dict = defaultdict(list)
         parameter_key, parameter_value = zip(*self.parameters.items()) # separate the key value pairs
         combinations = itertools.product(*parameter_value)
@@ -97,7 +108,7 @@ class HyperOpt():
         print("Running for parameter combination", param_dict)
 
         try:
-            self.model.fit(self.X_train, self.y_train, include_column = self.include_column, constraints_dict = self.constraints_dict, 
+            self.model.fit(self.X_train, self.y_train, arguments = self.arguments_train, include_column = self.include_column, constraints_dict = self.constraints_dict, 
                         ensemble_iterations = self.ensemble_iterations, max_workers = max_workers, seed = self.seed)  
 
         except Exception as error:
@@ -107,16 +118,16 @@ class HyperOpt():
         else :
             print(f"Model for parameter combination {param_dict}", self.model.print(), sep = "\n")
             complexity = self.model.complexity
-            MSE_test_pred = self.model.score(self.X_clean_test, self.y_clean_test, metric = mean_squared_error)
-            MSE_train_pred = self.model.score(self.X_clean_train, self.y_clean_train, metric = mean_squared_error)
+            MSE_test_pred = self.model.score(self.X_clean_test, self.y_clean_test, metric = mean_squared_error, model_args = self.arguments_test)
+            MSE_train_pred = self.model.score(self.X_clean_train, self.y_clean_train, metric = mean_squared_error, model_args = self.arguments_train)
 
-            r2_test_pred = self.model.score(self.X_clean_test, self.y_clean_test, metric = r2_score)
-            r2_train_pred = self.model.score(self.X_clean_train, self.y_clean_train, metric = r2_score)
+            r2_test_pred = self.model.score(self.X_clean_test, self.y_clean_test, metric = r2_score, model_args = self.arguments_test)
+            r2_train_pred = self.model.score(self.X_clean_train, self.y_clean_train, metric = r2_score, model_args = self.arguments_train)
 
             # add integration results
             try :
-                _integration_test = self.model.simulate(self.X_clean_test, self.t_clean)
-                _integration_train = self.model.simulate(self.X_clean_train, self.t_clean)
+                _integration_test = self.model.simulate(self.X_clean_test, self.t_clean, model_args = self.arguments_test)
+                _integration_train = self.model.simulate(self.X_clean_train, self.t_clean, model_args = self.arguments_train)
             
             except:
                 MSE_test_sim = np.nan
@@ -126,11 +137,11 @@ class HyperOpt():
                 AIC = np.nan
 
             else:
-                MSE_test_sim = self.model.score(_integration_test, self.X_clean_test, metric=mean_squared_error, predict = False)
-                MSE_train_sim = self.model.score(_integration_train, self.X_clean_train, metric = mean_squared_error, predict = False)
+                MSE_test_sim = self.model.score(_integration_test, self.X_clean_test, metric=mean_squared_error, predict = False, model_args = self.arguments_test)
+                MSE_train_sim = self.model.score(_integration_train, self.X_clean_train, metric = mean_squared_error, predict = False, model_args = self.arguments_train)
 
-                r2_test_sim = self.model.score(_integration_test, self.X_clean_test, metric = r2_score, predict = False)
-                r2_train_sim = self.model.score(_integration_train, self.X_clean_train, metric = r2_score, predict = False)                   
+                r2_test_sim = self.model.score(_integration_test, self.X_clean_test, metric = r2_score, predict = False, model_args = self.arguments_test)
+                r2_train_sim = self.model.score(_integration_train, self.X_clean_train, metric = r2_score, predict = False, model_args = self.arguments_train)                   
 
                 AIC = 2*np.log((MSE_test_sim + MSE_test_pred)/2) + complexity
             
@@ -192,8 +203,8 @@ class HyperOpt():
 if __name__ == "__main__":
 
     t_span = np.arange(0, 5, 0.01)
-    model_actual = DynamicModel("kinetic_kosir", t_span, [], 2)
-    features = model_actual.integrate(())
+    model_actual = DynamicModel("kinetic_kosir", t_span, n_expt = 2)
+    features = model_actual.integrate()
     target = model_actual.approx_derivative
     # model_actual.plot(features[-1], t_span, "Time", "Concentration", ["A", "B", "C", "D"])
 
@@ -202,8 +213,22 @@ if __name__ == "__main__":
         "feature_library__include_bias" : [False],
         "feature_library__degree": [1]}
 
-    opt = HyperOpt(features, target, features, target, t_span, t_span, params, Optimizer_casadi(solver_dict = {"ipopt.print_level" : 0, "print_time":0, "ipopt.sb" : "yes"}))
-    opt.gridsearch(max_workers = 2)
+    # opt = HyperOpt(features, target, features, target, t_span, t_span, model = Optimizer_casadi(plugin_dict = {"ipopt.print_level" : 0, "print_time":0, "ipopt.sb" : "yes"}), 
+    #                 parameters = params)
+    # opt.gridsearch(max_workers = 2)
     # opt.plot()
 
+    # testing for temperature varying data
+    model = DynamicModel("kinetic_kosir", t_span, n_expt = 20)
+    features = model.integrate() # list of features
+    target = model.approx_derivative # list of target value
+    features = model.add_noise(0, 0.0)
+    target = model.approx_derivative
+    arguments = model.arguments
+
+    opt = HyperOpt(features, target, features, target, t_span, t_span, model = EnergySindy(FunctionalLibrary(2) , alpha = 0.1, threshold = 0.5, solver_dict={"max_iter" : 5000}, 
+                            plugin_dict = {"ipopt.print_level" : 5, "print_time":5, "ipopt.sb" : "yes", "ipopt.max_iter" : 10000, "ipopt.tol" : 1e-6}), 
+                    parameters = params, arguments = arguments)
+
+    opt.gridsearch(max_workers = 2)
 
