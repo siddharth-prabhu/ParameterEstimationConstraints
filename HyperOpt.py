@@ -43,29 +43,26 @@ class HyperOpt():
         assert len(self.X) > 1 and len(self.X_clean) > 1, "Need atleast 2 experiments for hyperparameter optimization"
 
     @staticmethod
-    def train_test_split(arrays : Tuple[List[np.ndarray]], arrays_clean : Tuple[List[np.ndarray]] = [], train_split_percent : int = 80) -> Tuple[List[np.array]]:
+    def train_test_split(arrays : Tuple[List[np.ndarray]], train_split_percent : int = 80) -> Tuple[List[np.array]]:
         
         dataset_size = len(arrays[0])
-        dataset_clean_size = len(arrays_clean[0])
         assert all(len(_) == dataset_size for _ in arrays), "All features should have the same length"
-        assert all(len(_) == dataset_clean_size for _ in arrays_clean), "All clean features should have the same length"
-
+        
         # each type (noisy and clean) of data can have different data points 
         sample = dataset_size*train_split_percent//100
-        sample_clean = dataset_clean_size*train_split_percent//100
-
-        return (*[arr[:sample] for arr in [*arrays, *arrays_clean]], *[arr[:sample] for arr in [*arrays, *arrays_clean]])
+        
+        return (*[arr[:sample] for arr in arrays], *[arr[sample :] for arr in arrays])
 
     def gridsearch(self, train_split_percent : int = 80, max_workers : Optional[int] = None, display_results : bool = True):
 
-        (self.X_train, self.y_train, self.X_clean_train, self.y_clean_train, self.X_test, self.y_test, 
-        self.X_clean_test, self.y_clean_test) = self.train_test_split((self.X, self.y), (self.X_clean, self.y_clean), train_split_percent)
-
+        self.X_train, self.y_train, self.X_test, self.y_test = self.train_test_split((self.X, self.y), train_split_percent)
+        self.X_clean_train, self.y_clean_train, self.X_clean_test, self.y_clean_test = self.train_test_split((self.X_clean, self.y_clean), train_split_percent)
+        
         if self.arguments:
             self.arguments_train, self.arguments_test = self.train_test_split((self.arguments, ), train_split_percent)
         else:
             self.arguments_train, self.arguments_test = None, None
-            
+
         self.t_train, self.t_clean = self.time, self.time_clean
 
         result_dict = defaultdict(list)
@@ -208,10 +205,10 @@ if __name__ == "__main__":
     target = model_actual.approx_derivative
     # model_actual.plot(features[-1], t_span, "Time", "Concentration", ["A", "B", "C", "D"])
 
-    params = {"optimizer__threshold": [0.5], 
-        "optimizer__alpha": [0], 
+    params = {"optimizer__threshold": [0.01, 0.1, 0.5, 1], 
+        "optimizer__alpha": [0.01, 0.1, 0, 1], 
         "feature_library__include_bias" : [False],
-        "feature_library__degree": [1]}
+        "feature_library__degree": [1, 2, 3]}
 
     # opt = HyperOpt(features, target, features, target, t_span, t_span, model = Optimizer_casadi(plugin_dict = {"ipopt.print_level" : 0, "print_time":0, "ipopt.sb" : "yes"}), 
     #                 parameters = params)
