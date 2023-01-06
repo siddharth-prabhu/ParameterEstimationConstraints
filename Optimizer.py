@@ -141,13 +141,21 @@ class Optimizer_casadi(Base):
     def _minimize(self, plugin_dict : dict, solver_dict : dict):
 
         self.opti.minimize(self.adict["cost"])
-        self.opti.solver("ipopt", plugin_dict, solver_dict)
+        if solver_dict.get("solver", None):
+            solver = solver_dict.pop("solver")
+        else:
+            solver = "ipopt"
+
+        self.opti.solver(solver, plugin_dict, solver_dict)
         solution = self.opti.solve()
         # assert solution.success, "The solution did not converge" add assertion 
         return solution
 
     def _create_parameters(self) -> List:
         return [self.adict["coefficients"]]
+
+    def _initialize_decision_variables(self) -> None:
+        pass
 
     # function for multiprocessing
     def _stlsq_solve_optimization(self, library : List, target : np.ndarray, constraints_dict : dict, permutations : List, seed : int) -> List[List[np.ndarray]]:
@@ -161,6 +169,7 @@ class Optimizer_casadi(Base):
         self._update_cost(target[permutations])
         if constraints_dict:
             self._add_constraints(constraints_dict, seed)
+        self._initialize_decision_variables()
         _solution = self._minimize(self.plugin_dict, self.solver_dict) # no need to save for every iteration
 
         # list[np.ndarray]. additional layer of np.array and flatten to account for singular value, which casadi outputs as float
@@ -188,7 +197,7 @@ class Optimizer_casadi(Base):
             permutations = [rng.choice(range(self.adict["library_dimension"][0][0]), self.adict["library_dimension"][0][0], replace = (ensemble_iterations > 1))
                                 for _ in range(self.adict["iterations_ensemble"])] 
             
-            if max_workers == 0: # Do not use multiprocessing.
+            if max_workers <= 1: # Do not use multiprocessing.
                 _coefficients_ensemble = [self._stlsq_solve_optimization(library, target, constraints_dict, permute, seed) for permute in permutations]
                 
                 # separate the values of parameters into a list of list of values
@@ -254,7 +263,7 @@ class Optimizer_casadi(Base):
             # update mask of small terms to zero
             self.adict["mask"] = [mask*coefficients_next[i] for i, mask in enumerate(self.adict["mask"])]
             self.adict["iterations"] += 1
-        
+
         return _mean, _deviation
 
     def fit(self, features : List[np.ndarray], target : List[np.ndarray], arguments : Optional[List[np.ndarray]] = None, include_column : Optional[List[np.ndarray]] = None, 
@@ -308,7 +317,13 @@ class Optimizer_casadi(Base):
         """
         returns sympy expressions
         """
-        coefficients_value : List[np.ndarray] = self.adict["coefficients_value"]
+        # mask the coefficient values
+        self.adict["coefficients_value_masked"] = []
+        for coefficients, mask in zip(self.adict["coefficients_value"], self.adict["mask"]):
+            self.adict["coefficients_value_masked"].append(coefficients*mask.flatten())
+
+        coefficients_value : List[np.ndarray] = self.adict["coefficients_value_masked"]
+        mask : List[np.ndarray] = self.adict["mask"]
         library_labels : List[List[str]] = self.adict["library_labels"]
         expr = 0
 
@@ -489,6 +504,8 @@ class Optimizer_casadi(Base):
             # rounding down may substitute some coefficients to zero and therefore will be ignored while printing,
             # but are counted in the complexity
             for atom in smp.preorder_traversal(eqn):
+                if atom.is_rational:
+                    continue
                 if atom.is_number:
                     eqn = eqn.subs(atom, round(atom, 2))
 

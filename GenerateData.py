@@ -59,7 +59,7 @@ class DynamicModel():
                 k2*x[2]])
     
     @staticmethod
-    def kinetic_kosir(x, t, args : Tuple = (373, 8.314)) -> np.ndarray:
+    def kinetic_kosir(x, t, args) -> np.ndarray:
         # A -> 2B; A <-> C; A <-> D
         T, R = args
         rates = DynamicModel.reaction_rate_kosir(T, R)
@@ -82,15 +82,9 @@ class DynamicModel():
         Eca = 45*10**3
         Ead = 50*10**3
         Eda = 60*10**3
-        
-        kab = 8.566/2/np.exp(-Eab/R/373)
-        kac = 1.191/np.exp(-Eac/R/373) 
-        kca = 5.743/np.exp(-Eca/R/373)
-        kad = 10.219/np.exp(-Ead/R/373)
-        kda = 1.535/np.exp(-Eda/R/373)
 
-        return [kab*np.exp(-Eab/R/T), kac*np.exp(-Eac/R/T), kca*np.exp(-Eca/R/T), 
-                kad*np.exp(-Ead/R/T), kda*np.exp(-Eda/R/T)]
+        return [8.566/2*np.exp(-(Eab/R)*(1/T - 1/373)), 1.191*np.exp(-(Eac/R)*(1/T - 1/373)), 5.743*np.exp(-(Eca/R)*(1/T - 1/373)), 
+                10.219*np.exp(-(Ead/R)*(1/T - 1/373)), 1.535*np.exp(-(Eda/R)*(1/T - 1/373))]
 
 
     def coefficients(self, x : Optional[Tuple[smp.symbols]] = None, t : Optional[np.ndarray] = None, args : Optional[Tuple] = None) -> List[dict]:
