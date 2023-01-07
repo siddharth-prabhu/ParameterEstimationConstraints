@@ -30,7 +30,7 @@ class DynamicModel():
         
         rng = np.random.default_rng(self.seed)
         if not self.initial_condition:
-            self.initial_condition = [rng.uniform(0, 20, size = self._model_dict[self.model]["n_states"]) for _ in range(self.n_expt)]
+            self.initial_condition = [rng.uniform(10, 30, size = self._model_dict[self.model]["n_states"]) for _ in range(self.n_expt)]
 
         if not self.arguments:
             # By default the data is generated for varying temperature values

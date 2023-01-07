@@ -61,9 +61,9 @@ class Optimizer_casadi(Base):
         # given data creates list of matix of all possible combinations of terms 
         # returns a list of number of columns of each matrix
 
-        # define input features if not given
+        # define input features if not given. Input features depend on the shape of data
         if not len(self.input_features):
-            self.input_features = [f"x{i}" for i in range(self._n_states)]
+            self.input_features = [f"x{i}" for i in range(self._input_states)]
 
         # define symbols that can be converted to equations later
         self.input_symbols = smp.symbols(reduce(lambda accum, value : accum + value + ", ", self.input_features, ""))
@@ -89,7 +89,6 @@ class Optimizer_casadi(Base):
         self.adict["mask"] = [np.ones(dimension[-1]) for dimension in self.adict["library_dimension"]]
 
     def _update_cost(self, target : np.ndarray):
-        
         # initialize the cost to zero
         self.adict["cost"] = 0
         
@@ -97,7 +96,7 @@ class Optimizer_casadi(Base):
         # need 2 for loops because of limitation of casadi 
         self.adict["reactions"] = [cd.mtimes(self.adict["library"][j], self.adict["coefficients"][j]) for j in range(self._functional_library)]
 
-        for i in range(self._n_states):
+        for i in range(self._output_states):
             asum = 0
             for j in range(self._functional_library): 
                 asum += self.adict["stoichiometry"][i, j]*self.adict["reactions"][j]
@@ -273,22 +272,23 @@ class Optimizer_casadi(Base):
         # constraints_dict should be of the form {"consumption" : [], "formation" : [], 
         #                                           "stoichiometry" : np.ndarray}
         self._flag_fit = True
-        self._n_states = np.shape(features)[-1]
+        self._output_states = np.shape(target)[-1]
+        self._input_states = np.shape(features)[-1]
 
         if "stoichiometry" in constraints_dict and isinstance(constraints_dict["stoichiometry"], np.ndarray):
             rows, cols = constraints_dict["stoichiometry"].shape
-            assert rows == self._n_states, "The rows should match the number of states"
+            assert rows == self._output_states, "The rows should match the number of states"
             self._functional_library = cols
             self.adict["stoichiometry"] = constraints_dict["stoichiometry"]
         else:
-            self._functional_library = self._n_states
-            self.adict["stoichiometry"] = np.eye(self._n_states) 
+            self._functional_library = self._output_states
+            self.adict["stoichiometry"] = np.eye(self._output_states) 
 
         if include_column:
             assert len(include_column) == self._functional_library, "length of columns should match with the number of functional libraries"
-            include_column = [list(range(self._n_states)) if len(alist) == 0 else alist for alist in include_column] 
+            include_column = [list(range(self._input_states)) if len(alist) == 0 else alist for alist in include_column] 
         else:
-            include_column = [list(range(self._n_states)) for _ in range(self._functional_library)]
+            include_column = [list(range(self._input_states)) for _ in range(self._functional_library)]
 
         features, target = np.vstack(features), np.vstack(target)
         self._generate_library(features, include_column)
@@ -306,7 +306,7 @@ class Optimizer_casadi(Base):
         self.adict["equations_lambdify"] = []
         self.adict["coefficients_dict"] = []
         
-        for i in range(self._n_states):
+        for i in range(self._output_states):
             expr = self._create_sympy_expressions(self.adict["stoichiometry"][i]) # sympy expression
             self.adict["equations"].append(expr)
             self.adict["coefficients_dict"].append(expr.as_coefficients_dict())
@@ -432,10 +432,10 @@ class Optimizer_casadi(Base):
         assert self._flag_fit, "Fit the model before running predict"
         if model_args :
             # np.vectorize fails for adding arguments in partial that are placed before the vectorized arguments
-            afunc = np.vectorize(self._casadi_model, signature = "(m),(),(k)->(m)")
+            afunc = np.vectorize(self._casadi_model, signature = "(m),(),(k)->(n)")
             return [afunc(xi, 0, argi) for xi, argi in zip(X, model_args)]
         else:
-            afunc = np.vectorize(partial(self._casadi_model, model_args = ()), signature = "(m),()->(m)")
+            afunc = np.vectorize(partial(self._casadi_model, model_args = ()), signature = "(m),()->(n)")
             return [afunc(xi, 0) for xi in X]
         
 
@@ -458,7 +458,7 @@ class Optimizer_casadi(Base):
         x_init = [xi[0].flatten() for xi in X]
         result = []
         for i, xi in enumerate(x_init):
-            assert len(xi) == self._n_states, "Initial conditions should be of right dimensions"
+            assert len(xi) == self._input_states, "Initial conditions should be of right dimensions"
 
             try:
                 _integration_solution = odeint(self._casadi_model, xi, time_span, args = (model_args[i], ) if model_args else ((), ), **integrator_kwargs)
@@ -523,7 +523,7 @@ if __name__ == "__main__":
     features = model.add_noise(0, 0.0)
     target = model.approx_derivative
 
-    opti = Optimizer_casadi(FunctionalLibrary(2) , alpha = 0.1, threshold = 0.1, plugin_dict = {"ipopt.print_level" : 0, "print_time":0, "ipopt.sb" : "yes"}, 
+    opti = Optimizer_casadi(FunctionalLibrary(1) , alpha = 0.0, threshold = 0.1, plugin_dict = {"ipopt.print_level" : 0, "print_time":0, "ipopt.sb" : "yes"}, 
                             max_iter = 20)
     stoichiometry = np.array([-1, -1, -1, 0, 0, 2, 1, 0, 0, 0, 1, 0]).reshape(4, -1) # chemistry constraints
     include_column = [[0, 2], [0, 3], [0, 1]]
@@ -532,7 +532,7 @@ if __name__ == "__main__":
 
     opti.fit(features, target, include_column = [], 
                 constraints_dict= {"formation" : [], "consumption" : [], 
-                                    "stoichiometry" : stoichiometry}, ensemble_iterations = 3, seed = 10, max_workers = 2)
+                                    "stoichiometry" : stoichiometry}, ensemble_iterations = 1, seed = 10, max_workers = 2)
     opti.print()
     print("--"*20)
     print("mean squared error :", opti.score(features, target))
