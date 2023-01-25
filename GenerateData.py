@@ -1,14 +1,16 @@
+# type: ignore
+
 from dataclasses import dataclass, field
+from typing import ClassVar, Optional, List, Tuple
+from functools import reduce, partial
+
 import numpy as np
 import sympy as smp
-
 import pickle
-from typing import ClassVar, Optional, List, Tuple
 from scipy.integrate import odeint
 import matplotlib.pyplot as plt
 import pysindy as ps
 
-from functools import reduce, partial
 
 @dataclass
 class DynamicModel():

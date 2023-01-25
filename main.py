@@ -1,20 +1,21 @@
-from GenerateData import DynamicModel
-from FunctionalLibrary import FunctionalLibrary
-from HyperOpt import HyperOpt
-from Optimizer import Optimizer_casadi
-from energy import EnergySindy
+# type: ignore
 
 from collections import defaultdict
 from typing import Optional
 from concurrent.futures import ProcessPoolExecutor
 from functools import partial
 from itertools import repeat
+import argparse
 
 import numpy as np
 import matplotlib.pyplot as plt
-from utils import coefficient_difference_plot
 
-import argparse
+from GenerateData import DynamicModel
+from FunctionalLibrary import FunctionalLibrary
+from HyperOpt import HyperOpt
+from Optimizer import Optimizer_casadi
+from energy import EnergySindy
+from utils import coefficient_difference_plot
 
 
 parser = argparse.ArgumentParser("ParameterEstimationSINDy")
@@ -137,7 +138,7 @@ if __name__ == "__main__":
         "feature_library__degree": [1] #, 2, 3]
         }
 
-    ensemble_params = {"optimizer__threshold": [2, 1.25, 1.6], 
+    ensemble_params = {"optimizer__threshold": [2, 1.25, 1.6], # 95%, 80%, 90%
         "optimizer__alpha": [0], 
         "feature_library__include_bias" : [False],
         "feature_library__degree": [1, 2, 3]}

@@ -140,8 +140,9 @@ class HyperOpt():
                 r2_test_sim = self.model.score(_integration_test, self.X_clean_test, metric = r2_score, predict = False, model_args = self.arguments_test)
                 r2_train_sim = self.model.score(_integration_train, self.X_clean_train, metric = r2_score, predict = False, model_args = self.arguments_train)                   
 
-                AIC = 2*np.log((MSE_test_sim + MSE_test_pred)/2) + complexity
-            
+                # AIC = 2*np.log((MSE_test_sim + MSE_test_pred)/2) + complexity
+                AIC = (MSE_train_pred + MSE_train_sim)*(sum(len(x_train) for x_train in self.X_train))/2 + complexity
+
             return [param_dict, complexity, MSE_test_pred, MSE_train_pred, r2_test_pred, r2_train_pred, MSE_test_sim, MSE_train_sim, 
                     r2_test_sim, r2_train_sim, AIC, self.model.adict["iterations"]]
 
@@ -200,7 +201,7 @@ class HyperOpt():
 if __name__ == "__main__":
 
     t_span = np.arange(0, 5, 0.01)
-    model_actual = DynamicModel("kinetic_kosir", t_span, n_expt = 2)
+    model_actual = DynamicModel("kinetic_kosir", t_span, n_expt = 2, arguments = [(373, 8.314)])
     features = model_actual.integrate()
     target = model_actual.approx_derivative
     # model_actual.plot(features[-1], t_span, "Time", "Concentration", ["A", "B", "C", "D"])
@@ -208,13 +209,14 @@ if __name__ == "__main__":
     params = {"optimizer__threshold": [0.01, 0.1, 0.5, 1], 
         "optimizer__alpha": [0.01, 0.1, 0, 1], 
         "feature_library__include_bias" : [False],
-        "feature_library__degree": [1, 2, 3]}
+        "feature_library__degree": [1, 2]}
 
-    # opt = HyperOpt(features, target, features, target, t_span, t_span, model = Optimizer_casadi(plugin_dict = {"ipopt.print_level" : 0, "print_time":0, "ipopt.sb" : "yes"}), 
-    #                 parameters = params)
-    # opt.gridsearch(max_workers = 2)
-    # opt.plot()
+    opt = HyperOpt(features, target, features, target, t_span, t_span, model = Optimizer_casadi(plugin_dict = {"ipopt.print_level" : 0, "print_time":0, "ipopt.sb" : "yes"}), 
+                    parameters = params)
+    opt.gridsearch(max_workers = 2)
+    opt.plot()
 
+    """
     # testing for temperature varying data
     model = DynamicModel("kinetic_kosir", t_span, n_expt = 20)
     features = model.integrate() # list of features
@@ -228,4 +230,4 @@ if __name__ == "__main__":
                     parameters = params, arguments = arguments)
 
     opt.gridsearch(max_workers = 2)
-
+    """

@@ -1,3 +1,8 @@
+# type: ignore
+
+from typing import List, Optional, Any, Callable, Tuple
+from functools import reduce
+
 import casadi as cd
 print("casadi version", cd.__version__)
 import numpy as np
@@ -8,8 +13,6 @@ import matplotlib.pyplot as plt
 from Optimizer import Optimizer_casadi
 from FunctionalLibrary import FunctionalLibrary
 
-from typing import List, Optional, Any, Callable, Tuple
-from functools import reduce
 
 class EnergySindy(Optimizer_casadi):
 
@@ -44,7 +47,8 @@ class EnergySindy(Optimizer_casadi):
     def _create_decision_variables(self):
         super()._create_decision_variables() # reaction rates at reference temperature of 373 K
         # adding activation energies
-        self.adict["coefficients_energy"] = [self.opti.variable(dimension[-1], 1) for dimension in self.adict["library_dimension"]] 
+        # variables are defined individually because MX objects cannot be indexed for jacobian/hessian
+        self.adict["coefficients_energy"] = [cd.vertcat(*(self.opti.variable(1) for _ in range(dimension[-1]))) for dimension in self.adict["library_dimension"]] 
 
     def _generate_library(self, data : np.ndarray, include_column : List[np.ndarray]):
         
@@ -72,10 +76,10 @@ class EnergySindy(Optimizer_casadi):
             for j in range(self._functional_library): 
                 asum += self.adict["stoichiometry"][i, j]*self.adict["reactions"][j]
 
-            self.adict["cost"] += cd.sumsqr(target[:, i] - asum)
+            self.adict["cost"] += cd.sumsqr(target[:, i] - asum)/2
 
         # normalize the cost by dividing by the number of data points
-        self.adict["cost"] /= self.adict["library_dimension"][0][0] # first array with first dimension
+        # self.adict["cost"] /= self.adict["library_dimension"][0][0] # first array with first dimension
 
         # add regularization to the cost function
         for coefficients in self.adict["coefficients"]:
@@ -91,6 +95,42 @@ class EnergySindy(Optimizer_casadi):
             for coefficient_energy in self.adict["coefficients_energy"]:
                 self.opti.subject_to(cd.vec(coefficient_energy) >= 0)
 
+    def _create_covariance(self) -> List[np.ndarray]:
+        """
+        returns the diagonal of covariance matrix
+        """
+        coefficients_value = self.opti.value(self.opti.x)
+
+        cost_function = np.array(cd.Function("cost_function", [self.opti.x], [self.opti.f])(coefficients_value)).flatten()
+
+        alist = []
+        variable = []
+        for dimension, coeff, coeff_mask in zip(self.adict["library_dimension"], self.adict["coefficients"], self.adict["mask"]):
+            
+            # zero coefficients have standard deviation of one by default
+            alist.append(np.ones(dimension[1]))
+
+            # select nonzero coefficients
+            variable.extend([coeff[i] for i, mi in enumerate(coeff_mask.flatten()) if mi != 0])
+        
+        variable = cd.vertcat(*variable)
+        hessian, _ = cd.hessian(self.opti.f, variable)
+        hessian_function = cd.Function("hessian_function", [self.opti.x], [cd.mtimes(hessian.T, hessian)])
+        
+        u, d, vh = np.linalg.svd(hessian_function(coefficients_value))
+        d = np.where(d < 1e-10, 0, d)
+        d_inv = np.where(1/d == np.inf, 0, 1/d)
+        # d_inv /= (cost_function*2/(sum(dimension[0] for dimension in self.adict["library_dimension"]) - variable.shape[0]))
+        d_inv /= (cost_function*2/(self.adict["library_dimension"][0][0] - variable.shape[0]))
+        covariance_matrix_diag = np.diag(vh.T@np.diag(d_inv.flatten())@u.T)
+
+        # map the variance to thier respective variables
+        i = 0
+        for j, coeff_mask in enumerate(self.adict["mask"]):      
+            alist[j][coeff_mask.flatten().astype(bool)] = covariance_matrix_diag[i : i + sum(coeff_mask.flatten().astype(int))]
+            i += sum(coeff_mask.flatten().astype(int))
+
+        return alist
 
     def _create_parameters(self) -> List:
         """
@@ -129,10 +169,13 @@ class EnergySindy(Optimizer_casadi):
 
 
     def fit(self, features : List[np.ndarray], target : List[np.ndarray], arguments : List[np.ndarray], include_column : Optional[List[np.ndarray]] = None, 
-            constraints_dict : dict = {} , ensemble_iterations : int = 1, max_workers : Optional[int] = None, seed : int = 12345) -> None:
+            constraints_dict : dict = {} , ensemble_iterations : int = 1, variance_elimination : bool = False, max_workers : Optional[int] = None, 
+            seed : int = 12345) -> None:
     
         # arguments is a list of arrays so that its compatible with vectorize
-        # ensemble_iterations = 1 : do regular sindy else ensemble sindy
+        # if variance_elimination = True and ensemble_iterations > 1 performs boostrapping
+        # if variance_elimination = True and ensemble_iterations <= 1 performs covariane matrix
+        # if variance_elimination = False performs normal thresholding (regular sindy)
         # constraints_dict should be of the form {"consumption" : [], "formation" : [], 
         #                                           "stoichiometry" : np.ndarray}
         self._flag_fit = True
@@ -161,7 +204,7 @@ class EnergySindy(Optimizer_casadi):
         features, target = np.vstack(features), np.vstack(target)
         self._generate_library(features, include_column)
 
-        _mean, _deviation = self._stlsq(target, constraints_dict, ensemble_iterations, max_workers, seed)
+        _mean, _deviation = self._stlsq(target, constraints_dict, ensemble_iterations, variance_elimination, max_workers, seed)
         (self.adict["coefficients_value"], self.adict["coefficients_energy_value"], self.adict["coefficients_deviation"], 
                                         self.adict["coefficients_energy_deviation"]) = (_mean[0], _mean[1], _deviation[0], _deviation[1])
         self._create_equations()
@@ -211,17 +254,18 @@ if __name__ == "__main__":
      
     plugin_dict = {"ipopt.print_level" : 5, "print_time":5, "ipopt.sb" : "yes", "ipopt.max_iter" : 1000}
     # plugin_dict = {}
-    opti = EnergySindy(FunctionalLibrary(2) , alpha = 0.01, threshold = 1, solver_dict={"solver" : "ipopt"}, 
+    opti = EnergySindy(FunctionalLibrary(1) , alpha = 0, threshold = 1.5, solver_dict={"solver" : "ipopt"}, 
                             plugin_dict = plugin_dict, max_iter = 20)
     
     stoichiometry = np.array([-1, -1, -1, 0, 0, 2, 1, 0, 0, 0, 1, 0]).reshape(4, -1) # chemistry constraints
-    # include_column = [[0, 2], [0, 3], [0, 1]] # chemistry constraints
+    include_column = [[0, 2], [0, 3], [0, 1]] # chemistry constraints
+    # include_column = []
     # stoichiometry =  np.array([1, 0, 0, 0, 1, 0, 0, 0, 1, -1, -0.5, -1]).reshape(4, -1) # mass balance constraints
     # stoichiometry = np.eye(4) # no constraints
 
-    opti.fit(features, target, arguments, include_column = [], 
+    opti.fit(features, target, arguments, include_column = include_column, 
                 constraints_dict= {"formation" : [], "consumption" : [], "energy" : False,
-                                    "stoichiometry" : stoichiometry}, ensemble_iterations = 1, seed = 20, max_workers = 1)
+                                    "stoichiometry" : stoichiometry}, ensemble_iterations = 1, variance_elimination = True, seed = 20, max_workers = 2)
     opti.print()
     print("--"*20)
     print("mean squared error :", opti.score(features, target, model_args = arguments))
@@ -230,9 +274,9 @@ if __name__ == "__main__":
     print("--"*20)
     print("coefficients energy at each iteration", opti.adict["coefficients_energy_value"])
     print("--"*20)
-    print("model simulation", opti.simulate(features, time_span, arguments))
+    # print("model simulation", opti.simulate(features, time_span, arguments))
     print("--"*20)
-    opti.plot_distribution()
+    # opti.plot_distribution()
 
     # coefficient_difference_plot(model.coefficients , sigma = opti.adict["coefficients_dict"], sigma2 = opti.adict["coefficients_dict"])
  

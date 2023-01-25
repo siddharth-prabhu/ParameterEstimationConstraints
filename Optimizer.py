@@ -1,22 +1,25 @@
+# type: ignore
+
 from dataclasses import dataclass, field
-from Base import Base
 from typing import Optional, Callable, List, Tuple
 from functools import reduce, partial
 from collections import defaultdict, namedtuple
-from tqdm import tqdm
 from concurrent.futures import ProcessPoolExecutor
 from itertools import repeat
-
-from FunctionalLibrary import FunctionalLibrary
-from utils import ensemble_plot
 
 import numpy as np
 import casadi as cd
 import sympy as smp
 import pickle
+from tqdm import tqdm
 from sklearn.metrics import mean_squared_error
 from scipy.integrate import odeint
 import matplotlib.pyplot as plt
+from scipy import stats
+
+from Base import Base
+from FunctionalLibrary import FunctionalLibrary
+from utils import ensemble_plot
 
 
 @dataclass(frozen = False)
@@ -39,7 +42,7 @@ class Optimizer_casadi(Base):
         assert self.max_iter >= 1, "Max iteration should be greater than zero"
         assert 0 <= self.num_points <= 1, "percent points to be considered as constraints should be in [0, 1]"
 
-    def set_params(self, **kwargs):
+    def set_params(self, **kwargs) -> None:
         # sets the values of various parameter for gridsearchcv
 
         if "optimizer__alpha" in kwargs:
@@ -57,7 +60,7 @@ class Optimizer_casadi(Base):
         self.library.set_params(**kwargs)
 
 
-    def _generate_library(self, data : np.ndarray, include_column : List[np.ndarray]):
+    def _generate_library(self, data : np.ndarray, include_column : List[np.ndarray]) -> None:
         # given data creates list of matix of all possible combinations of terms 
         # returns a list of number of columns of each matrix
 
@@ -78,17 +81,18 @@ class Optimizer_casadi(Base):
         
         self.adict["library_dimension"] = [xi.shape for xi in self.adict["library"]]
 
-    def _create_decision_variables(self):
+    def _create_decision_variables(self) -> None:
         # initializes the number of variables that will be used in casadi optimization 
 
         self.opti = cd.Opti() # create casadi instance
-        self.adict["coefficients"] = [self.opti.variable(dimension[-1], 1) for dimension in self.adict["library_dimension"]]
+        # variables are defined individually because MX object cannot be indexed for jacobian/hessian
+        self.adict["coefficients"] = [cd.vertcat(*(self.opti.variable(1) for _ in range(dimension[-1]))) for dimension in self.adict["library_dimension"]]
     
     # created separately becoz it needs to be run only once
-    def _create_mask(self):
+    def _create_mask(self) -> None:
         self.adict["mask"] = [np.ones(dimension[-1]) for dimension in self.adict["library_dimension"]]
 
-    def _update_cost(self, target : np.ndarray):
+    def _update_cost(self, target : np.ndarray) -> None:
         # initialize the cost to zero
         self.adict["cost"] = 0
         
@@ -101,16 +105,16 @@ class Optimizer_casadi(Base):
             for j in range(self._functional_library): 
                 asum += self.adict["stoichiometry"][i, j]*self.adict["reactions"][j]
 
-            self.adict["cost"] += cd.sumsqr(target[:, i] - asum)
+            self.adict["cost"] += cd.sumsqr(target[:, i] - asum)/2
 
         # normalize the cost by dividing by the number of data points
-        self.adict["cost"] /= self.adict["library_dimension"][0][0] # first array with first dimension
+        # self.adict["cost"] /= self.adict["library_dimension"][0][0] # first array with first dimension
 
         # add regularization to the cost function
         for j in range(self._functional_library):
             self.adict["cost"] += self.alpha*cd.sumsqr(self.adict["coefficients"][j])
 
-    def _add_constraints(self, constraints_dict, seed : int = 12345):
+    def _add_constraints(self, constraints_dict, seed : int = 12345) -> None:
         
         data_points = self.adict["library_dimension"][0][0]
         rng = np.random.default_rng(seed)
@@ -136,6 +140,42 @@ class Optimizer_casadi(Base):
                 
                 self.opti.subject_to(asum <= 0)
 
+    def _create_covariance(self) -> List[np.ndarray]:
+        """
+        returns the diagonal of covariance matrix
+        """
+        coefficients_value = self.opti.value(self.opti.x)
+
+        cost_function = np.array(cd.Function("cost_function", [self.opti.x], [self.opti.f])(coefficients_value)).flatten()
+
+        alist = []
+        variable = []
+        for dimension, coeff, coeff_mask in zip(self.adict["library_dimension"], self.adict["coefficients"], self.adict["mask"]):
+            
+            # zero coefficients have standard deviation of one by default
+            alist.append(np.ones(dimension[1]))
+
+            # select nonzero coefficients
+            variable.extend([coeff[i] for i, mi in enumerate(coeff_mask.flatten()) if mi != 0])
+        
+        variable = cd.vertcat(*variable)
+        hessian, _ = cd.hessian(self.opti.f, variable)
+        hessian_function = cd.Function("hessian_function", [self.opti.x], [hessian])
+        
+        u, d, vh = np.linalg.svd(hessian_function(coefficients_value))
+        d = np.where(d < 1e-10, 0, d)
+        d_inv = np.where(1/d == np.inf, 0, 1/d)
+        d_inv /= (cost_function*2/(self.adict["library_dimension"][0][0] - variable.shape[0]))
+        # d_inv /= (cost_function*2/(sum(dimension[0] for dimension in self.adict["library_dimension"]) - variable.shape[0]))
+        covariance_matrix_diag = np.diag(vh.T@np.diag(d_inv.flatten())@u.T)
+
+        # map the variance to thier respective variables
+        i = 0
+        for j, coeff_mask in enumerate(self.adict["mask"]):      
+            alist[j][coeff_mask.flatten().astype(bool)] = covariance_matrix_diag[i : i + sum(coeff_mask.flatten().astype(int))]
+            i += sum(coeff_mask.flatten().astype(int))
+
+        return alist
 
     def _minimize(self, plugin_dict : dict, solver_dict : dict):
 
@@ -175,8 +215,8 @@ class Optimizer_casadi(Base):
         return [[np.array([_solution.value(coeff)]).flatten() for coeff in params] for params in parameters]
 
 
-    def _stlsq(self, target : np.ndarray, constraints_dict : dict, ensemble_iterations : int, max_workers : Optional[int] = None,
-                seed : int = 12345) -> List[List[np.ndarray]]:
+    def _stlsq(self, target : np.ndarray, constraints_dict : dict, ensemble_iterations : int, variance_elimination : bool = False, 
+                    max_workers : Optional[int] = None, seed : int = 12345) -> List[List[np.ndarray]]:
         
         # parameters is added so that you can get the values of additional decision variables without having to rewrite code
         # however thresholding is only done with respect to the original parameters
@@ -195,8 +235,21 @@ class Optimizer_casadi(Base):
             self.adict["coefficients_casadi_ensemble"] : List[dict] = []
             permutations = [rng.choice(range(self.adict["library_dimension"][0][0]), self.adict["library_dimension"][0][0], replace = (ensemble_iterations > 1))
                                 for _ in range(self.adict["iterations_ensemble"])] 
+                    
+            if variance_elimination and ensemble_iterations > 1: # use multiprocessing
+                with ProcessPoolExecutor(max_workers = max_workers) as executor:           
+                    _coefficients_ensemble = list(executor.map(self._stlsq_solve_optimization, repeat(library), repeat(target), repeat(constraints_dict), 
+                                                                permutations, repeat(seed)))
+
+                    _coefficients_ensemble = list(zip(*_coefficients_ensemble))
+                    for _coefficients_ensemble_parameters in _coefficients_ensemble:
+                        bdict = defaultdict(list)
+                        for key in range(self._functional_library):
+                            bdict[key].extend(alist[key] for alist in _coefficients_ensemble_parameters)
+                            
+                        self.adict["coefficients_casadi_ensemble"].append(bdict)
             
-            if max_workers <= 1: # Do not use multiprocessing.
+            else : # Do not use multiprocessing.
                 _coefficients_ensemble = [self._stlsq_solve_optimization(library, target, constraints_dict, permute, seed) for permute in permutations]
                 
                 # separate the values of parameters into a list of list of values
@@ -207,20 +260,7 @@ class Optimizer_casadi(Base):
                         bdict[key].extend(alist[key] for alist in _coefficients_ensemble_parameters)
                     
                     self.adict["coefficients_casadi_ensemble"].append(bdict)
-                    
-            else: # if none use all cores
-                with ProcessPoolExecutor(max_workers = max_workers) as executor:           
-                    _coefficients_ensemble = list(executor.map(self._stlsq_solve_optimization, repeat(library), repeat(target), repeat(constraints_dict), 
-                                        permutations, repeat(seed)))
-
-                    _coefficients_ensemble = list(zip(*_coefficients_ensemble))
-                    for _coefficients_ensemble_parameters in _coefficients_ensemble:
-                        bdict = defaultdict(list)
-                        for key in range(self._functional_library):
-                            bdict[key].extend(alist[key] for alist in _coefficients_ensemble_parameters)
-                            
-                        self.adict["coefficients_casadi_ensemble"].append(bdict)
-
+            
             # calculating mean and standard deviation 
             parameters_len = len(self.adict["coefficients_casadi_ensemble"])
             _mean, _deviation = [[] for _ in range(parameters_len)], [[] for _ in range(parameters_len)]
@@ -237,10 +277,20 @@ class Optimizer_casadi(Base):
             # thresholding parameters are always the first entries of self.adict["coefficients_casadi_ensemble"]
             # thresholding is always performed on the original decision variables i.e. self.adict["coefficients"] and not the coefficients
             # that we get after multiplying with the stoichiometric matrix
-            if ensemble_iterations > 1:
-                coefficients_next = [np.abs(mean/(deviation + 1e-15)) > self.threshold for mean, deviation in zip(_mean[0], _deviation[0])]
-            else:
+            if not variance_elimination:
+                print("Thresholding normal sindy")
                 coefficients_next = [np.abs(self.adict["coefficients_casadi_ensemble"][0][key]) > self.threshold for key in self.adict["coefficients_casadi_ensemble"][0].keys()]
+            else : # variance based thresholding
+                if ensemble_iterations > 1:
+                    print("Thresholding bootstrapping")
+                    coefficients_next = [np.abs(mean/(deviation + 1e-15)) > self.threshold for mean, deviation in zip(_mean[0], _deviation[0])]
+                else:
+                    print("Thresholding covariance")
+                    variance : List[np.ndarray] = self._create_covariance() 
+                    _deviation[0] = [np.sqrt(var).flatten() for var in variance] 
+                    # coefficients_next = [2*(1 - stats.t.cdf(np.abs(mean/np.sqrt(deviation.reshape(1, -1))), sum(dim[0] for dim in self.adict["library_dimension"]) - self.opti.x.shape[0])) < self.threshold 
+                    #                     for mean, deviation in zip(_mean[0], variance)]
+                    coefficients_next  = [np.abs(mean/np.sqrt(deviation.reshape(1, -1))) > self.threshold for mean, deviation in zip(_mean[0], variance)]          
 
             if np.array([np.allclose(coeff_prev, coeff_next) for coeff_prev, coeff_next in zip(coefficients_prev, coefficients_next)]).all():
                 print("Solution converged")
@@ -266,9 +316,11 @@ class Optimizer_casadi(Base):
         return _mean, _deviation
 
     def fit(self, features : List[np.ndarray], target : List[np.ndarray], arguments : Optional[List[np.ndarray]] = None, include_column : Optional[List[np.ndarray]] = None, 
-            constraints_dict : dict = {} , ensemble_iterations : int = 1, max_workers : Optional[int] = None, seed : int = 12345) -> None:
+            constraints_dict : dict = {} , ensemble_iterations : int = 1, variance_elimination : bool = False, max_workers : Optional[int] = None, seed : int = 12345) -> None:
 
-        # ensemble_iterations = 1 : do regular sindy else ensemble sindy
+        # if variance_elimination = True and ensemble_iterations > 1 performs boostrapping
+        # if variance_elimination = True and ensemble_iterations <= 1 performs covariane matrix
+        # if variance_elimination = False performs normal thresholding (regular sindy)
         # constraints_dict should be of the form {"consumption" : [], "formation" : [], 
         #                                           "stoichiometry" : np.ndarray}
         self._flag_fit = True
@@ -295,7 +347,7 @@ class Optimizer_casadi(Base):
 
         # _mean and _deviation : List[dict]
         # self.adict["coefficients_value"] and self.adict["coefficients_devaition"] : dict
-        _mean, _deviation = self._stlsq(target, constraints_dict, ensemble_iterations, max_workers, seed)
+        _mean, _deviation = self._stlsq(target, constraints_dict, ensemble_iterations, variance_elimination, max_workers, seed)
         self.adict["coefficients_value"], self.adict["coefficients_deviation"] = _mean[0], _deviation[0]
         self._create_equations()
 
@@ -517,22 +569,23 @@ if __name__ == "__main__":
     from GenerateData import DynamicModel
     from utils import coefficient_difference_plot
 
-    model = DynamicModel("kinetic_kosir", np.arange(0, 5, 0.01), arguments = [(373, 8.314)], n_expt = 1)
+    model = DynamicModel("kinetic_kosir", np.arange(0, 5, 0.01), arguments = [(373, 8.314)], n_expt = 20, seed = 20)
     features = model.integrate() # list of features
     target = model.approx_derivative # list of target value
     features = model.add_noise(0, 0.0)
     target = model.approx_derivative
 
-    opti = Optimizer_casadi(FunctionalLibrary(1) , alpha = 0.0, threshold = 0.1, plugin_dict = {"ipopt.print_level" : 0, "print_time":0, "ipopt.sb" : "yes"}, 
+    opti = Optimizer_casadi(FunctionalLibrary(2) , alpha = 0, threshold = 1.6, plugin_dict = {"ipopt.print_level" : 0, "print_time":0, "ipopt.sb" : "yes"}, 
                             max_iter = 20)
-    stoichiometry = np.array([-1, -1, -1, 0, 0, 2, 1, 0, 0, 0, 1, 0]).reshape(4, -1) # chemistry constraints
-    include_column = [[0, 2], [0, 3], [0, 1]]
+    # stoichiometry = np.array([-1, -1, -1, 0, 0, 2, 1, 0, 0, 0, 1, 0]).reshape(4, -1) # chemistry constraints
+    # include_column = [[0, 2], [0, 3], [0, 1]]
+    include_column = []
     # stoichiometry =  np.array([1, 0, 0, 0, 1, 0, 0, 0, 1, -1, -0.5, -1]).reshape(4, -1) # mass balance constraints
-    # stoichiometry = np.eye(4) # no constraints
+    stoichiometry = np.eye(4) # no constraints
 
-    opti.fit(features, target, include_column = [], 
+    opti.fit(features, target, include_column = include_column, 
                 constraints_dict= {"formation" : [], "consumption" : [], 
-                                    "stoichiometry" : stoichiometry}, ensemble_iterations = 1, seed = 10, max_workers = 2)
+                                    "stoichiometry" : stoichiometry}, ensemble_iterations = 1, seed = 10, max_workers = 2, variance_elimination = True)
     opti.print()
     print("--"*20)
     print("mean squared error :", opti.score(features, target))
