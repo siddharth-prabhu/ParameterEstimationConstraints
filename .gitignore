@@ -3,3 +3,6 @@ saved_data/
 saved_data*
 *.txt
 rough.py
+*.sh
+*.out
+LS

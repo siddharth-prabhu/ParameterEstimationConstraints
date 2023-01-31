@@ -6,6 +6,7 @@ from concurrent.futures import ProcessPoolExecutor
 from functools import partial
 from itertools import repeat
 import argparse
+import os
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -19,23 +20,28 @@ from utils import coefficient_difference_plot
 
 
 parser = argparse.ArgumentParser("ParameterEstimationSINDy")
-parser.add_argument("--ensemble_study", choices = [0, 1], type = int, default = 0, help = "If True performs bootstrapping to eliminate parameters else normal sindy")
-parser.add_argument("--noise_study", choices = [0, 1], type = int, default = 0, help = "If True performs hyperparameter optimization for varying noise levels") 
-parser.add_argument("--experiments_study", choices = [0, 1], type = int, default = 0, help = "If True performs hyperparameter optimization for varying initial conditions") 
-parser.add_argument("--sampling_study", choices = [0, 1], type = int, default = 0, help = "If True performs hyperparameter optimization for varying sampling frequencies") 
+parser.add_argument("--ensemble_study", choices = [0, 1, 2], type = int, default = 0, 
+                    help = "If 0 performs normal sindy, 1 performs bootstrapping and 2 performs covariance elimination")
+parser.add_argument("--noise_study", choices = [0, 1], type = int, default = 0, 
+                    help = "If True performs hyperparameter optimization for varying noise levels") 
+parser.add_argument("--experiments_study", choices = [0, 1], type = int, default = 0, 
+                    help = "If True performs hyperparameter optimization for varying initial conditions") 
+parser.add_argument("--sampling_study", choices = [0, 1], type = int, default = 0, 
+                    help = "If True performs hyperparameter optimization for varying sampling frequencies") 
 parser.add_argument("--max_workers", default = 0, type = int)
-parser.add_argument("--kind", choices = ["energy", "normal"], type = str, default = "normal", help = "Energy model calculates the activation energy")
+parser.add_argument("--kind", choices = ["energy", "normal"], type = str, default = "normal", 
+                    help = "Energy model calculates the activation energy")
 args = parser.parse_args()
 
 
 def run_gridsearch(n_expt : int, delta_t : float, noise_level : float, parameters : dict, kind : str = "normal", ensemble_iterations : int = 1, 
-                    max_workers : Optional[int] = None, seed : int = 12345, name : str = "ensemble"):
+                    variance_elimination : bool = False, max_workers : Optional[int] = None, seed : int = 12345, path : Optional[str] = None):
     
     plugin_dict = {"ipopt.print_level" : 0, "print_time": 0, "ipopt.sb" : "yes"}
     # generate clean testing data to be used later for calculating errors
     time_span_clean = np.arange(0, 5, 0.01)
     arguments = [(373, 8.314)] if kind == "normal" else None
-    model = DynamicModel("kinetic_kosir", time_span_clean, n_expt = 15, arguments = arguments)
+    model = DynamicModel("kinetic_kosir", time_span_clean, n_expt = 6, arguments = arguments)
     features_clean = model.integrate()
     target_clean = model.approx_derivative
     arguments = model.arguments
@@ -68,12 +74,13 @@ def run_gridsearch(n_expt : int, delta_t : float, noise_level : float, parameter
         print(f"Running simulation for {noise_level} noise, {n_expt} experiments, {delta_t} sampling time, and " + status)
         opt = HyperOpt(features, target, features_clean, target_clean, time_span, time_span_clean, parameters = parameters, 
                         model = Optimizer_casadi(plugin_dict = plugin_dict) if kind == "normal" else EnergySindy(plugin_dict = plugin_dict), 
-                        include_column = include_column, constraints_dict = constraints_dict, ensemble_iterations = ensemble_iterations, seed = seed, 
-                        arguments = arguments if kind == "energy" else None)
+                        include_column = include_column, constraints_dict = constraints_dict, ensemble_iterations = ensemble_iterations, 
+                        variance_elimination = variance_elimination, seed = seed, arguments = arguments if kind == "energy" else None)
 
         opt.gridsearch(max_workers = max_workers)
-        opt.plot(filename = f"saved_data\Gridsearch_{name}_{status}_noise{noise_level}_eniter{ensemble_iterations}_expt{n_expt}_delta_{delta_t}.html", 
-                    title = f"{status} and {noise_level} noise")
+
+        opt.plot(filename = f"Gridsearch_{status}_noise{noise_level}_eniter{ensemble_iterations}_expt{n_expt}_delta_{delta_t}.html", 
+                    path = path, title = f"{status} and {noise_level} noise")
         df_result = opt.df_result
 
         mse_pred.append(df_result.loc[0, "MSE_Prediction"])
@@ -83,8 +90,11 @@ def run_gridsearch(n_expt : int, delta_t : float, noise_level : float, parameter
 
     return mse_pred, aic, mse_sim, comp 
 
-def plot_adict(x : list, adict : dict, x_label : str):
+def plot_adict(x : list, adict : dict, x_label : str, path : Optional[str] = None):
     # plotting results
+    if not path:
+        path = os.getcwd()
+
     with plt.style.context(["science", "notebook", "vibrant"]):
         for key in adict.keys():
             plt.plot(x, adict[key][0::3], "--o", linewidth = 2, markersize = 8, label = "naive") 
@@ -93,7 +103,7 @@ def plot_adict(x : list, adict : dict, x_label : str):
             plt.xlabel(x_label)
             plt.ylabel(key)
             plt.legend()
-            plt.savefig(f"{x_label}_{key}")
+            plt.savefig(os.path.join(path, f"{x_label}_{key}"))
             plt.close()
 
 def run_without_gridsearch(noise_level : list[float], ensemble_iterations : int = 1, 
@@ -132,10 +142,10 @@ def run_without_gridsearch(noise_level : list[float], ensemble_iterations : int 
 if __name__ == "__main__": 
 
     # with hyperparameter optmization
-    params = {"optimizer__threshold": [0.01], # 0.1, 1], 
-        "optimizer__alpha": [0], # 0.01, 0.1, 1], 
+    params = {"optimizer__threshold": [0.01, 0.1, 1], 
+        "optimizer__alpha": [0, 0.01, 0.1], 
         "feature_library__include_bias" : [False],
-        "feature_library__degree": [1] #, 2, 3]
+        "feature_library__degree": [1, 2, 3]
         }
 
     ensemble_params = {"optimizer__threshold": [2, 1.25, 1.6], # 95%, 80%, 90%
@@ -149,24 +159,36 @@ if __name__ == "__main__":
     experiments_study = args.experiments_study # if True performs hyperparameter optimization for varying initial conditions
     sampling_study = args.sampling_study # if True performs hyperparameter optimization for varying sampling frequencies
     kind = args.kind # either normal sindy or energy sindy 
+    variance_elimination = True if ensemble_study >= 1 else False 
     max_workers = None if args.max_workers <= 0 else args.max_workers 
 
+    if variance_elimination:
+        elimination = "covariance" if ensemble_study == 2 else "boostrapping"
+    else:
+        elimination = "normal"
+
+    path = os.path.join(os.getcwd(), "LS" if kind == "normal" else "NLS", elimination)
     ########################################################################################################################
     if noise_study :
 
+        print("------"*100)
+        print("Starting experiment study")
+
         adict_noise = defaultdict(list)
         noise_level = [0.0, 0.1, 0.2]
+        path_noise = os.path.join(path, "noise")
 
         with ProcessPoolExecutor(max_workers = max_workers) as executor:   
             result = executor.map(partial(run_gridsearch, parameters = ensemble_params if ensemble_study else params, 
-                            ensemble_iterations = 1000 if ensemble_study else 1, max_workers = max_workers, seed = 10, 
-                            name = "sampling", kind = kind), repeat(15), repeat(0.01), noise_level)
+                            ensemble_iterations = 1000 if ensemble_study == 1 else 1, variance_elimination = variance_elimination, 
+                            max_workers = max_workers, seed = 10, 
+                            path = path_noise, kind = kind), repeat(6), repeat(0.01), noise_level)
 
             for alist in result:
                 for key, value in zip(["MSE_Prediction", "AIC", "MSE_Integration", "complexity"], alist):
                     adict_noise[key].extend(value)
 
-        plot_adict(noise_level, adict_noise, x_label = "noise")
+        plot_adict(noise_level, adict_noise, x_label = "noise", path = path_noise)
 
     ########################################################################################################################
     if experiments_study :
@@ -181,17 +203,19 @@ if __name__ == "__main__":
 
         experiments = [2, 4, 6]
         adict_experiments = defaultdict(list)
-        
+        path_experiments = os.path.join(path, "experiments")
+
         with ProcessPoolExecutor(max_workers = max_workers) as executor:   
             result = executor.map(partial(run_gridsearch, delta_t = 0.05, noise_level = 0, parameters = ensemble_params if ensemble_study else params, 
-                            ensemble_iterations = 1000 if ensemble_study else 1, max_workers = max_workers, seed = 10, 
-                            name = "sampling", kind = kind), experiments)
+                            ensemble_iterations = 1000 if ensemble_study == 1 else 1, variance_elimination = variance_elimination, 
+                            max_workers = max_workers, seed = 10, 
+                            path = path_experiments, kind = kind), experiments)
 
             for alist in result:
                 for key, value in zip(["MSE_Prediction", "AIC", "MSE_Integration", "complexity"], alist):
                     adict_experiments[key].extend(value)
         
-        plot_adict(experiments, adict_experiments, x_label = "experiments")
+        plot_adict(experiments, adict_experiments, x_label = "experiments", path = path_experiments)
     
     ########################################################################################################################
     if sampling_study :
@@ -200,17 +224,19 @@ if __name__ == "__main__":
         print("Starting sampling study")
         adict_sampling = defaultdict(list)
         sampling = [0.01, 0.05, 0.1]
+        path_sampling = os.path.join(path, "sampling")
 
         with ProcessPoolExecutor(max_workers = max_workers) as executor:   
             result = executor.map(partial(run_gridsearch, noise_level = 0, parameters = ensemble_params if ensemble_study else params, 
-                            ensemble_iterations = 1000 if ensemble_study else 1, max_workers = max_workers, seed = 10, 
-                            name = "sampling", kind = kind), repeat(15), sampling)
+                            ensemble_iterations = 1000 if ensemble_study == 1 else 1, variance_elimination = variance_elimination, 
+                            max_workers = max_workers, seed = 10, 
+                            path = path_sampling, kind = kind), repeat(6), sampling)
 
             for alist in result:
                 for key, value in zip(["MSE_Prediction", "AIC", "MSE_Integration", "complexity"], alist):
                     adict_sampling[key].extend(value)
 
-        plot_adict(sampling, adict_sampling, x_label = "sampling")
+        plot_adict(sampling, adict_sampling, x_label = "sampling", path = path_sampling)
 
     ########################################################################################################################
     """ # adding noise breaks down the method (situational runs)

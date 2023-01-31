@@ -119,9 +119,7 @@ class EnergySindy(Optimizer_casadi):
         
         u, d, vh = np.linalg.svd(hessian_function(coefficients_value))
         d = np.where(d < 1e-10, 0, d)
-        d_inv = np.where(1/d == np.inf, 0, 1/d)
-        # d_inv /= (cost_function*2/(sum(dimension[0] for dimension in self.adict["library_dimension"]) - variable.shape[0]))
-        d_inv /= (cost_function*2/(self.adict["library_dimension"][0][0] - variable.shape[0]))
+        d_inv = cost_function*2/self.N/d
         covariance_matrix_diag = np.diag(vh.T@np.diag(d_inv.flatten())@u.T)
 
         # map the variance to thier respective variables
@@ -181,6 +179,7 @@ class EnergySindy(Optimizer_casadi):
         self._flag_fit = True
         self._output_states = np.shape(target)[-1]
         self._input_states = np.shape(features)[-1]
+        self.N = len(features)
 
         assert len(arguments) == len(features), "Arguments and features should be consistent with the number of experiments"
         # match the arguments with the number of data points (each array in features can have varying data points)
@@ -244,7 +243,7 @@ if __name__ == "__main__":
     from utils import coefficient_difference_plot
 
     time_span = np.arange(0, 5, 0.01)
-    arguments = [(360, 8.314), (370, 8.314), (380, 8.314), (390, 8.314)]*10
+    arguments = [(360, 8.314), (370, 8.314), (380, 8.314), (390, 8.314)]
     model = DynamicModel("kinetic_kosir", time_span, n_expt = len(arguments), arguments = arguments, seed = 20)
     features = model.integrate() # list of features
     target = model.approx_derivative # list of target value
@@ -258,8 +257,8 @@ if __name__ == "__main__":
                             plugin_dict = plugin_dict, max_iter = 20)
     
     stoichiometry = np.array([-1, -1, -1, 0, 0, 2, 1, 0, 0, 0, 1, 0]).reshape(4, -1) # chemistry constraints
-    include_column = [[0, 2], [0, 3], [0, 1]] # chemistry constraints
-    # include_column = []
+    # include_column = [[0, 2], [0, 3], [0, 1]] # chemistry constraints
+    include_column = []
     # stoichiometry =  np.array([1, 0, 0, 0, 1, 0, 0, 0, 1, -1, -0.5, -1]).reshape(4, -1) # mass balance constraints
     # stoichiometry = np.eye(4) # no constraints
 

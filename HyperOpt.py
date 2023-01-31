@@ -1,9 +1,4 @@
-import numpy as np
-
-import pandas as pd
-pd.set_option("display.max_columns", 20)
-from sklearn.metrics import mean_squared_error, r2_score
-
+import os
 import itertools
 from dataclasses import dataclass, field
 from collections import defaultdict
@@ -11,6 +6,10 @@ from functools import reduce
 from concurrent.futures import ProcessPoolExecutor
 from typing import Optional, List, Callable, Tuple
 
+import numpy as np
+import pandas as pd
+pd.set_option("display.max_columns", 20)
+from sklearn.metrics import mean_squared_error, r2_score
 from bokeh.plotting import figure, output_file, save
 from bokeh.models import ColumnDataSource
 from bokeh.layouts import column, row
@@ -37,6 +36,7 @@ class HyperOpt():
     include_column : List[List] = field(default = None)
     constraints_dict : dict = field(default_factory = dict)
     ensemble_iterations : int = field(default = 1)
+    variance_elimination : bool = field(default = False)
     seed : int = field(default = 12345)
 
     def __post_init__(self):
@@ -106,7 +106,7 @@ class HyperOpt():
 
         try:
             self.model.fit(self.X_train, self.y_train, arguments = self.arguments_train, include_column = self.include_column, constraints_dict = self.constraints_dict, 
-                        ensemble_iterations = self.ensemble_iterations, max_workers = max_workers, seed = self.seed)  
+                        ensemble_iterations = self.ensemble_iterations, variance_elimination = self.variance_elimination, max_workers = max_workers, seed = self.seed)  
 
         except Exception as error:
             print(error)
@@ -140,8 +140,8 @@ class HyperOpt():
                 r2_test_sim = self.model.score(_integration_test, self.X_clean_test, metric = r2_score, predict = False, model_args = self.arguments_test)
                 r2_train_sim = self.model.score(_integration_train, self.X_clean_train, metric = r2_score, predict = False, model_args = self.arguments_train)                   
 
-                # AIC = 2*np.log((MSE_test_sim + MSE_test_pred)/2) + complexity
-                AIC = (MSE_train_pred + MSE_train_sim)*(sum(len(x_train) for x_train in self.X_train))/2 + complexity
+                AIC = 2*np.log((MSE_test_sim + MSE_test_pred)/2) + complexity
+                # AIC = (MSE_train_pred + MSE_train_sim)*(sum(len(x_train) for x_train in self.X_train))/2 + complexity
 
             return [param_dict, complexity, MSE_test_pred, MSE_train_pred, r2_test_pred, r2_train_pred, MSE_test_sim, MSE_train_sim, 
                     r2_test_sim, r2_train_sim, AIC, self.model.adict["iterations"]]
@@ -163,7 +163,7 @@ class HyperOpt():
         fig.margin = (5, 5, 5, 5) #top, right, bottom, left
 
     # bokeh plotting
-    def plot(self, filename : str = "saved_data\Gridsearch_results.html", title : str = "Concentration vs time"):
+    def plot(self, filename : str = "Gridsearch_results.html", path : Optional[str] = None, title : str = "Concentration vs time"):
         # capture r2 values between 0 and 1
         updated_results = self.df_result
         updated_results = updated_results.loc[(updated_results["r2_test_pred"] >= 0) & (updated_results["r2_test_pred"] <= 1) & 
@@ -194,7 +194,12 @@ class HyperOpt():
         self._bokeh_plot(fig_aic, "Complexity", "AIC", title)
 
         grid = column(row(fig_mse, fig_r2), row(fig_mse_sim, fig_r2_sim), fig_aic)
-        output_file(filename)
+
+        path = os.getcwd() if not path else os.path.join(os.getcwd(), path)
+        if not os.path.exists(path):
+            os.makedirs(path)
+
+        output_file(os.path.join(path, filename))
         save(grid)
 
 

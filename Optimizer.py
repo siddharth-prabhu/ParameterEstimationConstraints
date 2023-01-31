@@ -164,9 +164,8 @@ class Optimizer_casadi(Base):
         
         u, d, vh = np.linalg.svd(hessian_function(coefficients_value))
         d = np.where(d < 1e-10, 0, d)
-        d_inv = np.where(1/d == np.inf, 0, 1/d)
-        d_inv /= (cost_function*2/(self.adict["library_dimension"][0][0] - variable.shape[0]))
-        # d_inv /= (cost_function*2/(sum(dimension[0] for dimension in self.adict["library_dimension"]) - variable.shape[0]))
+        # d_inv = cost_function*2/(self.adict["library_dimension"][0][0] - variable.shape[0])/d
+        d_inv = cost_function*2/(self.N)/d
         covariance_matrix_diag = np.diag(vh.T@np.diag(d_inv.flatten())@u.T)
 
         # map the variance to thier respective variables
@@ -326,6 +325,7 @@ class Optimizer_casadi(Base):
         self._flag_fit = True
         self._output_states = np.shape(target)[-1]
         self._input_states = np.shape(features)[-1]
+        self.N = len(features)
 
         if "stoichiometry" in constraints_dict and isinstance(constraints_dict["stoichiometry"], np.ndarray):
             rows, cols = constraints_dict["stoichiometry"].shape
@@ -575,7 +575,7 @@ if __name__ == "__main__":
     features = model.add_noise(0, 0.0)
     target = model.approx_derivative
 
-    opti = Optimizer_casadi(FunctionalLibrary(2) , alpha = 0, threshold = 1.6, plugin_dict = {"ipopt.print_level" : 0, "print_time":0, "ipopt.sb" : "yes"}, 
+    opti = Optimizer_casadi(FunctionalLibrary(2) , alpha = 0, threshold = 2, plugin_dict = {"ipopt.print_level" : 0, "print_time":0, "ipopt.sb" : "yes"}, 
                             max_iter = 20)
     # stoichiometry = np.array([-1, -1, -1, 0, 0, 2, 1, 0, 0, 0, 1, 0]).reshape(4, -1) # chemistry constraints
     # include_column = [[0, 2], [0, 3], [0, 1]]
