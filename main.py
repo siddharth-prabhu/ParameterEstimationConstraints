@@ -239,7 +239,7 @@ if __name__ == "__main__":
         plot_adict(sampling, adict_sampling, x_label = "sampling", path = path_sampling)
 
     ########################################################################################################################
-    """ # adding noise breaks down the method (situational runs)
+    # adding noise breaks down the method (situational runs)
     time_span_clean = np.arange(0, 5, 0.01)
     model = DynamicModel("kinetic_kosir", time_span_clean, n_expt = 15)
 
@@ -270,13 +270,10 @@ if __name__ == "__main__":
 
     opti = Optimizer_casadi(FunctionalLibrary(2) , alpha = 0.0, threshold = 0.1, plugin_dict={"ipopt.print_level" : 0, "print_time":0, "ipopt.sb" : "yes"}, 
                         max_iter = 20)
-    # stoichiometry = np.array([-1, -1, -1, 0, 0, 2, 1, 0, 0, 0, 1, 0]).reshape(4, -1) # chemistry constraints
-    # include_column = [[0, 2], [0, 3], [0, 1]]
-    # stoichiometry =  np.array([1, 0, 0, 0, 1, 0, 0, 0, 1, -1, -0.5, -1]).reshape(4, -1) # mass balance constraints
     stoichiometry = np.eye(4)
 
     opti.fit(features, target, include_column = [], 
             constraints_dict= {"formation" : [], "consumption" : [], 
                                 "stoichiometry" : stoichiometry}, ensemble_iterations = 1, seed = 10, max_workers = max_workers)
 
-    coefficient_difference_plot(model.coefficients(), sigma = opti.adict["coefficients_dict"]) """
+    coefficient_difference_plot(model.coefficients(), sigma = opti.adict["coefficients_dict"])
