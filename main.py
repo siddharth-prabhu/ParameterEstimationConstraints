@@ -240,40 +240,40 @@ if __name__ == "__main__":
 
     ########################################################################################################################
     # adding noise breaks down the method (situational runs)
-    time_span_clean = np.arange(0, 5, 0.01)
-    model = DynamicModel("kinetic_kosir", time_span_clean, n_expt = 15)
 
     # generate training data with varying experiments and sampling time
     time_span = np.arange(0, 5, 0.01)
-    model = DynamicModel("kinetic_kosir", time_span, n_expt = 15)
+    model = DynamicModel("kinetic_kosir", time_span, n_expt = 15, arguments = [(373, 8.314)])
         
     features = model.integrate()
     features = model.add_noise(0, 0)
     target = model.approx_derivative
 
-    opti = Optimizer_casadi(FunctionalLibrary(2) , alpha = 0.0, threshold = 0.1, plugin_dict={"ipopt.print_level" : 0, "print_time":0, "ipopt.sb" : "yes"}, 
+    alpha = 0
+    threshold = 2
+    ensemble_iterations = 1000
+    variance_elimination = True
+
+    opti = Optimizer_casadi(FunctionalLibrary(2) , alpha = alpha, threshold = threshold, plugin_dict={"ipopt.print_level" : 0, "print_time":0, "ipopt.sb" : "yes"}, 
                         max_iter = 20)
-    # stoichiometry = np.array([-1, -1, -1, 0, 0, 2, 1, 0, 0, 0, 1, 0]).reshape(4, -1) # chemistry constraints
-    # include_column = [[0, 2], [0, 3], [0, 1]]
-    # stoichiometry =  np.array([1, 0, 0, 0, 1, 0, 0, 0, 1, -1, -0.5, -1]).reshape(4, -1) # mass balance constraints
     stoichiometry = np.eye(4)
 
     opti.fit(features, target, include_column = [], 
             constraints_dict= {"formation" : [], "consumption" : [], 
-                                "stoichiometry" : stoichiometry}, ensemble_iterations = 1, seed = 10, max_workers = max_workers)
-
-    coefficient_difference_plot(model.coefficients(), sigma = opti.adict["coefficients_dict"])
+                                "stoichiometry" : stoichiometry}, ensemble_iterations = ensemble_iterations, variance_elimination = variance_elimination, seed = 10, max_workers = max_workers)
+    opti.print()
+    # coefficient_difference_plot(model.coefficients(), sigma = opti.adict["coefficients_dict"])
 
     features = model.integrate()
     features = model.add_noise(0, 0.1)
     target = model.approx_derivative
 
-    opti = Optimizer_casadi(FunctionalLibrary(2) , alpha = 0.0, threshold = 0.1, plugin_dict={"ipopt.print_level" : 0, "print_time":0, "ipopt.sb" : "yes"}, 
+    opti = Optimizer_casadi(FunctionalLibrary(2) , alpha = alpha, threshold = threshold, plugin_dict={"ipopt.print_level" : 0, "print_time":0, "ipopt.sb" : "yes"}, 
                         max_iter = 20)
     stoichiometry = np.eye(4)
 
     opti.fit(features, target, include_column = [], 
             constraints_dict= {"formation" : [], "consumption" : [], 
-                                "stoichiometry" : stoichiometry}, ensemble_iterations = 1, seed = 10, max_workers = max_workers)
-
-    coefficient_difference_plot(model.coefficients(), sigma = opti.adict["coefficients_dict"])
+                                "stoichiometry" : stoichiometry}, ensemble_iterations = ensemble_iterations, variance_elimination = variance_elimination, seed = 10, max_workers = max_workers)
+    opti.print()
+    # coefficient_difference_plot(model.coefficients(), sigma = opti.adict["coefficients_dict"])
