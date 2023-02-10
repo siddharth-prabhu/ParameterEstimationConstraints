@@ -32,12 +32,7 @@ class HyperOpt():
     arguments : List[np.ndarray] = field(default = None)
 
     parameters : dict = field(default_factory = dict)
-    # TODO update this class to integrate energy.py 
-    include_column : List[List] = field(default = None)
-    constraints_dict : dict = field(default_factory = dict)
-    ensemble_iterations : int = field(default = 1)
-    variance_elimination : bool = field(default = False)
-    seed : int = field(default = 12345)
+    meta : dict = field(default_factory = dict)
 
     def __post_init__(self):
         assert len(self.X) > 1 and len(self.X_clean) > 1, "Need atleast 2 experiments for hyperparameter optimization"
@@ -105,8 +100,7 @@ class HyperOpt():
         print("Running for parameter combination", param_dict)
 
         try:
-            self.model.fit(self.X_train, self.y_train, arguments = self.arguments_train, include_column = self.include_column, constraints_dict = self.constraints_dict, 
-                        ensemble_iterations = self.ensemble_iterations, variance_elimination = self.variance_elimination, max_workers = max_workers, seed = self.seed)  
+            self.model.fit(self.X_train, self.y_train, arguments = self.arguments_train, **self.meta)  
 
         except Exception as error:
             print(error)

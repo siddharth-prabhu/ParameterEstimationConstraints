@@ -56,8 +56,9 @@ def run_gridsearch(n_expt : int, delta_t : float, noise_level : float, parameter
     arguments = model.arguments
 
     mse_pred, aic, mse_sim, comp = [], [], [], []
-    for status in ["without constraints", "with constraints", "with stoichiometry"]:
+    for status in ["without constraints", "with constraints", "with stoichiometry", "sindy"]:
 
+        derivative_free = True
         if status == "with constraints" : # mass balance constraints 
             include_column = [] # "mass_balance" : [56.108, 28.05, 56.106, 56.108]
             constraints_dict = {"consumption" : [], "formation" : [], 
@@ -66,16 +67,23 @@ def run_gridsearch(n_expt : int, delta_t : float, noise_level : float, parameter
             include_column = [[0, 2], [0, 3], [0, 1]]
             constraints_dict = {"consumption" : [], "formation" : [], 
                                 "stoichiometry" : np.array([-1, -1, -1, 0, 0, 2, 1, 0, 0, 0, 1, 0]).reshape(4, -1)}
-        else:
+        else :
             include_column = None
             constraints_dict = {}
+            if status == "sindy":
+                params_sindy = {}
+                params_sindy.update(parameters)
+                params_sindy["optimizer__threshold"] = [0.01, 0.1, 1] 
+                params_sindy["optimizer__alpha"] =  [0, 0.01, 0.1]
+                derivative_free = False
 
         # does grid_serch over parameters 
         print(f"Running simulation for {noise_level} noise, {n_expt} experiments, {delta_t} sampling time, and " + status)
-        opt = HyperOpt(features, target, features_clean, target_clean, time_span, time_span_clean, parameters = parameters, 
-                        model = Optimizer_casadi(plugin_dict = plugin_dict) if kind == "normal" else EnergySindy(plugin_dict = plugin_dict), 
-                        include_column = include_column, constraints_dict = constraints_dict, ensemble_iterations = ensemble_iterations, 
-                        variance_elimination = variance_elimination, seed = seed, arguments = arguments if kind == "energy" else None)
+        opt = HyperOpt(features, target, features_clean, target_clean, time_span, time_span_clean, parameters = params_sindy if status == "sindy" else parameters, 
+                        model = Optimizer_casadi(plugin_dict = plugin_dict) if kind == "normal" else EnergySindy(plugin_dict = plugin_dict),
+                        arguments = arguments if kind == "energy" else None,  
+                        meta = {"include_column" : include_column, "constraints_dict" : constraints_dict, "ensemble_iterations" : ensemble_iterations, 
+                        "variance_elimination" : variance_elimination, "seed" : seed, "derivative_free" : derivative_free})
 
         opt.gridsearch(max_workers = max_workers)
 
@@ -145,13 +153,13 @@ if __name__ == "__main__":
     params = {"optimizer__threshold": [0.01, 0.1, 1], 
         "optimizer__alpha": [0, 0.01, 0.1], 
         "feature_library__include_bias" : [False],
-        "feature_library__degree": [1, 2, 3]
+        "feature_library__degree": [1, 2]
         }
 
     ensemble_params = {"optimizer__threshold": [2, 1.25, 1.6], # 95%, 80%, 90%
         "optimizer__alpha": [0], 
         "feature_library__include_bias" : [False],
-        "feature_library__degree": [1, 2, 3]}
+        "feature_library__degree": [1, 2]}
 
     # Perfrom simulations
     ensemble_study = args.ensemble_study # if True performs bootstrapping to eliminate parameters else normal sindy
