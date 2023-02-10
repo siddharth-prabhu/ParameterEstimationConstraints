@@ -61,6 +61,7 @@ class Optimizer_casadi(Base):
 
 
     def _generate_library(self, data : np.ndarray, include_column : List[np.ndarray]) -> None:
+        
         # given data creates list of matix of all possible combinations of terms 
         # returns a list of number of columns of each matrix
 
@@ -76,10 +77,34 @@ class Optimizer_casadi(Base):
         self.adict["library"] = []
         self.adict["library_labels"] = []
         for i in range(self._functional_library):
-            self.adict["library"].append(self.library.fit_transform(data, include_column[i]))
+            self.adict["library"].append(self.library.fit_transform(data, include_column[i], derivative_free, time_span))
             self.adict["library_labels"].append(self.library.get_features(self.input_features))
         
         self.adict["library_dimension"] = [xi.shape for xi in self.adict["library"]]
+
+    
+    def _generate_library_derivative_free(self, data : List[np.ndarray], include_column : List[np.ndarray], time_span : np.ndarray) -> None:
+        
+        # given data as a list of np.ndarrays creates list of matix of all possible combinations of terms 
+        # returns a list of number of columns of each matrix
+
+        # define input features if not given. Input features depend on the shape of data
+        if not len(self.input_features):
+            self.input_features = [f"x{i}" for i in range(self._input_states)]
+
+        # define symbols that can be converted to equations later
+        self.input_symbols = smp.symbols(reduce(lambda accum, value : accum + value + ", ", self.input_features, ""))
+
+        # done using for loop instead of list comprehension becoz each fit_transform and get_features
+        # share the same instance of the class
+        self.adict["library"] = []
+        self.adict["library_labels"] = []
+        for i in range(self._functional_library):
+            self.adict["library"].append(np.vstack([self.library.fit_transform(di, include_column[i], True, time_span) for di in data]))
+            self.adict["library_labels"].append(self.library.get_features(self.input_features))
+        
+        self.adict["library_dimension"] = [xi.shape for xi in self.adict["library"]]
+    
 
     def _create_decision_variables(self) -> None:
         # initializes the number of variables that will be used in casadi optimization 
@@ -314,8 +339,10 @@ class Optimizer_casadi(Base):
 
         return _mean, _deviation
 
-    def fit(self, features : List[np.ndarray], target : List[np.ndarray], arguments : Optional[List[np.ndarray]] = None, include_column : Optional[List[np.ndarray]] = None, 
-            constraints_dict : dict = {} , ensemble_iterations : int = 1, variance_elimination : bool = False, max_workers : Optional[int] = None, seed : int = 12345) -> None:
+    def fit(self, features : List[np.ndarray], target : List[np.ndarray], time_span : np.ndarray, arguments : Optional[List[np.ndarray]] = None, 
+            include_column : Optional[List[np.ndarray]] = None, constraints_dict : dict = {} , 
+            ensemble_iterations : int = 1, variance_elimination : bool = False, derivative_free : bool = False,
+            max_workers : Optional[int] = None, seed : int = 12345) -> None:
 
         # if variance_elimination = True and ensemble_iterations > 1 performs boostrapping
         # if variance_elimination = True and ensemble_iterations <= 1 performs covariane matrix
@@ -342,8 +369,12 @@ class Optimizer_casadi(Base):
         else:
             include_column = [list(range(self._input_states)) for _ in range(self._functional_library)]
 
-        features, target = np.vstack(features), np.vstack(target)
-        self._generate_library(features, include_column)
+        if derivative_free:
+            target = np.vstack(target)
+            self._generate_library_derivative_free(features, include_column, time_span)
+        else:
+            features, target = np.vstack(features), np.vstack(target)
+            self._generate_library(features, include_column)
 
         # _mean and _deviation : List[dict]
         # self.adict["coefficients_value"] and self.adict["coefficients_devaition"] : dict
@@ -360,6 +391,14 @@ class Optimizer_casadi(Base):
         
         for i in range(self._output_states):
             expr = self._create_sympy_expressions(self.adict["stoichiometry"][i]) # sympy expression
+
+            # truncate coefficients less than 1e-5 to zero. These values can occur especially in mass balance formulation because of subtracting
+            for atom in smp.preorder_traversal(expr):
+                if atom.is_rational:
+                    continue
+                if atom.is_number and abs(atom) < 1e-5:
+                    expr = expr.subs(atom, 0)
+            
             self.adict["equations"].append(expr)
             self.adict["coefficients_dict"].append(expr.as_coefficients_dict())
             self.adict["equations_lambdify"].append(smp.lambdify(self.input_symbols, expr))
@@ -569,23 +608,24 @@ if __name__ == "__main__":
     from GenerateData import DynamicModel
     from utils import coefficient_difference_plot
 
-    model = DynamicModel("kinetic_kosir", np.arange(0, 5, 0.01), arguments = [(373, 8.314)], n_expt = 20, seed = 20)
+    time_span = np.arange(0, 5, 0.01)
+    model = DynamicModel("kinetic_kosir", time_span, arguments = [(373, 8.314)], n_expt = 20, seed = 20)
     features = model.integrate() # list of features
     target = model.approx_derivative # list of target value
     features = model.add_noise(0, 0.0)
     target = model.approx_derivative
 
-    opti = Optimizer_casadi(FunctionalLibrary(2) , alpha = 0, threshold = 2, plugin_dict = {"ipopt.print_level" : 0, "print_time":0, "ipopt.sb" : "yes"}, 
+    opti = Optimizer_casadi(FunctionalLibrary(2) , alpha = 0, threshold = 0.1, plugin_dict = {"ipopt.print_level" : 0, "print_time":0, "ipopt.sb" : "yes"}, 
                             max_iter = 20)
     # stoichiometry = np.array([-1, -1, -1, 0, 0, 2, 1, 0, 0, 0, 1, 0]).reshape(4, -1) # chemistry constraints
     # include_column = [[0, 2], [0, 3], [0, 1]]
     include_column = []
-    # stoichiometry =  np.array([1, 0, 0, 0, 1, 0, 0, 0, 1, -1, -0.5, -1]).reshape(4, -1) # mass balance constraints
-    stoichiometry = np.eye(4) # no constraints
+    stoichiometry =  np.array([1, 0, 0, 0, 1, 0, 0, 0, 1, -1, -0.5, -1]).reshape(4, -1) # mass balance constraints
+    # stoichiometry = np.eye(4) # no constraints
 
-    opti.fit(features, target, include_column = include_column, 
+    opti.fit(features, [feat - feat[0] for feat in features], time_span = time_span, include_column = include_column, 
                 constraints_dict= {"formation" : [], "consumption" : [], 
-                                    "stoichiometry" : stoichiometry}, ensemble_iterations = 1, seed = 10, max_workers = 2, variance_elimination = True)
+                                    "stoichiometry" : stoichiometry}, ensemble_iterations = 1, seed = 10, max_workers = 2, variance_elimination = False, derivative_free = True)
     opti.print()
     print("--"*20)
     print("mean squared error :", opti.score(features, target))

@@ -50,10 +50,15 @@ class EnergySindy(Optimizer_casadi):
         # variables are defined individually because MX objects cannot be indexed for jacobian/hessian
         self.adict["coefficients_energy"] = [cd.vertcat(*(self.opti.variable(1) for _ in range(dimension[-1]))) for dimension in self.adict["library_dimension"]] 
 
-    def _generate_library(self, data : np.ndarray, include_column : List[np.ndarray]):
+    def _generate_library(self, data : np.ndarray, include_column : List[np.ndarray]) -> None:
         
         super()._generate_library(data, include_column)
         # create new symbol for temperature and universal gas constant
+        self.input_symbols = (*self.input_symbols, *smp.symbols("T, R"))
+
+    def _generate_library_derivative_free(self, data : List[np.ndarray], include_column : List[np.ndarray], time_span : np.ndarray) -> None:
+
+        super()._generate_library_derivative_free(data, include_column, time_span)
         self.input_symbols = (*self.input_symbols, *smp.symbols("T, R"))
 
     def _update_cost(self, target: np.ndarray):
@@ -166,9 +171,10 @@ class EnergySindy(Optimizer_casadi):
         return [[np.array([_solution.value(coeff)]).flatten() for coeff in params] for params in parameters]
 
 
-    def fit(self, features : List[np.ndarray], target : List[np.ndarray], arguments : List[np.ndarray], include_column : Optional[List[np.ndarray]] = None, 
-            constraints_dict : dict = {} , ensemble_iterations : int = 1, variance_elimination : bool = False, max_workers : Optional[int] = None, 
-            seed : int = 12345) -> None:
+    def fit(self, features : List[np.ndarray], target : List[np.ndarray], time_span : np.ndarray, arguments : List[np.ndarray], 
+                include_column : Optional[List[np.ndarray]] = None, constraints_dict : dict = {} , 
+                ensemble_iterations : int = 1, variance_elimination : bool = False, derivative_free : bool = False,
+                max_workers : Optional[int] = None, seed : int = 12345) -> None:
     
         # arguments is a list of arrays so that its compatible with vectorize
         # if variance_elimination = True and ensemble_iterations > 1 performs boostrapping
@@ -200,8 +206,12 @@ class EnergySindy(Optimizer_casadi):
         else:
             include_column = [list(range(self._input_states)) for _ in range(self._functional_library)]
 
-        features, target = np.vstack(features), np.vstack(target)
-        self._generate_library(features, include_column)
+        if derivative_free:
+            target = np.vstack(target)
+            self._generate_library_derivative_free(features, include_column, time_span)
+        else:
+            features, target = np.vstack(features), np.vstack(target)
+            self._generate_library(features, include_column)
 
         _mean, _deviation = self._stlsq(target, constraints_dict, ensemble_iterations, variance_elimination, max_workers, seed)
         (self.adict["coefficients_value"], self.adict["coefficients_energy_value"], self.adict["coefficients_deviation"], 
@@ -251,20 +261,18 @@ if __name__ == "__main__":
     target = model.approx_derivative
     arguments = model.arguments
      
-    plugin_dict = {"ipopt.print_level" : 5, "print_time":5, "ipopt.sb" : "yes", "ipopt.max_iter" : 1000}
+    plugin_dict = {"ipopt.print_level" : 5, "print_time":5, "ipopt.sb" : "yes", "ipopt.max_iter" : 3000}
     # plugin_dict = {}
-    opti = EnergySindy(FunctionalLibrary(1) , alpha = 0, threshold = 1.5, solver_dict={"solver" : "ipopt"}, 
+    opti = EnergySindy(FunctionalLibrary(2) , alpha = 0, threshold = 2, solver_dict={"solver" : "ipopt"}, 
                             plugin_dict = plugin_dict, max_iter = 20)
     
     stoichiometry = np.array([-1, -1, -1, 0, 0, 2, 1, 0, 0, 0, 1, 0]).reshape(4, -1) # chemistry constraints
     # include_column = [[0, 2], [0, 3], [0, 1]] # chemistry constraints
     include_column = []
-    # stoichiometry =  np.array([1, 0, 0, 0, 1, 0, 0, 0, 1, -1, -0.5, -1]).reshape(4, -1) # mass balance constraints
-    # stoichiometry = np.eye(4) # no constraints
 
-    opti.fit(features, target, arguments, include_column = include_column, 
+    opti.fit(features, [feat - feat[0] for feat in features], time_span, arguments, include_column = include_column, 
                 constraints_dict= {"formation" : [], "consumption" : [], "energy" : False,
-                                    "stoichiometry" : stoichiometry}, ensemble_iterations = 1, variance_elimination = True, seed = 20, max_workers = 2)
+                                    "stoichiometry" : stoichiometry}, ensemble_iterations = 100, variance_elimination = True, derivative_free = True, seed = 20, max_workers = 2)
     opti.print()
     print("--"*20)
     print("mean squared error :", opti.score(features, target, model_args = arguments))
