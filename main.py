@@ -16,12 +16,13 @@ from FunctionalLibrary import FunctionalLibrary
 from HyperOpt import HyperOpt
 from Optimizer import Optimizer_casadi
 from energy import EnergySindy
-from utils import coefficient_difference_plot
 
+
+# only runs hyperparameter optimization for different training conditions
 
 parser = argparse.ArgumentParser("ParameterEstimationSINDy")
-parser.add_argument("--ensemble_study", choices = [0, 1, 2], type = int, default = 0, 
-                    help = "If 0 performs normal sindy, 1 performs bootstrapping and 2 performs covariance elimination")
+parser.add_argument("--ensemble_study", choices = [1, 2], type = int, default = 1, 
+                    help = "If 1 performs bootstrapping and 2 performs covariance elimination")
 parser.add_argument("--noise_study", choices = [0, 1], type = int, default = 0, 
                     help = "If True performs hyperparameter optimization for varying noise levels") 
 parser.add_argument("--experiments_study", choices = [0, 1], type = int, default = 0, 
@@ -29,18 +30,20 @@ parser.add_argument("--experiments_study", choices = [0, 1], type = int, default
 parser.add_argument("--sampling_study", choices = [0, 1], type = int, default = 0, 
                     help = "If True performs hyperparameter optimization for varying sampling frequencies") 
 parser.add_argument("--max_workers", default = 0, type = int)
-parser.add_argument("--kind", choices = ["energy", "normal"], type = str, default = "normal", 
-                    help = "Energy model calculates the activation energy")
+parser.add_argument("--kind", choices = ["NLS", "LS"], type = str, default = "LS", 
+                    help = "Nonlinear Least Square or Least Square")
+parser.add_argument("--degree", type = int, default = 1, help = "The polynomial degree of terms in functional library")
+parser.add_argument("--ensemble_iter", type = int, default = 1000, help = "The number of emsemble iterations")
 args = parser.parse_args()
 
 
-def run_gridsearch(n_expt : int, delta_t : float, noise_level : float, parameters : dict, kind : str = "normal", ensemble_iterations : int = 1, 
+def run_gridsearch(n_expt : int, delta_t : float, noise_level : float, parameters : dict, kind : str = "LS", ensemble_iterations : int = 1, 
                     variance_elimination : bool = False, max_workers : Optional[int] = None, seed : int = 12345, path : Optional[str] = None):
     
     plugin_dict = {"ipopt.print_level" : 0, "print_time": 0, "ipopt.sb" : "yes"}
     # generate clean testing data to be used later for calculating errors
     time_span_clean = np.arange(0, 5, 0.01)
-    arguments = [(373, 8.314)] if kind == "normal" else None
+    arguments = [(373, 8.314)] if kind == "LS" else None
     model = DynamicModel("kinetic_kosir", time_span_clean, n_expt = 6, arguments = arguments)
     features_clean = model.integrate()
     target_clean = model.approx_derivative
@@ -48,7 +51,7 @@ def run_gridsearch(n_expt : int, delta_t : float, noise_level : float, parameter
 
     # generate training data with varying experiments and sampling time
     time_span = np.arange(0, 5, delta_t)
-    arguments = [(373, 8.314)] if kind == "normal" else None
+    arguments = [(373, 8.314)] if kind == "LS" else None
     model = DynamicModel("kinetic_kosir", time_span, n_expt = n_expt, arguments = arguments)
     features = model.integrate()
     features = model.add_noise(0, noise_level)
@@ -58,7 +61,6 @@ def run_gridsearch(n_expt : int, delta_t : float, noise_level : float, parameter
     mse_pred, aic, mse_sim, comp = [], [], [], []
     for status in ["without constraints", "with constraints", "with stoichiometry", "sindy"]:
 
-        derivative_free = True
         if status == "with constraints" : # mass balance constraints 
             include_column = [] # "mass_balance" : [56.108, 28.05, 56.106, 56.108]
             constraints_dict = {"consumption" : [], "formation" : [], 
@@ -70,20 +72,21 @@ def run_gridsearch(n_expt : int, delta_t : float, noise_level : float, parameter
         else :
             include_column = None
             constraints_dict = {}
+            
             if status == "sindy":
                 params_sindy = {}
                 params_sindy.update(parameters)
                 params_sindy["optimizer__threshold"] = [0.01, 0.1, 1] 
                 params_sindy["optimizer__alpha"] =  [0, 0.01, 0.1]
-                derivative_free = False
 
         # does grid_serch over parameters 
         print(f"Running simulation for {noise_level} noise, {n_expt} experiments, {delta_t} sampling time, and " + status)
         opt = HyperOpt(features, target, features_clean, target_clean, time_span, time_span_clean, parameters = params_sindy if status == "sindy" else parameters, 
-                        model = Optimizer_casadi(plugin_dict = plugin_dict) if kind == "normal" else EnergySindy(plugin_dict = plugin_dict),
-                        arguments = arguments if kind == "energy" else None,  
+                        model = Optimizer_casadi(plugin_dict = plugin_dict) if kind == "LS" else EnergySindy(plugin_dict = plugin_dict),
+                        arguments = arguments if kind == "NLS" else None,  
                         meta = {"include_column" : include_column, "constraints_dict" : constraints_dict, "ensemble_iterations" : ensemble_iterations, 
-                        "variance_elimination" : variance_elimination, "seed" : seed, "derivative_free" : derivative_free})
+                        "variance_elimination" : False if status == "sindy" else variance_elimination, 
+                        "seed" : seed, "derivative_free" : False if status == "sindy" else True})
 
         opt.gridsearch(max_workers = max_workers)
 
@@ -91,10 +94,11 @@ def run_gridsearch(n_expt : int, delta_t : float, noise_level : float, parameter
                     path = path, title = f"{status} and {noise_level} noise")
         df_result = opt.df_result
 
-        mse_pred.append(df_result.loc[0, "MSE_Prediction"])
-        aic.append(df_result.loc[0, "AIC"])
-        mse_sim.append(df_result.loc[0, "MSE_Integration"])
-        comp.append(df_result.loc[0, "complexity"])
+        # if no models were discovered then return all zero entries else return the first entry
+        mse_pred.append(df_result.get("MSE_Prediction", [0])[0])
+        aic.append(df_result.get("AIC", [0])[0])
+        mse_sim.append(df_result.get("MSE_Integration", [0])[0])
+        comp.append(df_result.get("complexity", [0])[0])
 
     return mse_pred, aic, mse_sim, comp 
 
@@ -102,80 +106,63 @@ def plot_adict(x : list, adict : dict, x_label : str, path : Optional[str] = Non
     # plotting results
     if not path:
         path = os.getcwd()
+    
+    if not isinstance(x, np.ndarray):
+        x = np.array(x)
+    
+    width = (x[1] - x[0])/5 # the width of bar plots
 
     with plt.style.context(["science", "notebook", "vibrant"]):
-        for key in adict.keys():
-            plt.plot(x, adict[key][0::3], "--o", linewidth = 2, markersize = 8, label = "naive") 
-            plt.plot(x, adict[key][1::3], "--*", linewidth = 2, markersize = 8, label = "mass balance")
-            plt.plot(x, adict[key][2::3], "--+", linewidth = 2, markersize = 8, label = "chemistry")
+        for key, value in adict.items():
+            # plt.plot(x, adict[key][0::4], "--o", linewidth = 2, markersize = 8, label = "unconstrained") 
+            # plt.plot(x, adict[key][1::4], "--*", linewidth = 2, markersize = 8, label = "mass balance")
+            # plt.plot(x, adict[key][2::4], "--+", linewidth = 2, markersize = 8, label = "chemistry")
+            # plt.plot(x, adict[key][3::4], "--o", linewidth = 2, markersize = 8, label = "sindy")
+            value = np.array(value)
+            plt.bar(x, value[0::4] - width, label = "unconstrained")
+            plt.bar(x, value[1::4] + width, label = "mass balance")
+            plt.bar(x, value[2::4] + 2*width, label = "chemistry")
+            plt.bar(x, value[3::4] - 2*width, label = "sindy")
+            
             plt.xlabel(x_label)
             plt.ylabel(key)
             plt.legend()
             plt.savefig(os.path.join(path, f"{x_label}_{key}"))
             plt.close()
-
-def run_without_gridsearch(noise_level : list[float], ensemble_iterations : int = 1, 
-                    max_workers : Optional[int] = None, seed : int = 12345):
-    
-    plugin_dict = {"ipopt.print_level" : 0, "print_time": 0, "ipopt.sb" : "yes"}
-    # generate clean testing data to be used later for calculating errors
-    time_span_clean = np.arange(0, 5, 0.01)
-    model = DynamicModel("kinetic_kosir", time_span_clean, n_expt = 15)
-
-    # generate training data with varying experiments and sampling time
-    time_span = np.arange(0, 5, 0.01)
-    model = DynamicModel("kinetic_kosir", time_span, n_expt = 15)
-    alist = []
-
-    for noise in noise_level:
-        
-        features = model.integrate()
-        features = model.add_noise(0, noise)
-        target = model.approx_derivative
-
-        opti = Optimizer_casadi(FunctionalLibrary(2) , alpha = 0.0, threshold = 0.1, plugin_dict={"ipopt.print_level" : 0, "print_time":0, "ipopt.sb" : "yes"}, 
-                            max_iter = 20)
-        # stoichiometry = np.array([-1, -1, -1, 0, 0, 2, 1, 0, 0, 0, 1, 0]).reshape(4, -1) # chemistry constraints
-        # include_column = [[0, 2], [0, 3], [0, 1]]
-        # stoichiometry =  np.array([1, 0, 0, 0, 1, 0, 0, 0, 1, -1, -0.5, -1]).reshape(4, -1) # mass balance constraints
-        stoichiometry = np.eye(4)
-
-        opti.fit(features, target, include_column = [], 
-                constraints_dict= {"formation" : [], "consumption" : [], 
-                                    "stoichiometry" : stoichiometry}, ensemble_iterations = ensemble_iterations, seed = seed, max_workers = max_workers)
-
-        coefficient_difference_plot(model.coefficients(), sigma = opti.adict["coefficients_dict"])
     
 
 if __name__ == "__main__": 
-
-    # with hyperparameter optmization
-    params = {"optimizer__threshold": [0.01, 0.1, 1], 
-        "optimizer__alpha": [0, 0.01, 0.1], 
-        "feature_library__include_bias" : [False],
-        "feature_library__degree": [1, 2]
-        }
-
-    ensemble_params = {"optimizer__threshold": [2, 1.25, 1.6], # 95%, 80%, 90%
-        "optimizer__alpha": [0], 
-        "feature_library__include_bias" : [False],
-        "feature_library__degree": [1, 2]}
 
     # Perfrom simulations
     ensemble_study = args.ensemble_study # if True performs bootstrapping to eliminate parameters else normal sindy
     noise_study = args.noise_study # if True performs hyperparameter optimization for varying noise levels
     experiments_study = args.experiments_study # if True performs hyperparameter optimization for varying initial conditions
     sampling_study = args.sampling_study # if True performs hyperparameter optimization for varying sampling frequencies
-    kind = args.kind # either normal sindy or energy sindy 
+    kind = args.kind # either Least Square or energy sindy 
     variance_elimination = True if ensemble_study >= 1 else False 
     max_workers = None if args.max_workers <= 0 else args.max_workers 
+    degree = args.degree
+    ensemble_iterations = args.ensemble_iter
 
     if variance_elimination:
         elimination = "covariance" if ensemble_study == 2 else "boostrapping"
     else:
         elimination = "normal"
 
-    path = os.path.join(os.getcwd(), "LS" if kind == "normal" else "NLS", elimination)
+    path = os.path.join(os.getcwd(), "LS" if kind == "LS" else "NLS", elimination)
+
+    # with hyperparameter optmization
+    params = {"optimizer__threshold": [0.01, 0.1, 1], 
+        "optimizer__alpha": [0, 0.01, 0.1], 
+        "feature_library__include_bias" : [False],
+        "feature_library__degree": [degree]
+        }
+
+    ensemble_params = {"optimizer__threshold": [2, 1.25, 1.6], # 95%, 80%, 90%
+        "optimizer__alpha": [0], 
+        "feature_library__include_bias" : [False],
+        "feature_library__degree": [degree]}
+
     ########################################################################################################################
     if noise_study :
 
@@ -188,7 +175,7 @@ if __name__ == "__main__":
 
         with ProcessPoolExecutor(max_workers = max_workers) as executor:   
             result = executor.map(partial(run_gridsearch, parameters = ensemble_params if ensemble_study else params, 
-                            ensemble_iterations = 1000 if ensemble_study == 1 else 1, variance_elimination = variance_elimination, 
+                            ensemble_iterations = ensemble_iterations, variance_elimination = variance_elimination, 
                             max_workers = max_workers, seed = 10, 
                             path = path_noise, kind = kind), repeat(6), repeat(0.01), noise_level)
 
@@ -215,7 +202,7 @@ if __name__ == "__main__":
 
         with ProcessPoolExecutor(max_workers = max_workers) as executor:   
             result = executor.map(partial(run_gridsearch, delta_t = 0.05, noise_level = 0, parameters = ensemble_params if ensemble_study else params, 
-                            ensemble_iterations = 1000 if ensemble_study == 1 else 1, variance_elimination = variance_elimination, 
+                            ensemble_iterations = ensemble_iterations, variance_elimination = variance_elimination, 
                             max_workers = max_workers, seed = 10, 
                             path = path_experiments, kind = kind), experiments)
 
@@ -236,7 +223,7 @@ if __name__ == "__main__":
 
         with ProcessPoolExecutor(max_workers = max_workers) as executor:   
             result = executor.map(partial(run_gridsearch, noise_level = 0, parameters = ensemble_params if ensemble_study else params, 
-                            ensemble_iterations = 1000 if ensemble_study == 1 else 1, variance_elimination = variance_elimination, 
+                            ensemble_iterations = ensemble_iterations, variance_elimination = variance_elimination, 
                             max_workers = max_workers, seed = 10, 
                             path = path_sampling, kind = kind), repeat(6), sampling)
 
@@ -250,7 +237,7 @@ if __name__ == "__main__":
     # adding noise breaks down the method (situational runs)
 
     # generate training data with varying experiments and sampling time
-    time_span = np.arange(0, 5, 0.01)
+    """ time_span = np.arange(0, 5, 0.01)
     model = DynamicModel("kinetic_kosir", time_span, n_expt = 15, arguments = [(373, 8.314)])
         
     features = model.integrate()
@@ -284,4 +271,4 @@ if __name__ == "__main__":
             constraints_dict= {"formation" : [], "consumption" : [], 
                                 "stoichiometry" : stoichiometry}, ensemble_iterations = ensemble_iterations, variance_elimination = variance_elimination, seed = 10, max_workers = max_workers)
     opti.print()
-    # coefficient_difference_plot(model.coefficients(), sigma = opti.adict["coefficients_dict"])
+    # coefficient_difference_plot(model.coefficients(), sigma = opti.adict["coefficients_dict"]) """

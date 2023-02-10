@@ -77,7 +77,7 @@ class Optimizer_casadi(Base):
         self.adict["library"] = []
         self.adict["library_labels"] = []
         for i in range(self._functional_library):
-            self.adict["library"].append(self.library.fit_transform(data, include_column[i], derivative_free, time_span))
+            self.adict["library"].append(self.library.fit_transform(data, include_column[i], False))
             self.adict["library_labels"].append(self.library.get_features(self.input_features))
         
         self.adict["library_dimension"] = [xi.shape for xi in self.adict["library"]]
@@ -625,7 +625,7 @@ if __name__ == "__main__":
 
     opti.fit(features, [feat - feat[0] for feat in features], time_span = time_span, include_column = include_column, 
                 constraints_dict= {"formation" : [], "consumption" : [], 
-                                    "stoichiometry" : stoichiometry}, ensemble_iterations = 1, seed = 10, max_workers = 2, variance_elimination = False, derivative_free = True)
+                                    "stoichiometry" : stoichiometry}, ensemble_iterations = 2, seed = 10, max_workers = 2, variance_elimination = False, derivative_free = False)
     opti.print()
     print("--"*20)
     print("mean squared error :", opti.score(features, target))

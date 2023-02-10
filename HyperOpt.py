@@ -67,7 +67,7 @@ class HyperOpt():
         # using multiple cores to run gridsearch
         with ProcessPoolExecutor(max_workers = max_workers) as executor:
             
-            _gridsearch_results = executor.map(self._gridsearch_optimization, combinations, itertools.repeat(parameter_key), itertools.repeat(max_workers))
+            _gridsearch_results = executor.map(self._gridsearch_optimization, combinations, itertools.repeat(parameter_key))
             individual_results_keyword = ["complexity", "MSE_Prediction", "MSE_train_pred", "r2_test_pred", "r2_train_pred", "MSE_Integration", "MSE_train_sim", 
                     "r2_test_sim", "r2_train_sim", "AIC", "iterations"]
             
@@ -85,14 +85,19 @@ class HyperOpt():
         # sort value and remove duplicates
         self.df_result = pd.DataFrame(result_dict)
         self.df_result.dropna(inplace=True)
-        self.df_result.sort_values(by = ["AIC"], ascending = True, inplace = True, ignore_index = True)
+        try :
+            self.df_result.sort_values(by = ["AIC"], ascending = True, inplace = True, ignore_index = True)
+        except :
+            # there are no models that were discovered. Either the solver failed or the thresholding eliminated all the
+            # parameters
+            pass
         # self.df_result.drop_duplicates(["r2_test_pred"], keep = "first", inplace = True, ignore_index = True)
 
         if display_results:
             print(self.df_result.head(10))
 
     # function to be looped for multiprocessing
-    def _gridsearch_optimization(self, combination, parameter_key, max_workers):
+    def _gridsearch_optimization(self, combination, parameter_key):
         
         param_dict = dict(zip(parameter_key, combination)) # combine the key value part and fit the model
         self.model.set_params(**param_dict)
@@ -100,7 +105,7 @@ class HyperOpt():
         print("Running for parameter combination", param_dict)
 
         try:
-            self.model.fit(self.X_train, self.y_train, arguments = self.arguments_train, **self.meta)  
+            self.model.fit(self.X_train, self.y_train, time_span = self.t_train, arguments = self.arguments_train, **self.meta)  
 
         except Exception as error:
             print(error)
@@ -158,6 +163,11 @@ class HyperOpt():
 
     # bokeh plotting
     def plot(self, filename : str = "Gridsearch_results.html", path : Optional[str] = None, title : str = "Concentration vs time"):
+
+        # do not run if dataframe is empty
+        if self.df_result.empty:
+            return
+
         # capture r2 values between 0 and 1
         updated_results = self.df_result
         updated_results = updated_results.loc[(updated_results["r2_test_pred"] >= 0) & (updated_results["r2_test_pred"] <= 1) & 
@@ -205,10 +215,10 @@ if __name__ == "__main__":
     target = model_actual.approx_derivative
     # model_actual.plot(features[-1], t_span, "Time", "Concentration", ["A", "B", "C", "D"])
 
-    params = {"optimizer__threshold": [0.01, 0.1, 0.5, 1], 
-        "optimizer__alpha": [0.01, 0.1, 0, 1], 
+    params = {"optimizer__threshold": [0.01, 0.1, 0.5], 
+        "optimizer__alpha": [0.01, 0.1, 0], 
         "feature_library__include_bias" : [False],
-        "feature_library__degree": [1, 2]}
+        "feature_library__degree": [1]}
 
     opt = HyperOpt(features, target, features, target, t_span, t_span, model = Optimizer_casadi(plugin_dict = {"ipopt.print_level" : 0, "print_time":0, "ipopt.sb" : "yes"}), 
                     parameters = params)
