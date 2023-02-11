@@ -90,7 +90,7 @@ def run_gridsearch(n_expt : int, delta_t : float, noise_level : float, parameter
 
         opt.gridsearch(max_workers = max_workers)
 
-        opt.plot(filename = f"Gridsearch_{status}_noise{noise_level}_eniter{ensemble_iterations}_expt{n_expt}_delta_{delta_t}.html", 
+        opt.plot(filename = f'Gridsearch_{parameters["feature_library__degree"][0]}_{status}_noise{noise_level}_eniter{ensemble_iterations}_expt{n_expt}_delta_{delta_t}.html', 
                     path = path, title = f"{status} and {noise_level} noise")
         df_result = opt.df_result
 
@@ -102,7 +102,7 @@ def run_gridsearch(n_expt : int, delta_t : float, noise_level : float, parameter
 
     return mse_pred, aic, mse_sim, comp 
 
-def plot_adict(x : list, adict : dict, x_label : str, path : Optional[str] = None):
+def plot_adict(x : list, adict : dict, x_label : str, path : Optional[str] = None, title : Optional[str] = None):
     # plotting results
     if not path:
         path = os.getcwd()
@@ -119,15 +119,22 @@ def plot_adict(x : list, adict : dict, x_label : str, path : Optional[str] = Non
             # plt.plot(x, adict[key][2::4], "--+", linewidth = 2, markersize = 8, label = "chemistry")
             # plt.plot(x, adict[key][3::4], "--o", linewidth = 2, markersize = 8, label = "sindy")
             value = np.array(value)
-            plt.bar(x, value[0::4] - width, label = "unconstrained")
-            plt.bar(x, value[1::4] + width, label = "mass balance")
-            plt.bar(x, value[2::4] + 2*width, label = "chemistry")
-            plt.bar(x, value[3::4] - 2*width, label = "sindy")
+            plt.bar(x - 0.5*width, value[0::4], label = "unconstrained", width = width, align = "center")
+            plt.bar(x + 0.5*width, value[1::4], label = "mass balance", width = width, align = "center")
+            plt.bar(x + 1.5*width, value[2::4], label = "chemistry", width = width, align = "center")
+            plt.bar(x - 1.5*width, value[3::4], label = "sindy", width = width, align = "center")
+
+            if key in ["MSE_Integration", "MSE_Prediction"]:
+                plt.yscale("log")
             
+            if title:
+                plt.title(title)
+
             plt.xlabel(x_label)
             plt.ylabel(key)
+            plt.xticks(x)
             plt.legend()
-            plt.savefig(os.path.join(path, f"{x_label}_{key}"))
+            plt.savefig(os.path.join(path, f'{x_label}_{key}_{"_".join(title.split())}'))
             plt.close()
     
 
@@ -183,7 +190,7 @@ if __name__ == "__main__":
                 for key, value in zip(["MSE_Prediction", "AIC", "MSE_Integration", "complexity"], alist):
                     adict_noise[key].extend(value)
 
-        plot_adict(noise_level, adict_noise, x_label = "noise", path = path_noise)
+        plot_adict(noise_level, adict_noise, x_label = "noise", path = path_noise, title = f"Polynomial degree {degree}")
 
     ########################################################################################################################
     if experiments_study :
@@ -210,7 +217,7 @@ if __name__ == "__main__":
                 for key, value in zip(["MSE_Prediction", "AIC", "MSE_Integration", "complexity"], alist):
                     adict_experiments[key].extend(value)
         
-        plot_adict(experiments, adict_experiments, x_label = "experiments", path = path_experiments)
+        plot_adict(experiments, adict_experiments, x_label = "experiments", path = path_experiments, title = f"Polynomial degree {degree}")
     
     ########################################################################################################################
     if sampling_study :
@@ -231,7 +238,7 @@ if __name__ == "__main__":
                 for key, value in zip(["MSE_Prediction", "AIC", "MSE_Integration", "complexity"], alist):
                     adict_sampling[key].extend(value)
 
-        plot_adict(sampling, adict_sampling, x_label = "sampling", path = path_sampling)
+        plot_adict(sampling, adict_sampling, x_label = "sampling", path = path_sampling, title = f"Polynomial degree {degree}")
 
     ########################################################################################################################
     # adding noise breaks down the method (situational runs)

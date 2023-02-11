@@ -211,7 +211,8 @@ class Optimizer_casadi(Base):
 
         self.opti.solver(solver, plugin_dict, solver_dict)
         solution = self.opti.solve()
-        # assert solution.success, "The solution did not converge" add assertion 
+        
+        assert solution.stats()["success"], "The solution did not converge" 
         return solution
 
     def _create_parameters(self) -> List:
@@ -344,11 +345,21 @@ class Optimizer_casadi(Base):
             ensemble_iterations : int = 1, variance_elimination : bool = False, derivative_free : bool = False,
             max_workers : Optional[int] = None, seed : int = 12345) -> None:
 
-        # if variance_elimination = True and ensemble_iterations > 1 performs boostrapping
-        # if variance_elimination = True and ensemble_iterations <= 1 performs covariane matrix
-        # if variance_elimination = False performs normal thresholding (regular sindy)
-        # constraints_dict should be of the form {"consumption" : [], "formation" : [], 
-        #                                           "stoichiometry" : np.ndarray}
+        """
+        if variance_elimination = True and ensemble_iterations > 1 performs boostrapping
+        if variance_elimination = True and ensemble_iterations <= 1 performs covariane matrix
+        if variance_elimination = False performs normal thresholding (regular sindy)
+        constraints_dict should be of the form {"consumption" : [], "formation" : [], 
+                                                  "stoichiometry" : np.ndarray}
+
+        features : list of np.ndarrays of states
+        target : list of np.ndarrays of derivatives of states
+        """
+        
+        # prevents errors in downstream
+        if not variance_elimination:
+            ensemble_iterations = 1
+
         self._flag_fit = True
         self._output_states = np.shape(target)[-1]
         self._input_states = np.shape(features)[-1]
@@ -370,7 +381,7 @@ class Optimizer_casadi(Base):
             include_column = [list(range(self._input_states)) for _ in range(self._functional_library)]
 
         if derivative_free:
-            target = np.vstack(target)
+            target = np.vstack([feat - feat[0] for feat in features])
             self._generate_library_derivative_free(features, include_column, time_span)
         else:
             features, target = np.vstack(features), np.vstack(target)
@@ -623,7 +634,7 @@ if __name__ == "__main__":
     stoichiometry =  np.array([1, 0, 0, 0, 1, 0, 0, 0, 1, -1, -0.5, -1]).reshape(4, -1) # mass balance constraints
     # stoichiometry = np.eye(4) # no constraints
 
-    opti.fit(features, [feat - feat[0] for feat in features], time_span = time_span, include_column = include_column, 
+    opti.fit(features, target, time_span = time_span, include_column = include_column, 
                 constraints_dict= {"formation" : [], "consumption" : [], 
                                     "stoichiometry" : stoichiometry}, ensemble_iterations = 2, seed = 10, max_workers = 2, variance_elimination = False, derivative_free = False)
     opti.print()
