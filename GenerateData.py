@@ -36,7 +36,7 @@ class DynamicModel():
 
         if not self.arguments:
             # By default the data is generated for varying temperature values
-            self.arguments : List[Tuple] = [(rng.uniform(353, 393), 8.314) for _ in range(self.n_expt)]
+            self.arguments : List[Tuple] = [(rng.uniform(360, 390), 8.314) for _ in range(self.n_expt)]
         else:
             # use the same arguments for all the experiments
             if not len(self.arguments) == self.n_expt and len(self.arguments) == 1:

@@ -182,6 +182,11 @@ class EnergySindy(Optimizer_casadi):
         # if variance_elimination = False performs normal thresholding (regular sindy)
         # constraints_dict should be of the form {"consumption" : [], "formation" : [], 
         #                                           "stoichiometry" : np.ndarray}
+
+        # prevents errors in downstream
+        if not variance_elimination:
+            ensemble_iterations = 1
+
         self._flag_fit = True
         self._output_states = np.shape(target)[-1]
         self._input_states = np.shape(features)[-1]
@@ -207,7 +212,7 @@ class EnergySindy(Optimizer_casadi):
             include_column = [list(range(self._input_states)) for _ in range(self._functional_library)]
 
         if derivative_free:
-            target = np.vstack(target)
+            target = np.vstack([feat - feat[0] for feat in features])
             self._generate_library_derivative_free(features, include_column, time_span)
         else:
             features, target = np.vstack(features), np.vstack(target)
@@ -253,26 +258,26 @@ if __name__ == "__main__":
     from utils import coefficient_difference_plot
 
     time_span = np.arange(0, 5, 0.01)
-    arguments = [(360, 8.314), (370, 8.314), (380, 8.314), (390, 8.314)]
-    model = DynamicModel("kinetic_kosir", time_span, n_expt = len(arguments), arguments = arguments, seed = 20)
+    arguments = [(360, 8.314), (370, 8.314), (380, 8.314), (390, 8.314), (373, 8.314), (385, 8.314)][:4]
+    model = DynamicModel("kinetic_kosir", time_span, n_expt = len(arguments) if arguments else 4, arguments = arguments, seed = 20)
     features = model.integrate() # list of features
     target = model.approx_derivative # list of target value
-    features = model.add_noise(0, 0.0)
+    features = model.add_noise(0, 0.2)
     target = model.approx_derivative
     arguments = model.arguments
      
-    plugin_dict = {"ipopt.print_level" : 5, "print_time":5, "ipopt.sb" : "yes", "ipopt.max_iter" : 3000}
+    plugin_dict = {"ipopt.print_level" : 5, "print_time":5, "ipopt.sb" : "yes", "ipopt.max_iter" : 1000}
     # plugin_dict = {}
-    opti = EnergySindy(FunctionalLibrary(2) , alpha = 0, threshold = 2, solver_dict={"solver" : "ipopt"}, 
+    opti = EnergySindy(FunctionalLibrary(2) , alpha = 0.1, threshold = 0.5, solver_dict={"solver" : "ipopt"}, 
                             plugin_dict = plugin_dict, max_iter = 20)
     
     stoichiometry = np.array([-1, -1, -1, 0, 0, 2, 1, 0, 0, 0, 1, 0]).reshape(4, -1) # chemistry constraints
-    # include_column = [[0, 2], [0, 3], [0, 1]] # chemistry constraints
-    include_column = []
+    include_column = [[0, 2], [0, 3], [0, 1]] # chemistry constraints
 
-    opti.fit(features, [feat - feat[0] for feat in features], time_span, arguments, include_column = include_column, 
+    opti.fit(features, target, time_span, arguments, include_column = include_column, 
                 constraints_dict= {"formation" : [], "consumption" : [], "energy" : False,
-                                    "stoichiometry" : stoichiometry}, ensemble_iterations = 100, variance_elimination = True, derivative_free = True, seed = 20, max_workers = 2)
+                                    "stoichiometry" : stoichiometry}, ensemble_iterations = 1, variance_elimination = False, 
+                                    derivative_free = True, seed = 20, max_workers = 2)
     opti.print()
     print("--"*20)
     print("mean squared error :", opti.score(features, target, model_args = arguments))

@@ -257,10 +257,11 @@ class Optimizer_casadi(Base):
         for _ in tqdm(range(self.max_iter)):
             
             # keys are the reaction number while the values are np.ndarrays of coefficients
+            # permutation without replacement when ensemble_iterations == 1
             self.adict["coefficients_casadi_ensemble"] : List[dict] = []
             permutations = [rng.choice(range(self.adict["library_dimension"][0][0]), self.adict["library_dimension"][0][0], replace = (ensemble_iterations > 1))
-                                for _ in range(self.adict["iterations_ensemble"])] 
-                    
+                                    for _ in range(self.adict["iterations_ensemble"])] 
+
             if variance_elimination and ensemble_iterations > 1: # use multiprocessing
                 with ProcessPoolExecutor(max_workers = max_workers) as executor:           
                     _coefficients_ensemble = list(executor.map(self._stlsq_solve_optimization, repeat(library), repeat(target), repeat(constraints_dict), 
@@ -313,11 +314,10 @@ class Optimizer_casadi(Base):
                     print("Thresholding covariance")
                     variance : List[np.ndarray] = self._create_covariance() 
                     _deviation[0] = [np.sqrt(var).flatten() for var in variance] 
-                    # coefficients_next = [2*(1 - stats.t.cdf(np.abs(mean/np.sqrt(deviation.reshape(1, -1))), sum(dim[0] for dim in self.adict["library_dimension"]) - self.opti.x.shape[0])) < self.threshold 
-                    #                     for mean, deviation in zip(_mean[0], variance)]
                     coefficients_next  = [np.abs(mean/np.sqrt(deviation.reshape(1, -1))) > self.threshold for mean, deviation in zip(_mean[0], variance)]          
 
-            if np.array([np.allclose(coeff_prev, coeff_next) for coeff_prev, coeff_next in zip(coefficients_prev, coefficients_next)]).all():
+            # multiply with mask so that oscillating coefficients can be ignored.
+            if np.array([np.allclose(coeff_prev, coeff_next*mask) for coeff_prev, coeff_next, mask in zip(coefficients_prev, coefficients_next, self.adict["mask"])]).all():
                 print("Solution converged")
                 break
 
@@ -353,7 +353,7 @@ class Optimizer_casadi(Base):
                                                   "stoichiometry" : np.ndarray}
 
         features : list of np.ndarrays of states
-        target : list of np.ndarrays of derivatives of states
+        target : list of np.ndarrays. Different for normal sindy and derivative free sindy
         """
         
         # prevents errors in downstream
@@ -620,23 +620,26 @@ if __name__ == "__main__":
     from utils import coefficient_difference_plot
 
     time_span = np.arange(0, 5, 0.01)
-    model = DynamicModel("kinetic_kosir", time_span, arguments = [(373, 8.314)], n_expt = 20, seed = 20)
+    model = DynamicModel("kinetic_kosir", time_span, arguments = [(373, 8.314)], n_expt = 2, seed = 20)
     features = model.integrate() # list of features
     target = model.approx_derivative # list of target value
-    features = model.add_noise(0, 0.0)
+    features = model.add_noise(0, 0)
     target = model.approx_derivative
 
-    opti = Optimizer_casadi(FunctionalLibrary(2) , alpha = 0, threshold = 0.1, plugin_dict = {"ipopt.print_level" : 0, "print_time":0, "ipopt.sb" : "yes"}, 
+    opti = Optimizer_casadi(FunctionalLibrary(1) , alpha = 0, threshold = 1, plugin_dict = {"ipopt.print_level" : 0, "print_time":0, "ipopt.sb" : "yes"}, 
                             max_iter = 20)
     # stoichiometry = np.array([-1, -1, -1, 0, 0, 2, 1, 0, 0, 0, 1, 0]).reshape(4, -1) # chemistry constraints
     # include_column = [[0, 2], [0, 3], [0, 1]]
     include_column = []
-    stoichiometry =  np.array([1, 0, 0, 0, 1, 0, 0, 0, 1, -1, -0.5, -1]).reshape(4, -1) # mass balance constraints
-    # stoichiometry = np.eye(4) # no constraints
-
+    # stoichiometry =  np.array([1, 0, 0, 0, 1, 0, 0, 0, 1, -1, -0.5, -1]).reshape(4, -1) # mass balance constraints
+    stoichiometry = np.eye(4) # no constraints
+    
+    derivative_free = True
+    
     opti.fit(features, target, time_span = time_span, include_column = include_column, 
                 constraints_dict= {"formation" : [], "consumption" : [], 
-                                    "stoichiometry" : stoichiometry}, ensemble_iterations = 2, seed = 10, max_workers = 2, variance_elimination = False, derivative_free = False)
+                                    "stoichiometry" : stoichiometry}, ensemble_iterations = 1000, seed = 10, max_workers = 2, 
+                variance_elimination = False, derivative_free = derivative_free)
     opti.print()
     print("--"*20)
     print("mean squared error :", opti.score(features, target))

@@ -30,6 +30,7 @@ class HyperOpt():
     time_clean : np.ndarray 
     model : Callable  
     arguments : List[np.ndarray] = field(default = None)
+    arguments_clean : List[np.ndarray] = field(default = None)
 
     parameters : dict = field(default_factory = dict)
     meta : dict = field(default_factory = dict)
@@ -53,11 +54,15 @@ class HyperOpt():
         self.X_train, self.y_train, self.X_test, self.y_test = self.train_test_split((self.X, self.y), train_split_percent)
         self.X_clean_train, self.y_clean_train, self.X_clean_test, self.y_clean_test = self.train_test_split((self.X_clean, self.y_clean), train_split_percent)
         
-        if self.arguments:
+        if self.arguments and self.arguments_clean:
             self.arguments_train, self.arguments_test = self.train_test_split((self.arguments, ), train_split_percent)
-        else:
+            self.arguments_clean_train, self.arguments_clean_test = self.train_test_split((self.arguments_clean, ), train_split_percent)
+        elif not (self.arguments and self.arguments_clean):
             self.arguments_train, self.arguments_test = None, None
-
+            self.arguments_clean_train, self.arguments_clean_test = None, None
+        else:
+            raise ValueError("Both arguments and arguments_clean should either be specified or not")
+            
         self.t_train, self.t_clean = self.time, self.time_clean
 
         result_dict = defaultdict(list)
@@ -85,12 +90,11 @@ class HyperOpt():
         # sort value and remove duplicates
         self.df_result = pd.DataFrame(result_dict)
         self.df_result.dropna(inplace=True)
-        try :
+
+        # there are no models that were discovered. Either the solver failed or the thresholding eliminated all the parameters
+        if not self.df_result.empty:
             self.df_result.sort_values(by = ["AIC"], ascending = True, inplace = True, ignore_index = True)
-        except :
-            # there are no models that were discovered. Either the solver failed or the thresholding eliminated all the
-            # parameters
-            pass
+            
         # self.df_result.drop_duplicates(["r2_test_pred"], keep = "first", inplace = True, ignore_index = True)
 
         if display_results:
@@ -114,16 +118,16 @@ class HyperOpt():
         else :
             print(f"Model for parameter combination {param_dict}", self.model.print(), sep = "\n")
             complexity = self.model.complexity
-            MSE_test_pred = self.model.score(self.X_clean_test, self.y_clean_test, metric = mean_squared_error, model_args = self.arguments_test)
-            MSE_train_pred = self.model.score(self.X_clean_train, self.y_clean_train, metric = mean_squared_error, model_args = self.arguments_train)
+            MSE_test_pred = self.model.score(self.X_clean_test, self.y_clean_test, metric = mean_squared_error, model_args = self.arguments_clean_test)
+            MSE_train_pred = self.model.score(self.X_clean_train, self.y_clean_train, metric = mean_squared_error, model_args = self.arguments_clean_train)
 
-            r2_test_pred = self.model.score(self.X_clean_test, self.y_clean_test, metric = r2_score, model_args = self.arguments_test)
-            r2_train_pred = self.model.score(self.X_clean_train, self.y_clean_train, metric = r2_score, model_args = self.arguments_train)
+            r2_test_pred = self.model.score(self.X_clean_test, self.y_clean_test, metric = r2_score, model_args = self.arguments_clean_test)
+            r2_train_pred = self.model.score(self.X_clean_train, self.y_clean_train, metric = r2_score, model_args = self.arguments_clean_train)
 
             # add integration results
             try :
-                _integration_test = self.model.simulate(self.X_clean_test, self.t_clean, model_args = self.arguments_test)
-                _integration_train = self.model.simulate(self.X_clean_train, self.t_clean, model_args = self.arguments_train)
+                _integration_test = self.model.simulate(self.X_clean_test, self.t_clean, model_args = self.arguments_clean_test)
+                _integration_train = self.model.simulate(self.X_clean_train, self.t_clean, model_args = self.arguments_clean_train)
             
             except:
                 MSE_test_sim = np.nan
@@ -133,11 +137,13 @@ class HyperOpt():
                 AIC = np.nan
 
             else:
-                MSE_test_sim = self.model.score(_integration_test, self.X_clean_test, metric=mean_squared_error, predict = False, model_args = self.arguments_test)
-                MSE_train_sim = self.model.score(_integration_train, self.X_clean_train, metric = mean_squared_error, predict = False, model_args = self.arguments_train)
+                MSE_test_sim = self.model.score(_integration_test, self.X_clean_test, metric=mean_squared_error, predict = False, 
+                                                model_args = self.arguments_clean_test)
+                MSE_train_sim = self.model.score(_integration_train, self.X_clean_train, metric = mean_squared_error, predict = False, 
+                                                model_args = self.arguments_clean_train)
 
-                r2_test_sim = self.model.score(_integration_test, self.X_clean_test, metric = r2_score, predict = False, model_args = self.arguments_test)
-                r2_train_sim = self.model.score(_integration_train, self.X_clean_train, metric = r2_score, predict = False, model_args = self.arguments_train)                   
+                r2_test_sim = self.model.score(_integration_test, self.X_clean_test, metric = r2_score, predict = False, model_args = self.arguments_clean_test)
+                r2_train_sim = self.model.score(_integration_train, self.X_clean_train, metric = r2_score, predict = False, model_args = self.arguments_clean_train)                   
 
                 AIC = 2*np.log((MSE_test_sim + MSE_test_pred)/2) + complexity
                 # AIC = (MSE_train_pred + MSE_train_sim)*(sum(len(x_train) for x_train in self.X_train))/2 + complexity
