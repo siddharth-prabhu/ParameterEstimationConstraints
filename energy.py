@@ -76,9 +76,9 @@ class EnergySindy(Optimizer_casadi):
                                     for A, x in zip(self.adict["library"], reaction_rate)]
 
         # multiply with the stoichiometric matrix
-        for i in range(self._output_states):
+        for i in range(self._states):
             asum = 0
-            for j in range(self._functional_library): 
+            for j in range(self._reactions): 
                 asum += self.adict["stoichiometry"][i, j]*self.adict["reactions"][j]
 
             self.adict["cost"] += cd.sumsqr(target[:, i] - asum)/2
@@ -188,7 +188,7 @@ class EnergySindy(Optimizer_casadi):
             ensemble_iterations = 1
 
         self._flag_fit = True
-        self._output_states = np.shape(target)[-1]
+        _output_states = np.shape(target)[-1]
         self._input_states = np.shape(features)[-1]
         self.N = len(features)
 
@@ -197,19 +197,19 @@ class EnergySindy(Optimizer_casadi):
         self.adict["arguments_original"] = np.squeeze(np.vstack([np.tile(args, (len(feat), 1)) for args, feat in zip(arguments, features)]))
 
         if "stoichiometry" in constraints_dict and isinstance(constraints_dict["stoichiometry"], np.ndarray):
-            rows, cols = constraints_dict["stoichiometry"].shape
-            assert rows == self._output_states, "The rows should match the number of states"
-            self._functional_library = cols
+            states, reactions = constraints_dict["stoichiometry"].shape
+            assert states == _output_states, "The rows of stoichiometry matrix should match the states of target"
             self.adict["stoichiometry"] = constraints_dict["stoichiometry"]
         else:
-            self._functional_library = self._output_states
-            self.adict["stoichiometry"] = np.eye(self._output_states) 
+            self.adict["stoichiometry"] = np.eye(_output_states) 
 
+        self._states, self._reactions = self.adict["stoichiometry"].shape
+        
         if include_column:
-            assert len(include_column) == self._functional_library, "length of columns should match with the number of functional libraries"
+            assert len(include_column) == self._reactions, "length of columns should match with the number of functional libraries"
             include_column = [list(range(self._input_states)) if len(alist) == 0 else alist for alist in include_column] 
         else:
-            include_column = [list(range(self._input_states)) for _ in range(self._functional_library)]
+            include_column = [list(range(self._input_states)) for _ in range(self._reactions)]
 
         if derivative_free:
             target = np.vstack([feat - feat[0] for feat in features])
@@ -268,7 +268,7 @@ if __name__ == "__main__":
      
     plugin_dict = {"ipopt.print_level" : 5, "print_time":5, "ipopt.sb" : "yes", "ipopt.max_iter" : 1000}
     # plugin_dict = {}
-    opti = EnergySindy(FunctionalLibrary(2) , alpha = 0.1, threshold = 0.5, solver_dict={"solver" : "ipopt"}, 
+    opti = EnergySindy(FunctionalLibrary(1) , alpha = 0.1, threshold = 0.5, solver_dict={"solver" : "ipopt"}, 
                             plugin_dict = plugin_dict, max_iter = 20)
     
     stoichiometry = np.array([-1, -1, -1, 0, 0, 2, 1, 0, 0, 0, 1, 0]).reshape(4, -1) # chemistry constraints

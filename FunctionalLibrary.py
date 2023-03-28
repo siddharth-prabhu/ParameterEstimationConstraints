@@ -37,9 +37,11 @@ class FunctionalLibrary():
             setattr(self, "include_interaction", kwargs["feature_library__include_interaction"])
                 
     def fit_transform(self, features : np.ndarray, include_feature: Optional[list[int]] = None, 
-                        derivative_free : bool = False, time_span : Optional[np.ndarray] = None) -> np.ndarray:
-
-        # include_feature is zero indexed list of indices eg : [0, 1, 2, 3]
+                        derivative_free : bool = False, time_span : Optional[np.ndarray] = None, get_function : Optional[bool] = False) -> np.ndarray:
+        """
+        include_feature is zero indexed list of indices eg : [0, 1, 2, 3]
+        get_function returns the interpolation matrix as a function of time. (Only used in derivative_free case)
+        """
 
         if derivative_free:
             assert isinstance(time_span, np.ndarray), "time_span should be specified for interpolation" 
@@ -58,7 +60,10 @@ class FunctionalLibrary():
                 alist.extend(combinations)
 
             combinations_integration = lambda x, t : list(map(lambda a : reduce(lambda accum, value : value(t)*accum, a, 1), alist))
-            return odeint(combinations_integration, combinations_integration(0, 0), time_span) - combinations_integration(0, 0)
+            if get_function:
+                return combinations_integration
+            else:
+                return odeint(combinations_integration, combinations_integration(0, 0), time_span) - combinations_integration(0, 0)
         
         else:
             for i in range(self.degree):

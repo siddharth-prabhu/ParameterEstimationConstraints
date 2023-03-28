@@ -76,7 +76,7 @@ class Optimizer_casadi(Base):
         # share the same instance of the class
         self.adict["library"] = []
         self.adict["library_labels"] = []
-        for i in range(self._functional_library):
+        for i in range(self._reactions):
             self.adict["library"].append(self.library.fit_transform(data, include_column[i], False))
             self.adict["library_labels"].append(self.library.get_features(self.input_features))
         
@@ -99,7 +99,7 @@ class Optimizer_casadi(Base):
         # share the same instance of the class
         self.adict["library"] = []
         self.adict["library_labels"] = []
-        for i in range(self._functional_library):
+        for i in range(self._reactions):
             self.adict["library"].append(np.vstack([self.library.fit_transform(di, include_column[i], True, time_span) for di in data]))
             self.adict["library_labels"].append(self.library.get_features(self.input_features))
         
@@ -123,11 +123,11 @@ class Optimizer_casadi(Base):
         
         # stoichiometric coefficient times the reactions 
         # need 2 for loops because of limitation of casadi 
-        self.adict["reactions"] = [cd.mtimes(self.adict["library"][j], self.adict["coefficients"][j]) for j in range(self._functional_library)]
+        self.adict["reactions"] = [cd.mtimes(self.adict["library"][j], self.adict["coefficients"][j]) for j in range(self._reactions)]
 
-        for i in range(self._output_states):
+        for i in range(self._states):
             asum = 0
-            for j in range(self._functional_library): 
+            for j in range(self._reactions): 
                 asum += self.adict["stoichiometry"][i, j]*self.adict["reactions"][j]
 
             self.adict["cost"] += cd.sumsqr(target[:, i] - asum)/2
@@ -136,7 +136,7 @@ class Optimizer_casadi(Base):
         # self.adict["cost"] /= self.adict["library_dimension"][0][0] # first array with first dimension
 
         # add regularization to the cost function
-        for j in range(self._functional_library):
+        for j in range(self._reactions):
             self.adict["cost"] += self.alpha*cd.sumsqr(self.adict["coefficients"][j])
 
     def _add_constraints(self, constraints_dict, seed : int = 12345) -> None:
@@ -150,7 +150,7 @@ class Optimizer_casadi(Base):
         if state_formation:
             for state in state_formation :
                 asum = 0
-                for j in range(self._functional_library):
+                for j in range(self._reactions):
                     asum += self.adict["stoichiometry"][state, j]*self.adict["reactions"][j][chosen_rows]
 
                 self.opti.subject_to(asum >= 0)
@@ -160,7 +160,7 @@ class Optimizer_casadi(Base):
         if state_consumption :
             for state in state_consumption:
                 asum = 0
-                for j in range(self._functional_library):
+                for j in range(self._reactions):
                     asum += self.adict["stoichiometry"][state, j]*self.adict["reactions"][j][chosen_rows]
                 
                 self.opti.subject_to(asum <= 0)
@@ -270,7 +270,7 @@ class Optimizer_casadi(Base):
                     _coefficients_ensemble = list(zip(*_coefficients_ensemble))
                     for _coefficients_ensemble_parameters in _coefficients_ensemble:
                         bdict = defaultdict(list)
-                        for key in range(self._functional_library):
+                        for key in range(self._reactions):
                             bdict[key].extend(alist[key] for alist in _coefficients_ensemble_parameters)
                             
                         self.adict["coefficients_casadi_ensemble"].append(bdict)
@@ -282,7 +282,7 @@ class Optimizer_casadi(Base):
                 _coefficients_ensemble = list(zip(*_coefficients_ensemble))
                 for _coefficients_ensemble_parameters in _coefficients_ensemble: # for every params in parameters
                     bdict = defaultdict(list)
-                    for key in range(self._functional_library):
+                    for key in range(self._reactions):
                         bdict[key].extend(alist[key] for alist in _coefficients_ensemble_parameters)
                     
                     self.adict["coefficients_casadi_ensemble"].append(bdict)
@@ -361,24 +361,24 @@ class Optimizer_casadi(Base):
             ensemble_iterations = 1
 
         self._flag_fit = True
-        self._output_states = np.shape(target)[-1]
+        _output_states = np.shape(target)[-1]
         self._input_states = np.shape(features)[-1]
         self.N = len(features)
 
         if "stoichiometry" in constraints_dict and isinstance(constraints_dict["stoichiometry"], np.ndarray):
-            rows, cols = constraints_dict["stoichiometry"].shape
-            assert rows == self._output_states, "The rows should match the number of states"
-            self._functional_library = cols
+            states, reactions = constraints_dict["stoichiometry"].shape
+            assert states == _output_states, "The rows of stoichiometry matrix should match the states of target"
             self.adict["stoichiometry"] = constraints_dict["stoichiometry"]
         else:
-            self._functional_library = self._output_states
-            self.adict["stoichiometry"] = np.eye(self._output_states) 
+            self.adict["stoichiometry"] = np.eye(_output_states) 
+
+        self._states, self._reactions = self.adict["stoichiometry"].shape
 
         if include_column:
-            assert len(include_column) == self._functional_library, "length of columns should match with the number of functional libraries"
+            assert len(include_column) == self._reactions, "length of columns should match with the number of functional libraries"
             include_column = [list(range(self._input_states)) if len(alist) == 0 else alist for alist in include_column] 
         else:
-            include_column = [list(range(self._input_states)) for _ in range(self._functional_library)]
+            include_column = [list(range(self._input_states)) for _ in range(self._reactions)]
 
         if derivative_free:
             target = np.vstack([feat - feat[0] for feat in features])
@@ -400,7 +400,7 @@ class Optimizer_casadi(Base):
         self.adict["equations_lambdify"] = []
         self.adict["coefficients_dict"] = []
         
-        for i in range(self._output_states):
+        for i in range(self._states):
             expr = self._create_sympy_expressions(self.adict["stoichiometry"][i]) # sympy expression
 
             # truncate coefficients less than 1e-5 to zero. These values can occur especially in mass balance formulation because of subtracting
@@ -456,13 +456,13 @@ class Optimizer_casadi(Base):
             coefficients_iterations = self.adict["coefficients_iterations"][0]
 
         # create list of dictionary with symbols as keys and arrays as values
-        _coefficients_list = [defaultdict(list) for _ in range(self._functional_library)]
+        _coefficients_list = [defaultdict(list) for _ in range(self._reactions)]
         
         distribution = namedtuple("distribution", ("mean", "deviation"))
-        _coefficients_distribution = [defaultdict(distribution) for _ in range(self._functional_library)]
+        _coefficients_distribution = [defaultdict(distribution) for _ in range(self._reactions)]
 
         inclusion = namedtuple("probability", "inclusion")
-        _coefficients_inclusion = [defaultdict(inclusion) for _ in range(self._functional_library)]
+        _coefficients_inclusion = [defaultdict(inclusion) for _ in range(self._reactions)]
 
         for i, key in enumerate(coefficients_casadi_ensemble.keys()):
             for j, _symbol in enumerate(self.adict["library_labels"][i]):
@@ -483,7 +483,7 @@ class Optimizer_casadi(Base):
             for i in range(self._n_states):
                 # for each iteration
                 for j in range(self.adict["iterations_ensemble"]):
-                    _expr = self._create_sympy_expressions([coefficients_casadi_ensemble[key][j] for key in range(self._functional_library)], 
+                    _expr = self._create_sympy_expressions([coefficients_casadi_ensemble[key][j] for key in range(self._reactions)], 
                                                             self.adict["library_labels"], self.adict["stoichiometry"][i])
                     _expr_coeff = _expr.as_coefficients_dict()
 
@@ -499,7 +499,7 @@ class Optimizer_casadi(Base):
             ensemble_plot(_reaction_coefficients_list, _reaction_coefficients_distribution, _reaction_coefficients_inclusion)
         """
             
-        for key in range(self._functional_library):
+        for key in range(self._reactions):
             fig, ax = plt.subplots(self.adict["iterations"], 3, figsize = (10, 4))
             ax = np.ravel(ax)
             for i, _coefficients_iterations in enumerate(coefficients_iterations):
@@ -560,7 +560,7 @@ class Optimizer_casadi(Base):
         x_init = [xi[0].flatten() for xi in X]
         result = []
         for i, xi in enumerate(x_init):
-            assert len(xi) == self._input_states, "Initial conditions should be of right dimensions"
+            assert len(xi) == self._reactions, "Initial conditions should be of right dimensions"
 
             try:
                 _integration_solution = odeint(self._casadi_model, xi, time_span, args = (model_args[i], ) if model_args else ((), ), **integrator_kwargs)
