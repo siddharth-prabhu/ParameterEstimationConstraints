@@ -8,7 +8,14 @@ from functools import reduce
 import numpy as np
 from scipy.interpolate import CubicSpline
 from scipy.integrate import odeint
+import casadi as cd
 
+
+def sicpy_interpolation(time_span, y):
+    return CubicSpline(time_span, y)
+
+def casadi_interpolaiton(time_span, y):
+    return cd.interpolant("state", "bspline", [time_span], [*y])
 
 @dataclass(frozen = False)
 class FunctionalLibrary():
@@ -17,7 +24,6 @@ class FunctionalLibrary():
     include_bias : bool = field(default = False)
     interaction_only : bool = field(default = False)
     include_interaction : bool = field(default = True)
-    interpolation_scheme : Callable = field(default = CubicSpline)
 
     def __post_init__(self):
 
@@ -36,8 +42,8 @@ class FunctionalLibrary():
         if "feature_library__include_interaction" in kwargs:
             setattr(self, "include_interaction", kwargs["feature_library__include_interaction"])
                 
-    def fit_transform(self, features : np.ndarray, include_feature: Optional[list[int]] = None, 
-                        derivative_free : bool = False, time_span : Optional[np.ndarray] = None, get_function : Optional[bool] = False) -> np.ndarray:
+    def fit_transform(self, features : np.ndarray, include_feature: Optional[list[int]] = None, derivative_free : bool = False, 
+                        time_span : Optional[np.ndarray] = None, get_function : Optional[bool] = False, interpolation_scheme : str = "scipy") -> np.ndarray:
         """
         include_feature is zero indexed list of indices eg : [0, 1, 2, 3]
         get_function returns the interpolation matrix as a function of time. (Only used in derivative_free case)
@@ -45,16 +51,22 @@ class FunctionalLibrary():
 
         if derivative_free:
             assert isinstance(time_span, np.ndarray), "time_span should be specified for interpolation" 
+            
+            if interpolation_scheme == "scipy":
+                interpolation_func = sicpy_interpolation
+            elif interpolation_scheme == "casadi":
+                interpolation_func = casadi_interpolaiton
+            else:
+                assert False, f"Interpolation scheme {interpolation_scheme} not recognized"
 
         if include_feature:
             self._feature_included = include_feature
             features = features[:, self._feature_included]
 
         alist = []
-        
         if derivative_free:
             # create interpolation scheme for all columns in features
-            interpolation = [self.interpolation_scheme(time_span, feat) for feat in features.T]
+            interpolation = [interpolation_func(time_span, feat) for feat in features.T]
             for i in range(self.degree):
                 combinations = self._get_combinations(interpolation, i + 1)
                 alist.extend(combinations)
@@ -63,6 +75,7 @@ class FunctionalLibrary():
             if get_function:
                 return combinations_integration
             else:
+                assert self.interpolation_scheme == "scipy", f"Interpolation scheme has to be scipy"
                 return odeint(combinations_integration, combinations_integration(0, 0), time_span) - combinations_integration(0, 0)
         
         else:
