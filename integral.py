@@ -83,6 +83,7 @@ class IntegralSindy(EnergySindy):
             self.adict["library_labels"].append(self.library.get_features(self.input_features))
         
         # rows of data is number of experiments*time_span, cols of data is the dimension of the returned callable matrix
+        self.adict["library"] = None # just to make things compatible with downstream ops
         self.adict["library_dimension"] = [(len(xi)*len(time_span), len(xi[0](0, 0))) for xi in self.adict["interpolation_library"]]
         self.input_symbols = (*self.input_symbols, *smp.symbols("T, R"))
 
@@ -150,11 +151,31 @@ class IntegralSindy(EnergySindy):
             self.adict["cost"] += cd.sumsqr(target[i] - cd.vertcat(*solution))
 
         # adding regularization 
-        self.adict["cost"] += self.alpha*reduce(lambda value, accum : accum + cd.sumsqr(value), self.adict["coefficients"])
+        for coeff in self.adict["coefficients"]:
+            self.adict["cost"] += self.alpha*cd.sumsqr(coeff)
 
+    # function for multiprocessing
+    def _stlsq_solve_optimization(self, permutations : List, **kwargs) -> List[List[np.ndarray]]:
+        # create problem from scratch since casadi cannot run the same problem once optimized
+        # steps should follow a sequence 
+        # dont replace if there is only one ensemble iteration. Dataset rows are constant for all reactions 
+        # parameters is added so that you can get the values of decision variables without having to rewrite this code
+        target = kwargs.get("target", False)
+        time_span = kwargs.get("time_span", False)
+        assert ((time_span is not None) and (target is not None)), "time_span and target should be provided"
+
+        self._create_decision_variables()
+        parameters : List = self._create_parameters()
+        self._update_cost(target, time_span)
+        self._initialize_decision_variables()
+        _solution = self._minimize(self.plugin_dict, self.solver_dict) # no need to save for every iteration
+
+        # list[np.ndarray]. additional layer of np.array and flatten to account for singular value, which casadi outputs as float
+        return [[np.array([_solution.value(coeff)]).flatten() for coeff in params] for params in parameters]
 
     def fit(self, features: List[np.ndarray], target: List[np.ndarray], time_span: np.ndarray, arguments: List[np.ndarray] = None, 
-            include_column: Optional[List[np.ndarray]] = None, constraints_dict: dict = {}, seed: int = 12345) -> None:
+            include_column: Optional[List[np.ndarray]] = None, constraints_dict: dict = {}, max_workers : Optional[int] = None, 
+            seed: int = 12345) -> None:
         """
         arguments is a list of arrays so that its compatible with vectorize
         constraints_dict should be of the form {"consumption" : [], "formation" : [], 
@@ -183,59 +204,33 @@ class IntegralSindy(EnergySindy):
 
         
         self._generate_interpolation(features, include_column, time_span)
-        self._create_decision_variables()
-        self._update_cost(target, time_span)
-        self.opti.minimize(self.adict["cost"])
-        self.opti.solver("ipopt")
-        self.opti.solve()
+        _mean, _deviation = self._stlsq(
+            target, 
+            constraints_dict, 
+            ensemble_iterations = 1, 
+            variance_elimination = False,
+            time_span = time_span, 
+            max_workers = max_workers, 
+            seed = seed)
+        (self.adict["coefficients_value"], self.adict["coefficients_energy_value"], self.adict["coefficients_deviation"], 
+                                        self.adict["coefficients_energy_deviation"]) = (_mean[0], _mean[1], _deviation[0], _deviation[1])
+        
 
 if __name__ == "__main__":
 
-    from scipy.integrate import odeint
+    from GenerateData import DynamicModel
 
-    def kinetic_kosir(x, t, args) -> np.ndarray:
-        # A -> 2B; A <-> C; A <-> D
-        R = args
-        rates = reaction_rate_kosir(x[-1], R)
-        return np.array([-(rates[0] + rates[1] + rates[3])*x[0] + rates[2]*x[2] + rates[4]*x[3],
-                        2*rates[0]*x[0],
-                        rates[1]*x[0] - rates[2]*x[2],
-                        rates[3]*x[0] - rates[4]*x[3], 
-                        373*(np.pi*np.cos(np.pi*t)/50)])
-
-    def reaction_rate_kosir(T, R):
-
-        # original values are at reference temperature of 373 K
-        # This function is called several times. Consider defining constants outside the function
-
-        if T == 373:
-            return [8.566/2, 1.191, 5.743, 10.219, 1.535]
-
-        Eab = 30*10**3
-        Eac = 40*10**3
-        Eca = 45*10**3
-        Ead = 50*10**3
-        Eda = 60*10**3
-
-        return [8.566/2*np.exp(-(Eab/R)*(1/T - 1/373)), 1.191*np.exp(-(Eac/R)*(1/T - 1/373)), 5.743*np.exp(-(Eca/R)*(1/T - 1/373)), 
-                10.219*np.exp(-(Ead/R)*(1/T - 1/373)), 1.535*np.exp(-(Eda/R)*(1/T - 1/373))]
-
-
-    n_expt = 2
-    delta_time = 0.01
-    time_span = np.arange(0, 5, delta_time)
-    np.random.seed(20)
-    x_init = [np.random.normal(5, 20, size = (4, )) for _ in range(n_expt)]
-    temperature = [373]
-    features = [odeint(kinetic_kosir, [*xi, temperature[-1]], time_span, args = (8.314, )) for xi in x_init] # list of features
+    time_span = np.arange(0, 5, 0.01)
+    model = DynamicModel("kinetic_kosir_temperature", time_span, n_expt = 2)
+    features = model.integrate()
      
-    plugin_dict = {"ipopt.print_level" : 5, "print_time":5, "ipopt.sb" : "yes", "ipopt.max_iter" : 1000}
-    opti = IntegralSindy(FunctionalLibrary(2) , alpha = 0.1, threshold = 0.5, solver_dict={"solver" : "ipopt"}, 
+    plugin_dict = {"ipopt.print_level" : 5, "print_time":5, "ipopt.sb" : "yes", "ipopt.max_iter" : 3000}
+    opti = IntegralSindy(FunctionalLibrary(1) , alpha = 0.1, threshold = 0.5, solver_dict={"solver" : "ipopt"}, 
                             plugin_dict = plugin_dict, max_iter = 20)
     
     stoichiometry = np.array([-1, -1, -1, 0, 0, 2, 1, 0, 0, 0, 1, 0]).reshape(4, -1) # chemistry constraints
     include_column = [[0, 2], [0, 3], [0, 1]] # chemistry constraints
 
     opti.fit(features, [feat[:, :-1] for feat in features], time_span, include_column = include_column, 
-                constraints_dict= {"formation" : [], "consumption" : [], "energy" : False,
+                constraints_dict= {"formation" : [], "consumption" : [],
                                     "stoichiometry" : stoichiometry})
