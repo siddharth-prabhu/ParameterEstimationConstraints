@@ -1,3 +1,4 @@
+# type: ignore
 from typing import List, Optional, Callable
 from functools import reduce
 import operator
@@ -20,7 +21,8 @@ class IntegralSindy(EnergySindy):
                 threshold : float = 0.01, # inverse of z_critical for boostrapping
                 max_iter : int = 20,
                 plugin_dict : dict = {},
-                solver_dict : dict = {}):
+                solver_dict : dict = {}
+                ):
         
         self.library = library
         self.input_features = input_features
@@ -40,11 +42,13 @@ class IntegralSindy(EnergySindy):
                         self.plugin_dict,
                         self.solver_dict)
 
-    def _generate_library_derivative_free(self, data: List[np.ndarray], include_column: List[np.ndarray], time_span: np.ndarray) -> None:
+    def _generate_interpolation(self, data: List[np.ndarray], include_column: List[np.ndarray], time_span: np.ndarray) -> None:
         """
         given data as a list of np.ndarrays, fits an interpolation and creates functional library
         A matrix is not created but a callable (x, t) functional library is returned
+        data : should always have temperature as last column
         """
+        self.adict["initial"] = [di[0, :-1] for di in data] # saving the initial conditions of states
 
         # define input features if not given. Input features depend on the shape of data
         if not len(self.input_features):
@@ -55,44 +59,101 @@ class IntegralSindy(EnergySindy):
 
         # done using for loop instead of list comprehension becoz each fit_transform and get_features
         # share the same instance of the class
-        self.adict["library"] : List[List[Callable]]= [] # for all states, for all experiments, function
+        self.adict["interpolation_library"] : List[List[Callable]]= [] # for all states, for all experiments, function
+        self.adict["interpolation_temperature"] : List[List[Callable]] = []
         self.adict["library_labels"] : List[List]= []
-        for i in range(self._functional_library):
-            self.adict["library"].append([self.library.fit_transform(di, include_column[i], True, time_span, get_function = True) for di in data])
+        for i in range(self._reactions):
+            self.adict["interpolation_library"].append([self.library.fit_transform(
+                di[:, :-1], 
+                include_column[i], 
+                True, 
+                time_span, 
+                get_function = True, 
+                interpolation_scheme = "casadi"
+                ) for di in data])
+            
+            self.adict["interpolation_temperature"].append([FunctionalLibrary(1).fit_transform(
+                di[:, -1].reshape(-1, 1), 
+                derivative_free = True, 
+                time_span = time_span, 
+                get_function= True,
+                interpolation_scheme = "casadi"
+                ) for di in data])
+            
             self.adict["library_labels"].append(self.library.get_features(self.input_features))
         
         # rows of data is number of experiments*time_span, cols of data is the dimension of the returned callable matrix
-        self.adict["library_dimension"] = [(len(xi)*len(time_span), len(xi[0](0, 0))) for xi in self.adict["library"]]
+        self.adict["library_dimension"] = [(len(xi)*len(time_span), len(xi[0](0, 0))) for xi in self.adict["interpolation_library"]]
         self.input_symbols = (*self.input_symbols, *smp.symbols("T, R"))
+
+    def _create_decision_variables(self):
+        
+        self.opti = cd.Opti() # create casadi instance
+        variables = reduce(operator.add, [dim[-1] for dim in self.adict["library_dimension"]])
+        variables = self.opti.variable(variables*2) # reaction rates and activation energies
+
+        reference, activation, start = [], [], 0
+        for dim in self.adict["library_dimension"]:
+            reference.append(variables[start : start + dim[-1]])
+            activation.append(variables[start + dim[-1] : start + 2*dim[-1]]) 
+            start += 2*dim[-1]
+
+        self.adict["coefficients"] = reference
+        self.adict["coefficients_energy"] = activation
+        self.adict["coefficients_combined"] = variables 
+
 
     def _update_cost(self, target: List[np.ndarray], time_span : np.ndarray):
         # target here is list of np.ndarrays
         # add ode function here and for all experiments
+        self.adict["cost"] = 0
 
         # define symbolic equations
         time = cd.MX.sym("t", 1)
         parameters = cd.MX.sym("p", 2*reduce(operator.add, [dim[-1] for dim in self.adict["library_dimension"]]))
-        states = cd.MX.sym("x", self._output_states)
+        states = cd.MX.sym("x", self._states)
 
-        for i in range(self.N):
+        for i in range(self.N): # for all experiments
 
-            
-            def feature_ode(x, p, t):
-                # p : shape (feature columns, self._input_states)
-                # interpolation : shape (self._input_states, feature columns)
-                # cannot pass matrix with casadi. Use vector instead
-                p = cd.reshape(p, (-1, self._functional_library))
-                interpolation = cd.vertcat([cd.horzcat(xi[i](0, t)) for xi in self.adict["library"]])
-                rate_temp = 
+            def feature_ode(t, reference, activation, reaction):
+                # do it separately for each reaction since number of parameters can vary
+                # reference, activation : shape (feature columns, 1)
+                # interpolation : shape (1, feature columns)
+                interpolation_states = cd.horzcat(*self.adict["interpolation_library"][reaction][i](0, t))
+                interpolation_temp = cd.vertcat(*self.adict["interpolation_temperature"][reaction][i](0, t))
+                rate_temp = reference*cd.exp(-10_000*activation*(1/interpolation_temp - 1/373)/8.314)
+                return cd.mtimes(interpolation_states, rate_temp)
 
-                return 1
+            def ode(x, p, t):
+                # p : shape = sum of all decision variable X 1
+                # multiply with stoichiometric coefficients !
+                reference, activation, start = [], [], 0
+                for dim in self.adict["library_dimension"]:
+                    reference.append(p[start : start + dim[-1]])
+                    activation.append(p[start + dim[-1] : start + 2*dim[-1]]) 
+                    start += 2*dim[-1]
+
+                return cd.mtimes(
+                    self.adict["stoichiometry"], 
+                    cd.vertcat(*[feature_ode(t, ref, act, reaction) for reaction, ref, act in zip(range(self._reactions), reference, activation)])
+                            )
+
+            casadi_ode = {"x" :  states, "p" : parameters, "t" : time, "ode" : ode(states, parameters, time)}
+
+            # simulate the ode forward in time
+            solution = [self.adict["initial"][i].reshape(1, -1)] # initial conditions
+            for j in range(len(time_span) - 1):
+                casadi_integrator = cd.integrator("integral", "cvodes", casadi_ode, {"t0" : time_span[j], "tf" : time_span[j + 1]})
+                integration_solution = casadi_integrator(x0 = solution[-1], p = self.adict["coefficients_combined"])["xf"]
+                solution.append(integration_solution.T[-1, :])
+
+            self.adict["cost"] += cd.sumsqr(target[i] - cd.vertcat(*solution))
+
+        # adding regularization 
+        self.adict["cost"] += self.alpha*reduce(lambda value, accum : accum + cd.sumsqr(value), self.adict["coefficients"])
 
 
-
-        
-
-
-    def fit(self, features: List[np.ndarray], target: List[np.ndarray], time_span: np.ndarray, arguments: List[np.ndarray], 
+    def fit(self, features: List[np.ndarray], target: List[np.ndarray], time_span: np.ndarray, arguments: List[np.ndarray] = None, 
             include_column: Optional[List[np.ndarray]] = None, constraints_dict: dict = {}, seed: int = 12345) -> None:
         """
         arguments is a list of arrays so that its compatible with vectorize
@@ -101,26 +162,80 @@ class IntegralSindy(EnergySindy):
         """
 
         self._flag_fit = True
-        self._output_states = np.shape(target)[-1] # input and output states matrix can be different
+        _output_states = np.shape(target)[-1]
         self._input_states = np.shape(features)[-1]
         self.N = len(features)
-        self.arguments = arguments
-
-        assert len(arguments) == len(features), "Arguments and features should be consistent with the number of experiments"
-        # match the arguments with the number of data points (each array in features can have varying data points)
-        self.adict["arguments_original"] = np.squeeze(np.vstack([np.tile(args, (len(feat), 1)) for args, feat in zip(arguments, features)]))
 
         if "stoichiometry" in constraints_dict and isinstance(constraints_dict["stoichiometry"], np.ndarray):
-            rows, cols = constraints_dict["stoichiometry"].shape
-            assert rows == self._output_states, "The rows should match the number of states"
-            self._functional_library = cols
+            states, reactions = constraints_dict["stoichiometry"].shape
+            assert states == _output_states, "The rows of stoichiometry matrix should match the states of target"
             self.adict["stoichiometry"] = constraints_dict["stoichiometry"]
         else:
-            self._functional_library = self._output_states
-            self.adict["stoichiometry"] = np.eye(self._output_states) 
+            self.adict["stoichiometry"] = np.eye(_output_states) 
 
+        self._states, self._reactions = self.adict["stoichiometry"].shape
+        
         if include_column:
-            assert len(include_column) == self._functional_library, "length of columns should match with the number of functional libraries"
+            assert len(include_column) == self._reactions, "length of columns should match with the number of functional libraries"
             include_column = [list(range(self._input_states)) if len(alist) == 0 else alist for alist in include_column] 
         else:
-            include_column = [list(range(self._input_states)) for _ in range(self._functional_library)]
+            include_column = [list(range(self._input_states)) for _ in range(self._reactions)]
+
+        
+        self._generate_interpolation(features, include_column, time_span)
+        self._create_decision_variables()
+        self._update_cost(target, time_span)
+        self.opti.minimize(self.adict["cost"])
+        self.opti.solver("ipopt")
+        self.opti.solve()
+
+if __name__ == "__main__":
+
+    from scipy.integrate import odeint
+
+    def kinetic_kosir(x, t, args) -> np.ndarray:
+        # A -> 2B; A <-> C; A <-> D
+        R = args
+        rates = reaction_rate_kosir(x[-1], R)
+        return np.array([-(rates[0] + rates[1] + rates[3])*x[0] + rates[2]*x[2] + rates[4]*x[3],
+                        2*rates[0]*x[0],
+                        rates[1]*x[0] - rates[2]*x[2],
+                        rates[3]*x[0] - rates[4]*x[3], 
+                        373*(np.pi*np.cos(np.pi*t)/50)])
+
+    def reaction_rate_kosir(T, R):
+
+        # original values are at reference temperature of 373 K
+        # This function is called several times. Consider defining constants outside the function
+
+        if T == 373:
+            return [8.566/2, 1.191, 5.743, 10.219, 1.535]
+
+        Eab = 30*10**3
+        Eac = 40*10**3
+        Eca = 45*10**3
+        Ead = 50*10**3
+        Eda = 60*10**3
+
+        return [8.566/2*np.exp(-(Eab/R)*(1/T - 1/373)), 1.191*np.exp(-(Eac/R)*(1/T - 1/373)), 5.743*np.exp(-(Eca/R)*(1/T - 1/373)), 
+                10.219*np.exp(-(Ead/R)*(1/T - 1/373)), 1.535*np.exp(-(Eda/R)*(1/T - 1/373))]
+
+
+    n_expt = 2
+    delta_time = 0.01
+    time_span = np.arange(0, 5, delta_time)
+    np.random.seed(20)
+    x_init = [np.random.normal(5, 20, size = (4, )) for _ in range(n_expt)]
+    temperature = [373]
+    features = [odeint(kinetic_kosir, [*xi, temperature[-1]], time_span, args = (8.314, )) for xi in x_init] # list of features
+     
+    plugin_dict = {"ipopt.print_level" : 5, "print_time":5, "ipopt.sb" : "yes", "ipopt.max_iter" : 1000}
+    opti = IntegralSindy(FunctionalLibrary(2) , alpha = 0.1, threshold = 0.5, solver_dict={"solver" : "ipopt"}, 
+                            plugin_dict = plugin_dict, max_iter = 20)
+    
+    stoichiometry = np.array([-1, -1, -1, 0, 0, 2, 1, 0, 0, 0, 1, 0]).reshape(4, -1) # chemistry constraints
+    include_column = [[0, 2], [0, 3], [0, 1]] # chemistry constraints
+
+    opti.fit(features, [feat[:, :-1] for feat in features], time_span, include_column = include_column, 
+                constraints_dict= {"formation" : [], "consumption" : [], "energy" : False,
+                                    "stoichiometry" : stoichiometry})
