@@ -26,13 +26,17 @@ class DynamicModel():
     _solution_flag : bool = field(init = False, default = False)
 
     def __post_init__(self):
-        self._model_dict = {"kinetic_simple" : {"function" : DynamicModel.kinetic_simple, "n_states" : 4},
-                            "kinetic_kosir" : {"function" : DynamicModel.kinetic_kosir, "n_states" : 4}}
+        self._model_dict = {"kinetic_simple" : {"function" : DynamicModel.kinetic_simple, "n_states" : 4, "low" : [1, 1, 1, 1], "high" : [10, 10, 10, 10]},
+                            "kinetic_kosir" : {"function" : DynamicModel.kinetic_kosir, "n_states" : 4, "low" : [1, 1, 1, 1], "high" : [10, 10, 10, 10]}, 
+                            "kinetic_kosir_temperature" : {"function" : DynamicModel.kinetic_kosir_temperature, "n_states" : 5,  
+                            "low" : [1, 1, 1, 1, 373], "high" : [10, 10, 10, 10, 373]}}
         assert self.model in self._model_dict, "Dynamic model is not defined yet"
         
         rng = np.random.default_rng(self.seed)
         if not self.initial_condition:
-            self.initial_condition = [rng.uniform(1, 10, size = self._model_dict[self.model]["n_states"]) for _ in range(self.n_expt)]
+            self.initial_condition = [np.concatenate([rng.uniform(low, high, size = (1, )) 
+                                        for low, high in zip(self._model_dict[self.model]["low"], self._model_dict[self.model]["high"])])
+                                        for _ in range(self.n_expt)]
 
         if not self.arguments:
             # By default the data is generated for varying temperature values
@@ -88,6 +92,16 @@ class DynamicModel():
         return [8.566/2*np.exp(-(Eab/R)*(1/T - 1/373)), 1.191*np.exp(-(Eac/R)*(1/T - 1/373)), 5.743*np.exp(-(Eca/R)*(1/T - 1/373)), 
                 10.219*np.exp(-(Ead/R)*(1/T - 1/373)), 1.535*np.exp(-(Eda/R)*(1/T - 1/373))]
 
+    @staticmethod
+    def kinetic_kosir_temperature(x, t, args) -> np.ndarray:
+        # A -> 2B; A <-> C; A <-> D
+        T, R  = args
+        rates = DynamicModel.reaction_rate_kosir(x[-1], R)
+        return np.array([-(rates[0] + rates[1] + rates[3])*x[0] + rates[2]*x[2] + rates[4]*x[3],
+                        2*rates[0]*x[0],
+                        rates[1]*x[0] - rates[2]*x[2],
+                        rates[3]*x[0] - rates[4]*x[3], 
+                        373*(np.pi*np.cos(np.pi*t)/50)])
 
     def coefficients(self, x : Optional[Tuple[smp.symbols]] = None, t : Optional[np.ndarray] = None, args : Optional[Tuple] = None) -> List[dict]:
 
