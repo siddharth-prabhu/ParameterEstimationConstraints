@@ -222,11 +222,18 @@ class Optimizer_casadi(Base):
         pass
 
     # function for multiprocessing
-    def _stlsq_solve_optimization(self, library : List, target : np.ndarray, constraints_dict : dict, permutations : List, seed : int) -> List[List[np.ndarray]]:
+    def _stlsq_solve_optimization(self, permutations : List, **kwargs) -> List[List[np.ndarray]]:
         # create problem from scratch since casadi cannot run the same problem once optimized
         # steps should follow a sequence 
         # dont replace if there is only one ensemble iteration. Dataset rows are constant for all reactions 
         # parameters is added so that you can get the values of decision variables without having to rewrite this code
+        library = kwargs.get("library", None)
+        target = kwargs.get("target", None)
+        constraints_dict = kwargs.get("constraints_dict", None)
+        seed = kwargs.get("seed", None)
+        assert ((library is not None) and (target is not None) and (constraints_dict is not None) and 
+                (seed is not None)), "library, target, constraints_dict and seed should be provided"
+ 
         self._create_decision_variables()
         parameters : List = self._create_parameters()
         self.adict["library"] = [value[permutations]*self.adict["mask"][ind] for ind, value in enumerate(library)]
@@ -241,7 +248,7 @@ class Optimizer_casadi(Base):
 
 
     def _stlsq(self, target : np.ndarray, constraints_dict : dict, ensemble_iterations : int, variance_elimination : bool = False, 
-                    max_workers : Optional[int] = None, seed : int = 12345) -> List[List[np.ndarray]]:
+                    time_span : Optional[np.ndarray] = None, max_workers : Optional[int] = None, seed : int = 12345) -> List[List[np.ndarray]]:
         
         # parameters is added so that you can get the values of additional decision variables without having to rewrite code
         # however thresholding is only done with respect to the original parameters
@@ -261,12 +268,12 @@ class Optimizer_casadi(Base):
             self.adict["coefficients_casadi_ensemble"] : List[dict] = []
             permutations = [rng.choice(range(self.adict["library_dimension"][0][0]), self.adict["library_dimension"][0][0], replace = (ensemble_iterations > 1))
                                     for _ in range(self.adict["iterations_ensemble"])] 
-
+            _stlsq_solve_optimization_partial = partial(self._stlsq_solve_optimization, library = library, target = target, constraints_dict = constraints_dict, 
+                    seed = seed, time_span = time_span)
             if variance_elimination and ensemble_iterations > 1: # use multiprocessing
-                with ProcessPoolExecutor(max_workers = max_workers) as executor:           
-                    _coefficients_ensemble = list(executor.map(self._stlsq_solve_optimization, repeat(library), repeat(target), repeat(constraints_dict), 
-                                                                permutations, repeat(seed)))
+                with ProcessPoolExecutor(max_workers = max_workers) as executor:  
 
+                    _coefficients_ensemble = list(executor.map(_stlsq_solve_optimization_partial, permutations))
                     _coefficients_ensemble = list(zip(*_coefficients_ensemble))
                     for _coefficients_ensemble_parameters in _coefficients_ensemble:
                         bdict = defaultdict(list)
@@ -276,7 +283,7 @@ class Optimizer_casadi(Base):
                         self.adict["coefficients_casadi_ensemble"].append(bdict)
             
             else : # Do not use multiprocessing.
-                _coefficients_ensemble = [self._stlsq_solve_optimization(library, target, constraints_dict, permute, seed) for permute in permutations]
+                _coefficients_ensemble = [_stlsq_solve_optimization_partial(permute) for permute in permutations]
                 
                 # separate the values of parameters into a list of list of values
                 _coefficients_ensemble = list(zip(*_coefficients_ensemble))

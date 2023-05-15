@@ -151,11 +151,18 @@ class EnergySindy(Optimizer_casadi):
         pass
 
     # function for multiprocessing
-    def _stlsq_solve_optimization(self, library : List, target : np.ndarray, constraints_dict : dict, permutations : List, seed : int) -> List[List[np.ndarray]]:
+    def _stlsq_solve_optimization(self, permutations : List, **kwargs) -> List[List[np.ndarray]]:
         # create problem from scratch since casadi cannot run the same problem once optimized
         # steps should follow a sequence 
         # dont replace if there is only one ensemble iteration. Dataset rows are constant for all reactions 
         # parameters is added so that you can get the values of decision variables without having to rewrite this code
+        library = kwargs.get("library", None)
+        target = kwargs.get("target", None)
+        constraints_dict = kwargs.get("constraints_dict", None)
+        seed = kwargs.get("seed", None)
+        assert ((library is not None) and (target is not None) and (constraints_dict is not None) and 
+                (seed is not None)), "library, target, constraints_dict and seed should be provided"
+
         self._create_decision_variables()
         parameters : List = self._create_parameters()
         self.adict["library"] = [value[permutations]*self.adict["mask"][ind] for ind, value in enumerate(library)]

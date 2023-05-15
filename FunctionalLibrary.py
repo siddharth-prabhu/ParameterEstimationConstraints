@@ -75,7 +75,7 @@ class FunctionalLibrary():
             if get_function:
                 return combinations_integration
             else:
-                assert self.interpolation_scheme == "scipy", f"Interpolation scheme has to be scipy"
+                assert interpolation_scheme == "scipy", f"Interpolation scheme has to be scipy"
                 return odeint(combinations_integration, combinations_integration(0, 0), time_span) - combinations_integration(0, 0)
         
         else:

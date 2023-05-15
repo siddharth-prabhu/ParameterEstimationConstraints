@@ -26,10 +26,10 @@ class DynamicModel():
     _solution_flag : bool = field(init = False, default = False)
 
     def __post_init__(self):
-        self._model_dict = {"kinetic_simple" : {"function" : DynamicModel.kinetic_simple, "n_states" : 4, "low" : [1, 1, 1, 1], "high" : [10, 10, 10, 10]},
-                            "kinetic_kosir" : {"function" : DynamicModel.kinetic_kosir, "n_states" : 4, "low" : [1, 1, 1, 1], "high" : [10, 10, 10, 10]}, 
+        self._model_dict = {"kinetic_simple" : {"function" : DynamicModel.kinetic_simple, "n_states" : 4, "low" : [5, 5, 5, 5], "high" : [20, 20, 20, 20]},
+                            "kinetic_kosir" : {"function" : DynamicModel.kinetic_kosir, "n_states" : 4, "low" : [5, 5, 5, 5], "high" : [20, 20, 20, 20]}, 
                             "kinetic_kosir_temperature" : {"function" : DynamicModel.kinetic_kosir_temperature, "n_states" : 5,  
-                            "low" : [1, 1, 1, 1, 373], "high" : [10, 10, 10, 10, 373]}}
+                            "low" : [5, 5, 5, 5, 373], "high" : [20, 20, 20, 20, 373]}}
         assert self.model in self._model_dict, "Dynamic model is not defined yet"
         
         rng = np.random.default_rng(self.seed)
@@ -95,7 +95,7 @@ class DynamicModel():
     @staticmethod
     def kinetic_kosir_temperature(x, t, args) -> np.ndarray:
         # A -> 2B; A <-> C; A <-> D
-        T, R  = args
+        R  = 8.314
         rates = DynamicModel.reaction_rate_kosir(x[-1], R)
         return np.array([-(rates[0] + rates[1] + rates[3])*x[0] + rates[2]*x[2] + rates[4]*x[3],
                         2*rates[0]*x[0],
