@@ -111,7 +111,7 @@ class IntegralSindy(EnergySindy):
 
         # define symbolic equations
         time = cd.MX.sym("t", 1)
-        parameters = cd.MX.sym("p", 2*reduce(operator.add, [dim[-1] for dim in self.adict["library_dimension"]]))
+        parameters = cd.MX.sym("p", 2*reduce(operator.add, [dim[-1] for dim in self.adict["library_dimension"]]) + 2) # + 2 for times
         states = cd.MX.sym("x", self._states)
 
         for i in range(self.N): # for all experiments
@@ -128,6 +128,7 @@ class IntegralSindy(EnergySindy):
             def ode(x, p, t):
                 # p : shape = sum of all decision variable X 1
                 # multiply with stoichiometric coefficients !
+                p, time_initial, time_delta = p[:-2], p[-2], p[-1] # params, t_init, delta time
                 reference, activation, start = [], [], 0
                 for dim in self.adict["library_dimension"]:
                     reference.append(p[start : start + dim[-1]])
@@ -136,18 +137,24 @@ class IntegralSindy(EnergySindy):
 
                 return cd.mtimes(
                     self.adict["stoichiometry"], 
-                    cd.vertcat(*[feature_ode(t, ref, act, reaction) for reaction, ref, act in zip(range(self._reactions), reference, activation)])
+                    cd.vertcat(*[feature_ode(time_initial + t*time_delta, ref, act, reaction) for reaction, ref, act in zip(range(self._reactions), reference, activation)])
                             )
 
-            casadi_ode = {"x" :  states, "p" : parameters, "t" : time, "ode" : ode(states, parameters, time)}
-
             # simulate the ode forward in time
+            casadi_ode = {"x" :  states, "p" : parameters, "t" : time, "ode" : ode(states, parameters, time)}
+            casadi_integrator = cd.integrator("integral", "cvodes", casadi_ode, {"t0" : 0, "tf" : 1})
+            # auto differentiation fails with grid options
+            # https://github.com/casadi/casadi/issues/2619
+            # casadi_integrator = cd.integrator("integral", "cvodes", casadi_ode, {"grid" : time_span, "output_t0" : True})
+            
             solution = [self.adict["initial"][i].reshape(1, -1)] # initial conditions
             for j in range(len(time_span) - 1):
-                casadi_integrator = cd.integrator("integral", "cvodes", casadi_ode, {"t0" : time_span[j], "tf" : time_span[j + 1]})
-                integration_solution = casadi_integrator(x0 = solution[-1], p = self.adict["coefficients_combined"])["xf"]
+                time_initial = time_span[j]
+                time_delta = time_span[j + 1] - time_span[j]
+                integration_solution = casadi_integrator(x0 = solution[-1], p = cd.vertcat(self.adict["coefficients_combined"], time_initial, time_delta))["xf"]
                 solution.append(integration_solution.T[-1, :])
-
+            
+            # update cost
             self.adict["cost"] += cd.sumsqr(target[i] - cd.vertcat(*solution))
 
         # adding regularization 
@@ -184,7 +191,7 @@ class IntegralSindy(EnergySindy):
 
         self._flag_fit = True
         _output_states = np.shape(target)[-1]
-        self._input_states = np.shape(features)[-1]
+        self._input_states = np.shape(features)[-1] - 1 # do not consider temperature
         self.N = len(features)
 
         if "stoichiometry" in constraints_dict and isinstance(constraints_dict["stoichiometry"], np.ndarray):
@@ -202,7 +209,6 @@ class IntegralSindy(EnergySindy):
         else:
             include_column = [list(range(self._input_states)) for _ in range(self._reactions)]
 
-        
         self._generate_interpolation(features, include_column, time_span)
         _mean, _deviation = self._stlsq(
             target, 
@@ -215,22 +221,30 @@ class IntegralSindy(EnergySindy):
         (self.adict["coefficients_value"], self.adict["coefficients_energy_value"], self.adict["coefficients_deviation"], 
                                         self.adict["coefficients_energy_deviation"]) = (_mean[0], _mean[1], _deviation[0], _deviation[1])
         
+        self._create_equations()
+        
 
 if __name__ == "__main__":
 
     from GenerateData import DynamicModel
 
     time_span = np.arange(0, 5, 0.01)
-    model = DynamicModel("kinetic_kosir_temperature", time_span, n_expt = 2)
+    model = DynamicModel("kinetic_kosir_temperature", time_span, n_expt = 5)
     features = model.integrate()
      
     plugin_dict = {"ipopt.print_level" : 5, "print_time":5, "ipopt.sb" : "yes", "ipopt.max_iter" : 3000}
-    opti = IntegralSindy(FunctionalLibrary(1) , alpha = 0.1, threshold = 0.5, solver_dict={"solver" : "ipopt"}, 
+    opti = IntegralSindy(FunctionalLibrary(2) , alpha = 0.1, threshold = 0.5, solver_dict={"solver" : "ipopt"}, 
                             plugin_dict = plugin_dict, max_iter = 20)
     
-    stoichiometry = np.array([-1, -1, -1, 0, 0, 2, 1, 0, 0, 0, 1, 0]).reshape(4, -1) # chemistry constraints
-    include_column = [[0, 2], [0, 3], [0, 1]] # chemistry constraints
+    # stoichiometry = np.array([-1, -1, -1, 0, 0, 2, 1, 0, 0, 0, 1, 0]).reshape(4, -1) # chemistry constraints
+    # include_column = [[0, 2], [0, 3], [0, 1]] # chemistry constraints
+
+    include_column = []
+    stoichiometry = np.eye(4) # no constraints
+    # stoichiometry =  np.array([1, 0, 0, 0, 1, 0, 0, 0, 1, -1, -0.5, -1]).reshape(4, -1) # mass balance constraints
 
     opti.fit(features, [feat[:, :-1] for feat in features], time_span, include_column = include_column, 
                 constraints_dict= {"formation" : [], "consumption" : [],
                                     "stoichiometry" : stoichiometry})
+
+    opti.print()
