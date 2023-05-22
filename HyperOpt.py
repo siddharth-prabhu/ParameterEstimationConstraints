@@ -17,6 +17,7 @@ from bokeh.layouts import column, row
 from GenerateData import DynamicModel
 from Optimizer import Optimizer_casadi
 from energy import EnergySindy
+from integral import IntegralSindy
 from FunctionalLibrary import FunctionalLibrary
 
 @dataclass()
@@ -37,6 +38,9 @@ class HyperOpt():
 
     def __post_init__(self):
         assert len(self.X) > 1 and len(self.X_clean) > 1, "Need atleast 2 experiments for hyperparameter optimization"
+        assert len(self.arguments) == len(self.X), f"Arguments (length = {len(self.arguments)}) should be equal to the number of initial conditions (length = {len(self.X)})"
+        assert len(self.arguments_clean) == len(self.X_clean), f"Clean arguments (length = {len(self.arguments_clean)}) should be equal to the number of initial conditions (length = {len(self.X_clean)})"  
+        assert len(self.X) == len(self.y) and len(self.X_clean) == len(self.y_clean), "Features and targets should have the same length"
 
     @staticmethod
     def train_test_split(arrays : Tuple[List[np.ndarray]], train_split_percent : int = 80) -> Tuple[List[np.array]]:
@@ -109,7 +113,7 @@ class HyperOpt():
         print("Running for parameter combination", param_dict)
 
         try:
-            self.model.fit(self.X_train, self.y_train, time_span = self.t_train, arguments = self.arguments_train, **self.meta)  
+            self.model.fit(self.X_train, self.y_train, time_span = self.t_train, arguments = self.arguments_train, **self.meta) 
 
         except Exception as error:
             print(error)
@@ -118,16 +122,16 @@ class HyperOpt():
         else :
             print(f"Model for parameter combination {param_dict}", self.model.print(), sep = "\n")
             complexity = self.model.complexity
-            MSE_test_pred = self.model.score(self.X_clean_test, self.y_clean_test, metric = mean_squared_error, model_args = self.arguments_clean_test)
-            MSE_train_pred = self.model.score(self.X_clean_train, self.y_clean_train, metric = mean_squared_error, model_args = self.arguments_clean_train)
+            MSE_test_pred = self.model.score(self.X_clean_test, self.y_clean_test, self.t_clean, metric = mean_squared_error, model_args = self.arguments_clean_test)
+            MSE_train_pred = self.model.score(self.X_clean_train, self.y_clean_train, self.t_clean, metric = mean_squared_error, model_args = self.arguments_clean_train)
 
-            r2_test_pred = self.model.score(self.X_clean_test, self.y_clean_test, metric = r2_score, model_args = self.arguments_clean_test)
-            r2_train_pred = self.model.score(self.X_clean_train, self.y_clean_train, metric = r2_score, model_args = self.arguments_clean_train)
+            r2_test_pred = self.model.score(self.X_clean_test, self.y_clean_test, self.t_clean, metric = r2_score, model_args = self.arguments_clean_test)
+            r2_train_pred = self.model.score(self.X_clean_train, self.y_clean_train, self.t_clean, metric = r2_score, model_args = self.arguments_clean_train)
 
             # add integration results
             try :
-                _integration_test = self.model.simulate(self.X_clean_test, self.t_clean, model_args = self.arguments_clean_test)
-                _integration_train = self.model.simulate(self.X_clean_train, self.t_clean, model_args = self.arguments_clean_train)
+                _, (MSE_test_sim, r2_test_sim) = self.model.simulate(self.X_clean_test, self.t_clean, model_args = self.arguments_clean_test, calculate_score = True, metric = [mean_squared_error, r2_score])
+                _, (MSE_train_sim, r2_train_sim) = self.model.simulate(self.X_clean_train, self.t_clean, model_args = self.arguments_clean_train, calculate_score = True, metric = [mean_squared_error, r2_score])
             
             except:
                 MSE_test_sim = np.nan
@@ -136,15 +140,7 @@ class HyperOpt():
                 r2_train_sim = np.nan
                 AIC = np.nan
 
-            else:
-                MSE_test_sim = self.model.score(_integration_test, self.X_clean_test, metric=mean_squared_error, predict = False, 
-                                                model_args = self.arguments_clean_test)
-                MSE_train_sim = self.model.score(_integration_train, self.X_clean_train, metric = mean_squared_error, predict = False, 
-                                                model_args = self.arguments_clean_train)
-
-                r2_test_sim = self.model.score(_integration_test, self.X_clean_test, metric = r2_score, predict = False, model_args = self.arguments_clean_test)
-                r2_train_sim = self.model.score(_integration_train, self.X_clean_train, metric = r2_score, predict = False, model_args = self.arguments_clean_train)                   
-
+            else:                  
                 AIC = 2*np.log((MSE_test_sim + MSE_test_pred)/2) + complexity
                 # AIC = (MSE_train_pred + MSE_train_sim)*(sum(len(x_train) for x_train in self.X_train))/2 + complexity
 
@@ -215,24 +211,25 @@ class HyperOpt():
 
 if __name__ == "__main__":
 
+    params = {"optimizer__threshold": [0.01], 
+        "optimizer__alpha": [0.01], 
+        "feature_library__include_bias" : [False],
+        "feature_library__degree": [1]}
+
+    """
     t_span = np.arange(0, 5, 0.01)
     model_actual = DynamicModel("kinetic_kosir", t_span, n_expt = 2, arguments = [(373, 8.314)])
     features = model_actual.integrate()
     target = model_actual.approx_derivative
     # model_actual.plot(features[-1], t_span, "Time", "Concentration", ["A", "B", "C", "D"])
 
-    params = {"optimizer__threshold": [0.01, 0.1, 0.5], 
-        "optimizer__alpha": [0.01, 0.1, 0], 
-        "feature_library__include_bias" : [False],
-        "feature_library__degree": [1]}
-
     opt = HyperOpt(features, target, features, target, t_span, t_span, model = Optimizer_casadi(plugin_dict = {"ipopt.print_level" : 0, "print_time":0, "ipopt.sb" : "yes"}), 
                     parameters = params)
     opt.gridsearch(max_workers = 2)
     opt.plot()
 
-    """
-    # testing for temperature varying data
+    
+    ## testing for temperature varying data
     model = DynamicModel("kinetic_kosir", t_span, n_expt = 20)
     features = model.integrate() # list of features
     target = model.approx_derivative # list of target value
@@ -246,3 +243,24 @@ if __name__ == "__main__":
 
     opt.gridsearch(max_workers = 2)
     """
+
+    ## testing for adiabatic conditions
+    time_span = np.arange(0, 5, 0.01)
+    n_expt = 2
+    model = DynamicModel("kinetic_kosir_temperature", time_span, n_expt = n_expt)
+    features = model.integrate()
+    target =  [feat[:, :-1] for feat in features]
+    plugin_dict = {"ipopt.print_level" : 5, "print_time":5, "ipopt.sb" : "yes", "ipopt.max_iter" : 3000}
+    
+    # stoichiometry = np.array([-1, -1, -1, 0, 0, 2, 1, 0, 0, 0, 1, 0]).reshape(4, -1) # chemistry constraints
+    # include_column = [[0, 2], [0, 3], [0, 1]] # chemistry constraints
+
+    include_column = []
+    stoichiometry = np.eye(4) # no constraints
+    # stoichiometry =  np.array([1, 0, 0, 0, 1, 0, 0, 0, 1, -1, -0.5, -1]).reshape(4, -1) # mass balance constraints
+
+    print("--"*20)
+    opt = HyperOpt(features, target, features, target, time_span, time_span, IntegralSindy(plugin_dict = plugin_dict), 
+                    model.arguments, model.arguments, parameters = params,  meta = {"include_column" : include_column, "stoichiometry" : stoichiometry})
+    opt.gridsearch(max_workers = 1)
+    opt.plot()

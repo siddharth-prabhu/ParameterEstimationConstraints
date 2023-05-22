@@ -1,11 +1,12 @@
 # type: ignore
-from typing import List, Optional, Callable
+from typing import List, Optional, Callable, Any
 from functools import reduce
 import operator
 
 import casadi as cd
 import numpy as np
 import sympy as smp
+from sklearn.metrics import mean_squared_error
 
 from FunctionalLibrary import FunctionalLibrary
 from energy import EnergySindy
@@ -84,7 +85,7 @@ class IntegralSindy(EnergySindy):
         
         # rows of data is number of experiments*time_span, cols of data is the dimension of the returned callable matrix
         self.adict["library"] = None # just to make things compatible with downstream ops
-        self.adict["library_dimension"] = [(len(xi)*len(time_span), len(xi[0](0, 0))) for xi in self.adict["interpolation_library"]]
+        self.adict["library_dimension"] = [(len(time_span), len(xi[0](0, 0))) for xi in self.adict["interpolation_library"]]
         self.input_symbols = (*self.input_symbols, *smp.symbols("T, R"))
 
     def _create_decision_variables(self):
@@ -103,7 +104,6 @@ class IntegralSindy(EnergySindy):
         self.adict["coefficients_energy"] = activation
         self.adict["coefficients_combined"] = variables 
 
-
     def _update_cost(self, target: List[np.ndarray], time_span : np.ndarray):
         # target here is list of np.ndarrays
         # add ode function here and for all experiments
@@ -120,10 +120,11 @@ class IntegralSindy(EnergySindy):
                 # do it separately for each reaction since number of parameters can vary
                 # reference, activation : shape (feature columns, 1)
                 # interpolation : shape (1, feature columns)
+                # multiple by mask before returning so that there are less terms to integrate
                 interpolation_states = cd.horzcat(*self.adict["interpolation_library"][reaction][i](0, t))
                 interpolation_temp = cd.vertcat(*self.adict["interpolation_temperature"][reaction][i](0, t))
                 rate_temp = reference*cd.exp(-10_000*activation*(1/interpolation_temp - 1/373)/8.314)
-                return cd.mtimes(interpolation_states, rate_temp)
+                return cd.mtimes(interpolation_states, rate_temp*self.adict["mask"][reaction].flatten())
 
             def ode(x, p, t):
                 # p : shape = sum of all decision variable X 1
@@ -172,26 +173,28 @@ class IntegralSindy(EnergySindy):
         assert ((time_span is not None) and (target is not None)), "time_span and target should be provided"
 
         self._create_decision_variables()
-        parameters : List = self._create_parameters()
+        self._parameters : List = self._create_parameters()
         self._update_cost(target, time_span)
         self._initialize_decision_variables()
         _solution = self._minimize(self.plugin_dict, self.solver_dict) # no need to save for every iteration
 
         # list[np.ndarray]. additional layer of np.array and flatten to account for singular value, which casadi outputs as float
-        return [[np.array([_solution.value(coeff)]).flatten() for coeff in params] for params in parameters]
+        return [[np.array([_solution.value(coeff)]).flatten() for coeff in params] for params in self._parameters]
 
     def fit(self, features: List[np.ndarray], target: List[np.ndarray], time_span: np.ndarray, arguments: List[np.ndarray] = None, 
             include_column: Optional[List[np.ndarray]] = None, constraints_dict: dict = {}, max_workers : Optional[int] = None, 
-            seed: int = 12345) -> None:
+            seed: int = 12345, **kwargs) -> None:
         """
+        features : temperature is always the last column
+        target : the derivatives of states. In this formulation it will be replaced with states
         arguments is a list of arrays so that its compatible with vectorize
         constraints_dict should be of the form {"consumption" : [], "formation" : [], 
                                                    "stoichiometry" : np.ndarray}
         """
-
+        
         self._flag_fit = True
-        _output_states = np.shape(target)[-1]
         self._input_states = np.shape(features)[-1] - 1 # do not consider temperature
+        _output_states = self._input_states
         self.N = len(features)
 
         if "stoichiometry" in constraints_dict and isinstance(constraints_dict["stoichiometry"], np.ndarray):
@@ -210,6 +213,10 @@ class IntegralSindy(EnergySindy):
             include_column = [list(range(self._input_states)) for _ in range(self._reactions)]
 
         self._generate_interpolation(features, include_column, time_span)
+        taget = [feat[:, :-1] for feat in features]
+        # mask cannot be part of optimization because it cannot be reset every otpmization loop
+        self._create_mask() # pulled outside optimization so that can be used in cost function
+
         _mean, _deviation = self._stlsq(
             target, 
             constraints_dict, 
@@ -222,18 +229,33 @@ class IntegralSindy(EnergySindy):
                                         self.adict["coefficients_energy_deviation"]) = (_mean[0], _mean[1], _deviation[0], _deviation[1])
         
         self._create_equations()
+    
+    def simulate(self, X : list[np.ndarray], time_span : np.ndarray, model_args : Optional[np.ndarray] = None, calculate_score : bool = False, 
+                metric : List[Callable] = [mean_squared_error], **integrator_kwargs) -> list[np.ndarray]:
         
+        # remove the temperature column from the data
+        X = [xi[:, :-1] for xi in X]
+        return super().simulate(X, time_span, model_args, calculate_score, metric, **integrator_kwargs)
+
+    def predict(self, X : List[np.ndarray], time_span : np.ndarray, model_args : Optional[List[Any]] = None) -> List[np.ndarray]:
+        # remove the temperature column from the data
+        X = [xi[:, :-1] for xi in X]
+        return super().predict(X, time_span, model_args)
+
 
 if __name__ == "__main__":
 
     from GenerateData import DynamicModel
+    from scipy.interpolate import CubicSpline
 
     time_span = np.arange(0, 5, 0.01)
-    model = DynamicModel("kinetic_kosir_temperature", time_span, n_expt = 5)
+    n_expt = 1
+    model = DynamicModel("kinetic_kosir_temperature", time_span, n_expt = n_expt)
     features = model.integrate()
-     
+    target =  [feat[:, :-1] for feat in features]
+
     plugin_dict = {"ipopt.print_level" : 5, "print_time":5, "ipopt.sb" : "yes", "ipopt.max_iter" : 3000}
-    opti = IntegralSindy(FunctionalLibrary(2) , alpha = 0.1, threshold = 0.5, solver_dict={"solver" : "ipopt"}, 
+    opti = IntegralSindy(FunctionalLibrary(1) , alpha = 0.0, threshold = 0.5, solver_dict={"solver" : "ipopt"}, 
                             plugin_dict = plugin_dict, max_iter = 20)
     
     # stoichiometry = np.array([-1, -1, -1, 0, 0, 2, 1, 0, 0, 0, 1, 0]).reshape(4, -1) # chemistry constraints
@@ -242,9 +264,16 @@ if __name__ == "__main__":
     include_column = []
     stoichiometry = np.eye(4) # no constraints
     # stoichiometry =  np.array([1, 0, 0, 0, 1, 0, 0, 0, 1, -1, -0.5, -1]).reshape(4, -1) # mass balance constraints
-
-    opti.fit(features, [feat[:, :-1] for feat in features], time_span, include_column = include_column, 
+    
+    opti.fit(features, target, time_span, include_column = include_column, 
                 constraints_dict= {"formation" : [], "consumption" : [],
                                     "stoichiometry" : stoichiometry})
 
     opti.print()
+    print("--"*20)
+    interp = CubicSpline(time_span, features[0][:, -1])
+    arguments = [[interp, 8.314] for _ in range(n_expt)]
+    print("mean squared error :", opti.score(features, target, time_span, model_args = arguments))
+    print("model complexity", opti.complexity)
+    print("Total number of iterations", opti.adict["iterations"])
+    print("--"*20)

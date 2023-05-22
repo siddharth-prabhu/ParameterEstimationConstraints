@@ -1,6 +1,6 @@
 # type: ignore
 
-from typing import List, Optional, Any, Callable, Tuple
+from typing import List, Optional, Any, Callable, Tuple, Any
 from functools import reduce
 
 import casadi as cd
@@ -48,8 +48,8 @@ class EnergySindy(Optimizer_casadi):
         super()._create_decision_variables() # reaction rates at reference temperature of 373 K
         # adding activation energies
         # variables are defined individually because MX objects cannot be indexed for jacobian/hessian
-        self.adict["coefficients_energy"] = [cd.vertcat(*(self.opti.variable(1) for _ in range(dimension[-1]))) for dimension in self.adict["library_dimension"]] 
-
+        self.adict["coefficients_energy"] = [cd.vertcat(*(self.opti.variable(1) for _ in range(dimension[-1]))) for dimension in self.adict["library_dimension"]]
+        
     def _generate_library(self, data : np.ndarray, include_column : List[np.ndarray]) -> None:
         
         super()._generate_library(data, include_column)
@@ -95,7 +95,7 @@ class EnergySindy(Optimizer_casadi):
 
         super()._add_constraints(constraints_dict, seed)
 
-        if constraints_dict.get("energy", False):
+        if constraints_dict.get("activation_energy", False):
             # make all the activation energies positive
             for coefficient_energy in self.adict["coefficients_energy"]:
                 self.opti.subject_to(cd.vec(coefficient_energy) >= 0)
@@ -138,17 +138,10 @@ class EnergySindy(Optimizer_casadi):
     def _create_parameters(self) -> List:
         """
         List of decision variables for which mean and standard deviation needs to be traced. 
-        The thresholding parameters always have to be the first ones
+        The thresholding parameters always have to be the first one in the list
         """
         return [self.adict["coefficients"], self.adict["coefficients_energy"]]
 
-
-    def _initialize_decision_variables(self) -> None:
-        """
-        Sets the initial guess for decision varibles
-        Default guess value chosen by casadi is zero
-        """
-        pass
 
     # function for multiprocessing
     def _stlsq_solve_optimization(self, permutations : List, **kwargs) -> List[List[np.ndarray]]:
@@ -164,7 +157,7 @@ class EnergySindy(Optimizer_casadi):
                 (seed is not None)), "library, target, constraints_dict and seed should be provided"
 
         self._create_decision_variables()
-        parameters : List = self._create_parameters()
+        self._parameters : List = self._create_parameters()
         self.adict["library"] = [value[permutations]*self.adict["mask"][ind] for ind, value in enumerate(library)]
         # shuffle the arguments as well
         self.adict["arguments"] = self.adict["arguments_original"][permutations]
@@ -175,33 +168,38 @@ class EnergySindy(Optimizer_casadi):
         _solution = self._minimize(self.plugin_dict, self.solver_dict) # no need to save for every iteration
 
         # list[np.ndarray]. additional layer of np.array and flatten to account for singular value, which casadi outputs as float
-        return [[np.array([_solution.value(coeff)]).flatten() for coeff in params] for params in parameters]
+        return [[np.array([_solution.value(coeff)]).flatten() for coeff in params] for params in self._parameters]
 
 
-    def fit(self, features : List[np.ndarray], target : List[np.ndarray], time_span : np.ndarray, arguments : List[np.ndarray], 
+    def fit(self, features : List[np.ndarray], target : List[np.ndarray], time_span : np.ndarray, arguments : List[Any], 
                 include_column : Optional[List[np.ndarray]] = None, constraints_dict : dict = {} , 
                 ensemble_iterations : int = 1, variance_elimination : bool = False, derivative_free : bool = False,
-                max_workers : Optional[int] = None, seed : int = 12345) -> None:
-    
-        # arguments is a list of arrays so that its compatible with vectorize
-        # if variance_elimination = True and ensemble_iterations > 1 performs boostrapping
-        # if variance_elimination = True and ensemble_iterations <= 1 performs covariane matrix
-        # if variance_elimination = False performs normal thresholding (regular sindy)
-        # constraints_dict should be of the form {"consumption" : [], "formation" : [], 
-        #                                           "stoichiometry" : np.ndarray}
-
+                max_workers : Optional[int] = None, seed : int = 12345, **kwargs) -> None:
+        """
+        target : the derivatives of states. depending on the formulation it will be used or replaced with states
+        arguments is a list of arrays so that its compatible with vectorize
+        if variance_elimination = True and ensemble_iterations > 1 performs boostrapping
+        if variance_elimination = True and ensemble_iterations <= 1 performs covariane matrix
+        if variance_elimination = False performs normal thresholding (regular sindy)
+        constraints_dict should be of the form {"consumption" : [], "formation" : [], 
+                                                   "stoichiometry" : np.ndarray}
+        """
         # prevents errors in downstream
         if not variance_elimination:
             ensemble_iterations = 1
 
         self._flag_fit = True
-        _output_states = np.shape(target)[-1]
         self._input_states = np.shape(features)[-1]
+        _output_states = np.shape(target)[-1] if not derivative_free else self._input_states
         self.N = len(features)
 
         assert len(arguments) == len(features), "Arguments and features should be consistent with the number of experiments"
-        # match the arguments with the number of data points (each array in features can have varying data points)
-        self.adict["arguments_original"] = np.squeeze(np.vstack([np.tile(args, (len(feat), 1)) for args, feat in zip(arguments, features)]))
+        if arguments[0].ndim == 2 and len(arguments) == len(features[0]):
+            # There are as many arguments as there are data points. Just stack
+            self.adict["arguments_original"] = np.squeeze(np.vstack(arguments))
+        else:
+            # There are not enough arguments as there are data points (each array in features can have varying data points)
+            self.adict["arguments_original"] = np.squeeze(np.vstack([np.tile(args, (len(feat), 1)) for args, feat in zip(arguments, features)]))
 
         if "stoichiometry" in constraints_dict and isinstance(constraints_dict["stoichiometry"], np.ndarray):
             states, reactions = constraints_dict["stoichiometry"].shape
@@ -219,12 +217,14 @@ class EnergySindy(Optimizer_casadi):
             include_column = [list(range(self._input_states)) for _ in range(self._reactions)]
 
         if derivative_free:
+            # use the features as target values. In this case there cannot be a mismatch between features and target columns
             target = np.vstack([feat - feat[0] for feat in features])
             self._generate_library_derivative_free(features, include_column, time_span)
         else:
             features, target = np.vstack(features), np.vstack(target)
             self._generate_library(features, include_column)
 
+        self._create_mask() # pulled outside optimization so that can be used in cost function
         _mean, _deviation = self._stlsq(target, constraints_dict, ensemble_iterations, variance_elimination, max_workers, seed)
         (self.adict["coefficients_value"], self.adict["coefficients_energy_value"], self.adict["coefficients_deviation"], 
                                         self.adict["coefficients_energy_deviation"]) = (_mean[0], _mean[1], _deviation[0], _deviation[1])
@@ -264,6 +264,8 @@ if __name__ == "__main__":
     from GenerateData import DynamicModel
     from utils import coefficient_difference_plot
 
+    """
+    ## Running temperature dependant df-sindy (integral based) formulation 
     time_span = np.arange(0, 5, 0.01)
     arguments = [(360, 8.314), (370, 8.314), (380, 8.314), (390, 8.314), (373, 8.314), (385, 8.314)][:4]
     model = DynamicModel("kinetic_kosir", time_span, n_expt = len(arguments) if arguments else 4, arguments = arguments, seed = 20)
@@ -282,12 +284,13 @@ if __name__ == "__main__":
     include_column = [[0, 2], [0, 3], [0, 1]] # chemistry constraints
 
     opti.fit(features, target, time_span, arguments, include_column = include_column, 
-                constraints_dict= {"formation" : [], "consumption" : [], "energy" : False,
-                                    "stoichiometry" : stoichiometry}, ensemble_iterations = 1, variance_elimination = False, 
-                                    derivative_free = True, seed = 20, max_workers = 2)
+                constraints_dict= {"formation" : [], "consumption" : [], "stoichiometry" : stoichiometry}, 
+                ensemble_iterations = 1, variance_elimination = False, 
+                derivative_free = True, seed = 20, max_workers = 2)
+
     opti.print()
     print("--"*20)
-    print("mean squared error :", opti.score(features, target, model_args = arguments))
+    print("mean squared error :", opti.score(features, target, time_span, model_args = arguments))
     print("model complexity", opti.complexity)
     print("Total number of iterations", opti.adict["iterations"])
     print("--"*20)
@@ -298,4 +301,35 @@ if __name__ == "__main__":
     # opti.plot_distribution()
 
     # coefficient_difference_plot(model.coefficients , sigma = opti.adict["coefficients_dict"], sigma2 = opti.adict["coefficients_dict"])
- 
+    """
+
+    ## Running temperature dependent sindy (derivative based) formulation 
+    time_span = np.arange(0, 5, 0.01)
+    model = DynamicModel("kinetic_kosir_temperature", time_span, n_expt = 6)
+    features = model.integrate()
+    target = [tar[:, :-1] for tar in model.approx_derivative]
+    arguments = [np.column_stack((feat[:, -1], np.ones(len(feat))*8.314)) for feat in features]
+
+    plugin_dict = {"ipopt.print_level" : 5, "print_time":5, "ipopt.sb" : "yes", "ipopt.max_iter" : 1000}
+    # plugin_dict = {}
+    opti = EnergySindy(FunctionalLibrary(2) , alpha = 0.1, threshold = 0.5, solver_dict={"solver" : "ipopt"}, 
+                            plugin_dict = plugin_dict, max_iter = 20)
+    
+    # stoichiometry = np.array([-1, -1, -1, 0, 0, 2, 1, 0, 0, 0, 1, 0]).reshape(4, -1) # chemistry constraints
+    # include_column = [[0, 2], [0, 3], [0, 1]] # chemistry constraints
+    include_column = [] # unconstrained
+    stoichiometry = np.eye(4) # unconstrained
+
+    opti.fit([feat[:, :-1] for feat in features], target, time_span, arguments, include_column = include_column, 
+                constraints_dict= {"formation" : [], "consumption" : [], "stoichiometry" : stoichiometry}, 
+                ensemble_iterations = 1, variance_elimination = False, 
+                derivative_free = False, seed = 20, max_workers = 2)
+    
+    opti.print()
+    print("--"*20)
+    print("mean squared error :", opti.score([feat[:, :-1] for feat in features], target, time_span, model_args = arguments))
+    print("model complexity", opti.complexity)
+    print("Total number of iterations", opti.adict["iterations"])
+    print("--"*20)
+    print("coefficients energy at each iteration", opti.adict["coefficients_energy_value"])
+    print("--"*20)

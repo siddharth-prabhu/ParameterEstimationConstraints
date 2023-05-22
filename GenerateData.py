@@ -18,7 +18,7 @@ class DynamicModel():
     model : str 
     time_span : np.ndarray
     initial_condition : Optional[List[np.ndarray]] = field(default_factory = list)
-    arguments : Optional[List[Tuple]] = field(default_factory = list)
+    arguments : Optional[List[np.ndarray]] = field(default_factory = list)
     n_expt : int = field(default = 1)
     seed : int = field(default = 12345)
 
@@ -40,10 +40,13 @@ class DynamicModel():
 
         if not self.arguments:
             # By default the data is generated for varying temperature values
-            self.arguments : List[Tuple] = [(rng.uniform(360, 390), 8.314) for _ in range(self.n_expt)]
+            self.arguments : List[np.ndarray] = [np.array([rng.uniform(360, 390), 8.314]) for _ in range(self.n_expt)]
         else:
             # use the same arguments for all the experiments
             if not len(self.arguments) == self.n_expt and len(self.arguments) == 1:
+                # convert arguments to numpy array
+                if not isinstance(self.arguments[0], np.ndarray):
+                    self.arguments[0] = np.array(self.arguments[0])
                 self.arguments = self.arguments*self.n_expt
 
         assert len(self.initial_condition[-1]) == self._model_dict[self.model]["n_states"], "Incorrect number of states"

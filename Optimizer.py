@@ -1,7 +1,7 @@
 # type: ignore
 
 from dataclasses import dataclass, field
-from typing import Optional, Callable, List, Tuple
+from typing import Optional, Callable, List, Tuple, Any
 from functools import reduce, partial
 from collections import defaultdict, namedtuple
 from concurrent.futures import ProcessPoolExecutor
@@ -36,6 +36,7 @@ class Optimizer_casadi(Base):
 
     _flag_fit : bool = field(default = False, init = False)
     adict : dict = field(default_factory = dict, init = False)
+    initializer : str = field(default = "zeros")
 
     def __post_init__(self):
         assert self.alpha >= 0 and self.threshold >= 0, "Regularization and thresholding parameter should be greater than equal to zero"
@@ -219,7 +220,24 @@ class Optimizer_casadi(Base):
         return [self.adict["coefficients"]]
 
     def _initialize_decision_variables(self) -> None:
-        pass
+        """
+        Sets the initial guess for decision varibles
+        Default guess value chosen by casadi is zero
+        """
+        iteration = self.adict.get("iterations", 0)
+        if iteration == 0:
+            # use the specified initializer to set the initial conditions
+            if self.initializer == "zeros":
+                pass # default initializer in casadi is zeros
+            elif self.initializer == "ones":
+                self.opti.set_initial(self.opti.x, np.ones(self.opti.x.shape))
+            else:
+                assert False, f"Initializer {self.initializer} not recognized"
+        else:
+            # use the previous optimal solution as the starting point
+            for i, param in enumerate(self._parameters):
+                for key, value in zip(param, self.adict["initial_conditions"][i]):
+                    self.opti.set_initial(key, value)
 
     # function for multiprocessing
     def _stlsq_solve_optimization(self, permutations : List, **kwargs) -> List[List[np.ndarray]]:
@@ -235,7 +253,7 @@ class Optimizer_casadi(Base):
                 (seed is not None)), "library, target, constraints_dict and seed should be provided"
  
         self._create_decision_variables()
-        parameters : List = self._create_parameters()
+        self._parameters : List = self._create_parameters()
         self.adict["library"] = [value[permutations]*self.adict["mask"][ind] for ind, value in enumerate(library)]
         self._update_cost(target[permutations])
         if constraints_dict:
@@ -243,8 +261,9 @@ class Optimizer_casadi(Base):
         self._initialize_decision_variables()
         _solution = self._minimize(self.plugin_dict, self.solver_dict) # no need to save for every iteration
 
+        # optimal values are passed because casadi objects cannot be pickled for multiprocessing
         # list[np.ndarray]. additional layer of np.array and flatten to account for singular value, which casadi outputs as float
-        return [[np.array([_solution.value(coeff)]).flatten() for coeff in params] for params in parameters]
+        return [[np.array([_solution.value(coeff)]).flatten() for coeff in params] for params in self._parameters]
 
 
     def _stlsq(self, target : np.ndarray, constraints_dict : dict, ensemble_iterations : int, variance_elimination : bool = False, 
@@ -253,7 +272,6 @@ class Optimizer_casadi(Base):
         # parameters is added so that you can get the values of additional decision variables without having to rewrite code
         # however thresholding is only done with respect to the original parameters
         rng = np.random.default_rng(seed)
-        self._create_mask()
         # initial boolean array with all coefficients assumed to be less than the threshold value
         coefficients_prev = [np.zeros(dimension[-1]) for dimension in self.adict["library_dimension"]]
         # data structures compatible with multiprocessing : list, dict 
@@ -341,8 +359,9 @@ class Optimizer_casadi(Base):
 
             coefficients_prev = coefficients_next # boolean array
 
-            # update mask of small terms to zero
+            # update mask of small terms to zero, and initial conditions for next iteration
             self.adict["mask"] = [mask*coefficients_next[i] for i, mask in enumerate(self.adict["mask"])]
+            self.adict["initial_conditions"] = _mean
             self.adict["iterations"] += 1
 
         return _mean, _deviation
@@ -394,8 +413,7 @@ class Optimizer_casadi(Base):
             features, target = np.vstack(features), np.vstack(target)
             self._generate_library(features, include_column)
 
-        # _mean and _deviation : List[dict]
-        # self.adict["coefficients_value"] and self.adict["coefficients_devaition"] : dict
+        self._create_mask() # pulled outside optimization so that can be used in cost function
         _mean, _deviation = self._stlsq(target, constraints_dict, ensemble_iterations, variance_elimination, max_workers, seed)
         self.adict["coefficients_value"], self.adict["coefficients_deviation"] = _mean[0], _deviation[0]
         self._create_equations()
@@ -532,37 +550,53 @@ class Optimizer_casadi(Base):
                     
             plt.show()
             
-    def _casadi_model(self, x : np.ndarray, t : np.ndarray, model_args : np.ndarray):
+    def _casadi_model(self, x : np.ndarray, t : np.ndarray, model_args : Any):
+        
+        if model_args is not None and isinstance(model_args[0], Callable):
+            return np.array([eqn(*x, *(model_args[0](t), *model_args[1:])) for eqn in self.adict["equations_lambdify"]])
+
         return np.array([eqn(*x, *model_args) for eqn in self.adict["equations_lambdify"]])
     
 
-    def predict(self, X : List[np.ndarray], model_args : Optional[List[np.ndarray]] = None) -> List[np.ndarray]:
+    def predict(self, X : List[np.ndarray], time_span : np.ndarray, model_args : Optional[List[Any]] = None) -> List[np.ndarray]:
         
         assert self._flag_fit, "Fit the model before running predict"
-        if model_args :
+        if model_args is not None:
+        
+            def afunc(x, argi):
+                if isinstance(argi[0], Callable):
+                    # callable single list
+                    return np.vectorize(partial(self._casadi_model, model_args = argi), signature= "(m),()->(n)")(x, time_span)
+                elif isinstance(argi, np.ndarray):
+                    if argi.ndim == 2 and argi.shape[0] == len(time_span):
+                        return np.vectorize(self._casadi_model, signature = "(m),(),(k)->(n)")(x, time_span, argi)
+                    else:
+                        return np.vectorize(partial(self._casadi_model, model_args = argi), signature= "(m),()->(n)")(x, time_span)
+                else:
+                    assert False, f"Unrecognized arguments {argi}"
+
             # np.vectorize fails for adding arguments in partial that are placed before the vectorized arguments
-            afunc = np.vectorize(self._casadi_model, signature = "(m),(),(k)->(n)")
-            return [afunc(xi, 0, argi) for xi, argi in zip(X, model_args)]
+            return list(map(afunc, X, model_args))
         else:
             afunc = np.vectorize(partial(self._casadi_model, model_args = ()), signature = "(m),()->(n)")
             return [afunc(xi, 0) for xi in X]
         
 
-    def score(self, X : list[np.ndarray], y : list[np.ndarray], metric : Callable = mean_squared_error, predict : bool = True, 
+    def score(self, X : list[np.ndarray], y : list[np.ndarray], time_span : np.ndarray, metric : Callable = mean_squared_error, predict : bool = True, 
                 model_args : Optional[List[np.ndarray]] = None) -> float:
         
         assert self._flag_fit, "Fit the model before running score"
-        y_pred = self.predict(X, model_args) if predict else X
+        y_pred = self.predict(X, time_span, model_args) if predict else X
 
         return metric(np.vstack(y_pred), np.vstack(y))
 
     # integrate the model
-    def simulate(self, X : list[np.ndarray], time_span : np.ndarray, model_args : Optional[np.ndarray] = None, **integrator_kwargs) -> list[np.ndarray]:
+    def simulate(self, X : list[np.ndarray], time_span : np.ndarray, model_args : Optional[np.ndarray] = None, calculate_score : bool = False, 
+                metric : List[Callable] = [mean_squared_error], **integrator_kwargs) -> list[np.ndarray]:
         
         """
         X is a list of features whose first row is extracted as initial conditions
         """
-        
         assert self._flag_fit, "Fit the model before running score"
         x_init = [xi[0].flatten() for xi in X]
         result = []
@@ -578,9 +612,12 @@ class Optimizer_casadi(Base):
                 if np.isnan(_integration_solution).any() or np.isinf(_integration_solution).any():
                     raise ValueError("Integration failed becoz nan or inf detected")
                 result.append(_integration_solution)
-
-        return result
-
+        
+        if calculate_score :
+            return result
+        else:
+            return result, tuple(self.score(X, result, time_span, metric = met, predict = False, model_args = model_args) for met in metric)
+    
     @property
     def complexity(self):
         #TODO why not take lenght of dictionary elements of self.adict["coefficients_dict"]
@@ -649,7 +686,7 @@ if __name__ == "__main__":
                 variance_elimination = False, derivative_free = derivative_free)
     opti.print()
     print("--"*20)
-    print("mean squared error :", opti.score(features, target))
+    print("mean squared error :", opti.score(features, target, time_span))
     print("model complexity", opti.complexity)
     print("Total number of iterations", opti.adict["iterations"])
     print("--"*20)
