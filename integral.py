@@ -22,7 +22,8 @@ class IntegralSindy(EnergySindy):
                 threshold : float = 0.01, # inverse of z_critical for boostrapping
                 max_iter : int = 20,
                 plugin_dict : dict = {},
-                solver_dict : dict = {}
+                solver_dict : dict = {},
+                initializer : str = "zeros"
                 ):
         
         self.library = library
@@ -33,15 +34,19 @@ class IntegralSindy(EnergySindy):
         self.max_iter = max_iter
         self.plugin_dict = plugin_dict
         self.solver_dict = solver_dict
+        self.initializer = initializer
 
-        super().__init__(self.library, 
-                        self.input_features,
-                        self.alpha,
-                        self.num_points,
-                        self.threshold,
-                        self.max_iter,
-                        self.plugin_dict,
-                        self.solver_dict)
+        super().__init__(
+            self.library, 
+            self.input_features,
+            self.alpha,
+            self.num_points,
+            self.threshold,
+            self.max_iter,
+            self.plugin_dict,
+            self.solver_dict,
+            self.initializer,
+            )
 
     def _generate_interpolation(self, data: List[np.ndarray], include_column: List[np.ndarray], time_span: np.ndarray) -> None:
         """
@@ -102,7 +107,8 @@ class IntegralSindy(EnergySindy):
 
         self.adict["coefficients"] = reference
         self.adict["coefficients_energy"] = activation
-        self.adict["coefficients_combined"] = variables 
+        self.adict["coefficients_combined"] = variables
+        # self.adict["multiple_shooting"] 
 
     def _update_cost(self, target: List[np.ndarray], time_span : np.ndarray):
         # target here is list of np.ndarrays
@@ -121,29 +127,31 @@ class IntegralSindy(EnergySindy):
                 # reference, activation : shape (feature columns, 1)
                 # interpolation : shape (1, feature columns)
                 # multiple by mask before returning so that there are less terms to integrate
-                interpolation_states = cd.horzcat(*self.adict["interpolation_library"][reaction][i](0, t))
+                interpolation_states = cd.vertcat(*self.adict["interpolation_library"][reaction][i](0, t))
                 interpolation_temp = cd.vertcat(*self.adict["interpolation_temperature"][reaction][i](0, t))
                 rate_temp = reference*cd.exp(-10_000*activation*(1/interpolation_temp - 1/373)/8.314)
-                return cd.mtimes(interpolation_states, rate_temp*self.adict["mask"][reaction].flatten())
+                return cd.dot(interpolation_states, rate_temp*(self.adict["mask"][reaction].flatten()))
 
             def ode(x, p, t):
                 # p : shape = sum of all decision variable X 1
                 # multiply with stoichiometric coefficients !
-                p, time_initial, time_delta = p[:-2], p[-2], p[-1] # params, t_init, delta time
+                time_initial, time_delta = p[-2], p[-1] # params, t_init, delta time
                 reference, activation, start = [], [], 0
                 for dim in self.adict["library_dimension"]:
                     reference.append(p[start : start + dim[-1]])
                     activation.append(p[start + dim[-1] : start + 2*dim[-1]]) 
                     start += 2*dim[-1]
-
+                """
                 return cd.mtimes(
                     self.adict["stoichiometry"], 
                     cd.vertcat(*[feature_ode(time_initial + t*time_delta, ref, act, reaction) for reaction, ref, act in zip(range(self._reactions), reference, activation)])
                             )
-
+                """
+                return cd.vertcat(*[feature_ode(time_initial + t*time_delta, ref, act, reaction) for reaction, ref, act in zip(range(self._reactions), reference, activation)])         
+            
             # simulate the ode forward in time
             casadi_ode = {"x" :  states, "p" : parameters, "t" : time, "ode" : ode(states, parameters, time)}
-            casadi_integrator = cd.integrator("integral", "cvodes", casadi_ode, {"t0" : 0, "tf" : 1})
+            casadi_integrator = cd.integrator("kosir", "cvodes", casadi_ode, {"t0" : 0, "tf" : 1})
             # auto differentiation fails with grid options
             # https://github.com/casadi/casadi/issues/2619
             # casadi_integrator = cd.integrator("integral", "cvodes", casadi_ode, {"grid" : time_span, "output_t0" : True})
@@ -156,7 +164,7 @@ class IntegralSindy(EnergySindy):
                 solution.append(integration_solution.T[-1, :])
             
             # update cost
-            self.adict["cost"] += cd.sumsqr(target[i] - cd.vertcat(*solution))
+            self.adict["cost"] += cd.sumsqr(target[i] - cd.vertcat(*solution))/len(target)
 
         # adding regularization 
         for coeff in self.adict["coefficients"]:
@@ -213,7 +221,7 @@ class IntegralSindy(EnergySindy):
             include_column = [list(range(self._input_states)) for _ in range(self._reactions)]
 
         self._generate_interpolation(features, include_column, time_span)
-        taget = [feat[:, :-1] for feat in features]
+        target = [feat[:, :-1] for feat in features]
         # mask cannot be part of optimization because it cannot be reset every otpmization loop
         self._create_mask() # pulled outside optimization so that can be used in cost function
 
@@ -249,21 +257,21 @@ if __name__ == "__main__":
     from scipy.interpolate import CubicSpline
 
     time_span = np.arange(0, 5, 0.01)
-    n_expt = 1
+    n_expt = 10
     model = DynamicModel("kinetic_kosir_temperature", time_span, n_expt = n_expt)
     features = model.integrate()
     target =  [feat[:, :-1] for feat in features]
 
-    plugin_dict = {"ipopt.print_level" : 5, "print_time":5, "ipopt.sb" : "yes", "ipopt.max_iter" : 3000}
-    opti = IntegralSindy(FunctionalLibrary(1) , alpha = 0.0, threshold = 0.5, solver_dict={"solver" : "ipopt"}, 
+    plugin_dict = {"ipopt.print_level" : 5, "print_time":5, "ipopt.sb" : "no", "ipopt.max_iter" : 3000}
+    opti = IntegralSindy(FunctionalLibrary(1) , alpha = 0, threshold = 0.1, solver_dict={"solver" : "ipopt"}, 
                             plugin_dict = plugin_dict, max_iter = 20)
     
-    # stoichiometry = np.array([-1, -1, -1, 0, 0, 2, 1, 0, 0, 0, 1, 0]).reshape(4, -1) # chemistry constraints
+    # stoichiometry = np.array([-1, -1, -1, 0, 0, 2, 1, 0, 0, 0, 1, 0], dtype = int).reshape(4, -1) # chemistry constraints
     # include_column = [[0, 2], [0, 3], [0, 1]] # chemistry constraints
 
     include_column = []
-    stoichiometry = np.eye(4) # no constraints
-    # stoichiometry =  np.array([1, 0, 0, 0, 1, 0, 0, 0, 1, -1, -0.5, -1]).reshape(4, -1) # mass balance constraints
+    stoichiometry = np.eye(4, dtype = int) # no constraints
+    # stoichiometry =  np.array([1, 0, 0, 0, 1, 0, 0, 0, 1, -1, -0.5, -1], dtype = int).reshape(4, -1) # mass balance constraints
     
     opti.fit(features, target, time_span, include_column = include_column, 
                 constraints_dict= {"formation" : [], "consumption" : [],

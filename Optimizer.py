@@ -33,10 +33,10 @@ class Optimizer_casadi(Base):
     max_iter : int = field(default = 20)
     plugin_dict : dict = field(default_factory = dict)
     solver_dict : dict = field(default_factory = dict)
+    initializer : str = field(default = "ones")
 
     _flag_fit : bool = field(default = False, init = False)
     adict : dict = field(default_factory = dict, init = False)
-    initializer : str = field(default = "zeros")
 
     def __post_init__(self):
         assert self.alpha >= 0 and self.threshold >= 0, "Regularization and thresholding parameter should be greater than equal to zero"
@@ -217,6 +217,7 @@ class Optimizer_casadi(Base):
         return solution
 
     def _create_parameters(self) -> List:
+        """ Parameters used for thresholding """
         return [self.adict["coefficients"]]
 
     def _initialize_decision_variables(self) -> None:
@@ -341,13 +342,15 @@ class Optimizer_casadi(Base):
                     _deviation[0] = [np.sqrt(var).flatten() for var in variance] 
                     coefficients_next  = [np.abs(mean/np.sqrt(deviation.reshape(1, -1))) > self.threshold for mean, deviation in zip(_mean[0], variance)]          
 
+            # check for full elimination before checking for convergence. Because we assume all coefficients initially are below threshold. 
+            # if new coefficients indeed come out to be less than threshold, then they can be caught by the following check
+            if not all(np.sum(coeff) for coeff in coefficients_next):
+                raise RuntimeError("Thresholding parameter eliminated all the coefficients")
+
             # multiply with mask so that oscillating coefficients can be ignored.
             if np.array([np.allclose(coeff_prev, coeff_next*mask) for coeff_prev, coeff_next, mask in zip(coefficients_prev, coefficients_next, self.adict["mask"])]).all():
                 print("Solution converged")
                 break
-
-            if not all([np.sum(coeff) for coeff in coefficients_next]):
-                raise RuntimeError("Thresholding parameter eliminated all the coefficients")
             
             # store values for every iteration
             if not self.adict.get("coefficients_iterations", None):
@@ -467,7 +470,7 @@ class Optimizer_casadi(Base):
     def plot_distribution(self, coefficient_casadi_ensemble : Optional[dict] = None, mean : Optional[dict] = None, deviation : Optional[dict] = None,
                             coefficients_iterations : Optional[dict] = None) -> None:
         """
-        # TODO updat this method to account for new data structure of self.adict["coefficients_casadi_ensemble"]
+        # TODO update this method to account for new data structure of self.adict["coefficients_casadi_ensemble"]
         parameter_ind gives the index of the coefficients/parameters defined in _create_parameters method to be plotted
         plots the distribution of casadi coefficients 
         """

@@ -79,10 +79,10 @@ class DynamicModel():
 
     @staticmethod
     def reaction_rate_kosir(T, R) -> List:
-
-        # original values are at reference temperature of 373 K
-        # This function is called several times. Consider defining constants outside the function
-
+        """
+        Original values are at reference temperature of 373 K
+        This function is called several times. Consider defining constants outside the function
+        """
         if T == 373:
             return [8.566/2, 1.191, 5.743, 10.219, 1.535]
 

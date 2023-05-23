@@ -24,7 +24,9 @@ class EnergySindy(Optimizer_casadi):
                     threshold : float = 0.01, # inverse of z_critical for boostrapping
                     max_iter : int = 20,
                     plugin_dict : dict = {},
-                    solver_dict : dict = {}):
+                    solver_dict : dict = {},
+                    initializer : str = "ones"
+                ):
         
         self.library = library
         self.input_features = input_features
@@ -34,15 +36,19 @@ class EnergySindy(Optimizer_casadi):
         self.max_iter = max_iter
         self.plugin_dict = plugin_dict
         self.solver_dict = solver_dict
+        self.initializer = initializer
 
-        super().__init__(self.library, 
-                        self.input_features,
-                        self.alpha,
-                        self.num_points,
-                        self.threshold,
-                        self.max_iter,
-                        self.plugin_dict,
-                        self.solver_dict)
+        super().__init__(
+            self.library, 
+            self.input_features,
+            self.alpha,
+            self.num_points,
+            self.threshold,
+            self.max_iter,
+            self.plugin_dict,
+            self.solver_dict,
+            self.initializer
+            )
 
     def _create_decision_variables(self):
         super()._create_decision_variables() # reaction rates at reference temperature of 373 K
