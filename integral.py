@@ -2,6 +2,8 @@
 from typing import List, Optional, Callable, Any
 from functools import reduce
 import operator
+import warnings
+warnings.filterwarnings("ignore")
 
 import casadi as cd
 import numpy as np
@@ -117,7 +119,7 @@ class IntegralSindy(EnergySindy):
 
         # define symbolic equations
         time = cd.MX.sym("t", 1)
-        parameters = cd.MX.sym("p", 2*reduce(operator.add, [dim[-1] for dim in self.adict["library_dimension"]]) + 2) # + 2 for times
+        parameters = cd.MX.sym("p", 2*reduce(operator.add, [dim[-1] for dim in self.adict["library_dimension"]])) 
         states = cd.MX.sym("x", self._states)
 
         for i in range(self.N): # for all experiments
@@ -135,36 +137,40 @@ class IntegralSindy(EnergySindy):
             def ode(x, p, t):
                 # p : shape = sum of all decision variable X 1
                 # multiply with stoichiometric coefficients !
-                time_initial, time_delta = p[-2], p[-1] # params, t_init, delta time
                 reference, activation, start = [], [], 0
                 for dim in self.adict["library_dimension"]:
                     reference.append(p[start : start + dim[-1]])
                     activation.append(p[start + dim[-1] : start + 2*dim[-1]]) 
                     start += 2*dim[-1]
-                """
+                
                 return cd.mtimes(
                     self.adict["stoichiometry"], 
-                    cd.vertcat(*[feature_ode(time_initial + t*time_delta, ref, act, reaction) for reaction, ref, act in zip(range(self._reactions), reference, activation)])
-                            )
-                """
-                return cd.vertcat(*[feature_ode(time_initial + t*time_delta, ref, act, reaction) for reaction, ref, act in zip(range(self._reactions), reference, activation)])         
+                    cd.vertcat(*[feature_ode(t, ref, act, reaction) for reaction, ref, act in zip(range(self._reactions), reference, activation)])
+                            )         
             
             # simulate the ode forward in time
             casadi_ode = {"x" :  states, "p" : parameters, "t" : time, "ode" : ode(states, parameters, time)}
-            casadi_integrator = cd.integrator("kosir", "cvodes", casadi_ode, {"t0" : 0, "tf" : 1})
+            
             # auto differentiation fails with grid options
             # https://github.com/casadi/casadi/issues/2619
             # casadi_integrator = cd.integrator("integral", "cvodes", casadi_ode, {"grid" : time_span, "output_t0" : True})
             
+            concentration = self.opti.variable(len(time_span)//self.horizon, self._states)
             solution = [self.adict["initial"][i].reshape(1, -1)] # initial conditions
+            x_initial = solution[-1]
             for j in range(len(time_span) - 1):
-                time_initial = time_span[j]
-                time_delta = time_span[j + 1] - time_span[j]
-                integration_solution = casadi_integrator(x0 = solution[-1], p = cd.vertcat(self.adict["coefficients_combined"], time_initial, time_delta))["xf"]
-                solution.append(integration_solution.T[-1, :])
+
+                if j%self.horizon == 0:
+                    x_initial = concentration[j//self.horizon, :]
+
+                casadi_integrator = cd.integrator("kosir", "cvodes", casadi_ode, {"t0" : time_span[j], "tf" : time_span[j + 1]})
+                integration_solution = casadi_integrator(x0 = x_initial, p = self.adict["coefficients_combined"])["xf"]
+                x_initial = integration_solution.T
+                solution.append(x_initial)
             
             # update cost
             self.adict["cost"] += cd.sumsqr(target[i] - cd.vertcat(*solution))/len(target)
+            self.opti.subject_to(cd.vertcat(*solution)[::self.horizon, :] == concentration)
 
         # adding regularization 
         for coeff in self.adict["coefficients"]:
@@ -190,7 +196,7 @@ class IntegralSindy(EnergySindy):
         return [[np.array([_solution.value(coeff)]).flatten() for coeff in params] for params in self._parameters]
 
     def fit(self, features: List[np.ndarray], target: List[np.ndarray], time_span: np.ndarray, arguments: List[np.ndarray] = None, 
-            include_column: Optional[List[np.ndarray]] = None, constraints_dict: dict = {}, max_workers : Optional[int] = None, 
+            include_column: Optional[List[np.ndarray]] = None, constraints_dict: dict = {}, shooting_horizon : int = 20, max_workers : Optional[int] = None, 
             seed: int = 12345, **kwargs) -> None:
         """
         features : temperature is always the last column
@@ -202,8 +208,9 @@ class IntegralSindy(EnergySindy):
         
         self._flag_fit = True
         self._input_states = np.shape(features)[-1] - 1 # do not consider temperature
-        _output_states = self._input_states
+        _output_states = np.shape(target)[-1] # target do not have temperature
         self.N = len(features)
+        self.horizon = shooting_horizon
 
         if "stoichiometry" in constraints_dict and isinstance(constraints_dict["stoichiometry"], np.ndarray):
             states, reactions = constraints_dict["stoichiometry"].shape
@@ -257,21 +264,18 @@ if __name__ == "__main__":
     from scipy.interpolate import CubicSpline
 
     time_span = np.arange(0, 5, 0.01)
-    n_expt = 10
+    n_expt = 5
     model = DynamicModel("kinetic_kosir_temperature", time_span, n_expt = n_expt)
     features = model.integrate()
     target =  [feat[:, :-1] for feat in features]
 
-    plugin_dict = {"ipopt.print_level" : 5, "print_time":5, "ipopt.sb" : "no", "ipopt.max_iter" : 3000}
-    opti = IntegralSindy(FunctionalLibrary(1) , alpha = 0, threshold = 0.1, solver_dict={"solver" : "ipopt"}, 
+    plugin_dict = {"ipopt.print_level" : 5, "print_time":5, "ipopt.sb" : "yes", "ipopt.max_iter" : 3000, "ipopt.tol" : 1e-5}
+    opti = IntegralSindy(FunctionalLibrary(1) , alpha = 0.01, threshold = 0.1, solver_dict={"solver" : "ipopt"}, 
                             plugin_dict = plugin_dict, max_iter = 20)
     
-    # stoichiometry = np.array([-1, -1, -1, 0, 0, 2, 1, 0, 0, 0, 1, 0], dtype = int).reshape(4, -1) # chemistry constraints
+    stoichiometry = np.array([-1, -1, -1, 0, 0, 2, 1, 0, 0, 0, 1, 0], dtype = int).reshape(4, -1) # chemistry constraints
     # include_column = [[0, 2], [0, 3], [0, 1]] # chemistry constraints
-
     include_column = []
-    stoichiometry = np.eye(4, dtype = int) # no constraints
-    # stoichiometry =  np.array([1, 0, 0, 0, 1, 0, 0, 0, 1, -1, -0.5, -1], dtype = int).reshape(4, -1) # mass balance constraints
     
     opti.fit(features, target, time_span, include_column = include_column, 
                 constraints_dict= {"formation" : [], "consumption" : [],

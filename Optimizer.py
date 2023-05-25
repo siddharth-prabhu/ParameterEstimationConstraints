@@ -344,7 +344,7 @@ class Optimizer_casadi(Base):
 
             # check for full elimination before checking for convergence. Because we assume all coefficients initially are below threshold. 
             # if new coefficients indeed come out to be less than threshold, then they can be caught by the following check
-            if not all(np.sum(coeff) for coeff in coefficients_next):
+            if sum(np.sum(coeff) for coeff in coefficients_next) == 0:
                 raise RuntimeError("Thresholding parameter eliminated all the coefficients")
 
             # multiply with mask so that oscillating coefficients can be ignored.

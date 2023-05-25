@@ -40,7 +40,7 @@ class DynamicModel():
 
         if not self.arguments:
             # By default the data is generated for varying temperature values
-            self.arguments : List[np.ndarray] = [np.array([rng.uniform(360, 390), 8.314]) for _ in range(self.n_expt)]
+            self.arguments : List[np.ndarray] = [[rng.uniform(360, 390), 8.314] for _ in range(self.n_expt)]
         else:
             # use the same arguments for all the experiments
             if not len(self.arguments) == self.n_expt and len(self.arguments) == 1:
@@ -49,6 +49,7 @@ class DynamicModel():
                     self.arguments[0] = np.array(self.arguments[0])
                 self.arguments = self.arguments*self.n_expt
 
+        self.arguments = [np.array(argi) for argi in self.arguments]
         assert len(self.initial_condition[-1]) == self._model_dict[self.model]["n_states"], "Incorrect number of states"
         assert len(self.initial_condition) == self.n_expt, "Initial conditions should match the number of experiments"
         assert len(self.arguments) == self.n_expt, "List of arguments should match the number of experiments"

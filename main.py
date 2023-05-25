@@ -144,12 +144,12 @@ def run_adiabatic(n_expt : int, delta_t : float, parameters : List[dict], kind :
     arguments = [np.column_stack((feat[:, -1], np.ones(len(feat))*8.314)) for feat in features]
 
     mse_pred, aic, mse_sim, comp = [], [], [], []
-    for status in ["without constraints", "with constraints", "with stoichiometry"]:
+    for status in ["with stoichiometry", "with constraints"]:
 
         if status == "with constraints" : # mass balance constraints 
-            include_column = [] # "mass_balance" : [56.108, 28.05, 56.106, 56.108]
+            include_column = []
             constraints_dict = {"consumption" : [], "formation" : [], 
-                                "stoichiometry" : np.array([1, 0, 0, 0, 1, 0, 0, 0, 1, -1, -0.5, -1]).reshape(4, -1)}
+                                "stoichiometry" : np.array([-1, -1, -1, 0, 0, 2, 1, 0, 0, 0, 1, 0]).reshape(4, -1)}
         elif status == "with stoichiometry" : # chemistry constraints
             include_column = [[0, 2], [0, 3], [0, 1]]
             constraints_dict = {"consumption" : [], "formation" : [], 
@@ -207,9 +207,8 @@ def plot_adict(x : list, adict : dict, x_label : str, path : Optional[str] = Non
                 plt.bar(x + 1.5*width, value[2::4], label = "chemistry", width = width, align = "center")
                 plt.bar(x - 1.5*width, value[3::4], label = "sindy", width = width, align = "center")
             elif kind == "adiabatic":
-                plt.bar(x - width, value[0::3], label = "unconstrained", width = width, align = "center")
-                plt.bar(x, value[1::3], label = "mass balance", width = width, align = "center")
-                plt.bar(x + width, value[2::3], label = "chemistry", width = width, align = "center")
+                plt.bar(x - 0.5*width, value[0::2], label = "full", width = width, align = "center")
+                plt.bar(x + 0.5*width, value[1::2], label = "partial", width = width, align = "center")
             else:
                 plt.bar(x + 0.5*width, value[0::2], label = "chemistry", width = width, align = "center")
                 plt.bar(x - 0.5*width, value[1::2], label = "sindy", width = width, align = "center")
