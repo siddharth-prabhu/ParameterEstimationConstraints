@@ -1,7 +1,9 @@
+from typing import List, Optional
+
 import numpy as np
 import matplotlib.pyplot as plt
+import sympy as smp
     
-from typing import List
     
 def ensemble_plot(coefficients_list : List[dict], distribution : List[dict], inclusion : List[dict]) -> None:
     """
@@ -36,33 +38,46 @@ def ensemble_plot(coefficients_list : List[dict], distribution : List[dict], inc
         
     plt.show()
 
-def coefficient_difference_plot(original_coefficients_list : List[dict], **kwargs):
+def coefficients_plot(original_coefficients_list : List[dict], discovered_coefficients_list : List[dict], labels : Optional[List[list]] = None, 
+                      figname : str = "coefficients_plot", **kwargs):
     """
-    kwargs value should be of type : List[dict] and len == len(original_coefficients_list)
+    Function that plots the parameters in discovered_coefficients_list and the parameters in original_coefficient_list
+    as horizontal bar plots.
+    Dictionary keys should be symbols. 
+    """ 
+    assert len(original_coefficients_list) == len(discovered_coefficients_list), "Length of provided lists should be same"
 
-    Function that takes the difference of parameters in kwargs with the parameters in original_coefficient_list
-    and plots them as horizontal bar plots 
-    """
-    #  
+    if labels is None:
+        # get unique values of keys from both dictionaries
+        labels = [list(set((*orig_dict.keys(), *dis_dict.keys()))) for orig_dict, dis_dict in zip(original_coefficients_list, discovered_coefficients_list)]
 
-    # calculate the difference betweeen the coefficients
-    def take_difference(ind, adict):
-        for key, value in original_coefficients_list[ind].items():
-            adict[key] = value - adict.get(key, 0)
+    def string_to_symbol(x):
+        # convert string to symbols
+        if isinstance(x, smp.Symbol):
+            return x
+        
+        return smp.sympify(x.replace(" ", "*"))
 
-    rows = -(-len(original_coefficients_list)//2)
+    rows = len(original_coefficients_list)
     with plt.style.context(["science", "notebook", "light"]):
-        fig, ax =  plt.subplots(rows, 2, figsize = (10, 15))
-        fig.subplots_adjust(hspace = 0.5, wspace = 0.5)
+        fig, ax =  plt.subplots(rows, 1, figsize = (15, 20))
+        fig.subplots_adjust(hspace = 0.8, wspace = 0.5)
         ax = np.ravel(ax)
         
-        for key, coefficients_list in kwargs.items():
-            for i, adict in enumerate(coefficients_list):        
-                take_difference(i, adict)
-                labels, value = zip(*adict.items())
-                ax[i].barh(list(map(str, labels)), value, label = f"{key}")
-                ax[i].set(ylabel = "coefficients", xlabel = "", title = f"dx{i}/dt")
-                ax[i].legend()
+        for i, orig_dict, dis_dict, label in zip(range(len(labels)), original_coefficients_list, discovered_coefficients_list, labels):
+            
+            x = np.arange(len(label))
+            width = 1/5
 
-        plt.show()
+            label = list(map(string_to_symbol, label))
+            orig_values = list(map(lambda x : orig_dict.get(x, 0), label))
+            dis_values = list(map(lambda x : dis_dict.get(x, 0), label))
+
+            ax[i].bar(x - 0.5*width, orig_values, label = "original", width = width, color = "blue")
+            ax[i].bar(x + 0.5*width, dis_values, label = "discovered", width = width, color = "red")
+            ax[i].set(ylabel = "coefficients", title = f"Dynamic equation of x{i}")
+            ax[i].set_xticks(x, labels = label, rotation = 90)
+            ax[i].legend()
+
+        plt.savefig(figname)
         plt.close()

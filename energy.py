@@ -9,6 +9,7 @@ import numpy as np
 import sympy as smp
 from sklearn.metrics import mean_squared_error
 import matplotlib.pyplot as plt
+from scipy.interpolate import CubicSpline
 
 from Optimizer import Optimizer_casadi
 from FunctionalLibrary import FunctionalLibrary
@@ -200,7 +201,7 @@ class EnergySindy(Optimizer_casadi):
         self.N = len(features)
 
         assert len(arguments) == len(features), "Arguments and features should be consistent with the number of experiments"
-        if arguments[0].ndim == 2 and len(arguments) == len(features[0]):
+        if arguments[0].ndim == 2 and len(arguments[0]) == len(features[0]):
             # There are as many arguments as there are data points. Just stack
             self.adict["arguments_original"] = np.squeeze(np.vstack(arguments))
         else:
@@ -236,6 +237,27 @@ class EnergySindy(Optimizer_casadi):
                                         self.adict["coefficients_energy_deviation"]) = (_mean[0], _mean[1], _deviation[0], _deviation[1])
         self._create_equations()
 
+    def simulate(self, X : list[np.ndarray], time_span : np.ndarray, model_args : Optional[np.ndarray] = None, calculate_score : bool = False, 
+                metric : List[Callable] = [mean_squared_error], **integrator_kwargs) -> list[np.ndarray]:
+        
+        """
+        X is a list of features whose first row is extracted as initial conditions
+        """
+        if model_args is not None:
+        
+            assert len(model_args) == len(X), "Arguments should be same the number of initial conditions"
+            
+            def afunc(xi, argi):
+                if isinstance(argi, np.ndarray):
+                    if argi.ndim == 2 and len(argi) == len(xi):
+                        return [CubicSpline(time_span, argi[:, 0]), argi[0, -1]]
+                
+                return argi
+
+            model_args = list(map(afunc, X, model_args))
+
+        return super().simulate(X, time_span, model_args, calculate_score, metric, **integrator_kwargs)
+
     @property
     def coefficients(self):
         return self.adict["coefficients_value"], self.adict["coefficients_energy_value"]
@@ -268,7 +290,7 @@ class EnergySindy(Optimizer_casadi):
 if __name__ == "__main__":
 
     from GenerateData import DynamicModel
-    from utils import coefficient_difference_plot
+    from utils import coefficients_plot
 
     """
     ## Running temperature dependant df-sindy (integral based) formulation 
@@ -302,7 +324,7 @@ if __name__ == "__main__":
     print("--"*20)
     print("coefficients energy at each iteration", opti.adict["coefficients_energy_value"])
     print("--"*20)
-    # print("model simulation", opti.simulate(features, time_span, arguments))
+    print("model simulation", opti.simulate(features, time_span, arguments))
     print("--"*20)
     # opti.plot_distribution()
 
@@ -312,30 +334,30 @@ if __name__ == "__main__":
     ## Running temperature dependent sindy (derivative based) formulation 
     time_span = np.arange(0, 5, 0.01)
     model = DynamicModel("kinetic_kosir_temperature", time_span, n_expt = 6)
-    features = model.integrate()
+    integration = model.integrate()
+    features = [feat[:, :-1] for feat in integration]
     target = [tar[:, :-1] for tar in model.approx_derivative]
-    arguments = [np.column_stack((feat[:, -1], np.ones(len(feat))*8.314)) for feat in features]
+    arguments = [np.column_stack((feat[:, -1], np.ones(len(feat))*8.314)) for feat in integration]
 
     plugin_dict = {"ipopt.print_level" : 5, "print_time":5, "ipopt.sb" : "yes", "ipopt.max_iter" : 1000}
-    # plugin_dict = {}
-    opti = EnergySindy(FunctionalLibrary(2) , alpha = 0.1, threshold = 0.5, solver_dict={"solver" : "ipopt"}, 
+    opti = EnergySindy(FunctionalLibrary(1) , alpha = 0.1, threshold = 0.5, solver_dict={"solver" : "ipopt"}, 
                             plugin_dict = plugin_dict, max_iter = 20)
     
-    # stoichiometry = np.array([-1, -1, -1, 0, 0, 2, 1, 0, 0, 0, 1, 0]).reshape(4, -1) # chemistry constraints
-    # include_column = [[0, 2], [0, 3], [0, 1]] # chemistry constraints
-    include_column = [] # unconstrained
-    stoichiometry = np.eye(4) # unconstrained
+    stoichiometry = np.array([-1, -1, -1, 0, 0, 2, 1, 0, 0, 0, 1, 0]).reshape(4, -1) # chemistry constraints
+    include_column = [[0, 2], [0, 3], [0, 1]] # chemistry constraints
 
-    opti.fit([feat[:, :-1] for feat in features], target, time_span, arguments, include_column = include_column, 
+    opti.fit(features, target, time_span, arguments, include_column = include_column, 
                 constraints_dict= {"formation" : [], "consumption" : [], "stoichiometry" : stoichiometry}, 
                 ensemble_iterations = 1, variance_elimination = False, 
                 derivative_free = False, seed = 20, max_workers = 2)
     
     opti.print()
     print("--"*20)
-    print("mean squared error :", opti.score([feat[:, :-1] for feat in features], target, time_span, model_args = arguments))
+    print("mean squared error :", opti.score(features, target, time_span, model_args = arguments))
     print("model complexity", opti.complexity)
     print("Total number of iterations", opti.adict["iterations"])
     print("--"*20)
     print("coefficients energy at each iteration", opti.adict["coefficients_energy_value"])
     print("--"*20)
+    # print("simulate", opti.simulate(features, time_span, arguments))
+    coefficients_plot(model.coefficients(args_as_symbols = True), )

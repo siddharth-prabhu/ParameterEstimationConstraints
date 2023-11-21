@@ -29,7 +29,7 @@ class DynamicModel():
         self._model_dict = {"kinetic_simple" : {"function" : DynamicModel.kinetic_simple, "n_states" : 4, "low" : [5, 5, 5, 5], "high" : [20, 20, 20, 20]},
                             "kinetic_kosir" : {"function" : DynamicModel.kinetic_kosir, "n_states" : 4, "low" : [5, 5, 5, 5], "high" : [20, 20, 20, 20]}, 
                             "kinetic_kosir_temperature" : {"function" : DynamicModel.kinetic_kosir_temperature, "n_states" : 5,  
-                            "low" : [5, 5, 5, 5, 373], "high" : [20, 20, 20, 20, 373]}}
+                            "low" : [5, 5, 5, 5, 373], "high" : [10, 10, 10, 10, 373]}}
         assert self.model in self._model_dict, "Dynamic model is not defined yet"
         
         rng = np.random.default_rng(self.seed)
@@ -55,13 +55,13 @@ class DynamicModel():
         assert len(self.arguments) == self.n_expt, "List of arguments should match the number of experiments"
 
         self._n_states = self._model_dict[self.model]["n_states"]
-        self.model = self._model_dict[self.model]["function"]
+        self.model_func = self._model_dict[self.model]["function"] 
 
     @staticmethod
-    def kinetic_simple(x, t, args : Tuple) -> np.ndarray:
+    def kinetic_simple(x, t, args : Optional[Tuple] = None) -> np.ndarray:
         # A + B <--> C --> D + B
         # k1 = 1, kr1 = 0.5, k2 = 2, kr2 = 1
-        k1, kr1, k2, kr2 = args
+        k1, kr1, k2, kr2 = [1, 0.5, 2, 1]
         
         return np.array([-k1*x[0]*x[1] + kr1*x[2],
                 -k1*x[0]*x[1] + (kr1 + k2)*x[2],
@@ -69,14 +69,20 @@ class DynamicModel():
                 k2*x[2]])
     
     @staticmethod
+    def _reactions(x, k) -> np.ndarray:
+        return np.array([
+            k[0]*x[0], 
+            k[1]*x[0] - k[2]*x[2],
+            k[3]*x[0] - k[4]*x[3]
+        ])
+
+    @staticmethod
     def kinetic_kosir(x, t, args) -> np.ndarray:
         # A -> 2B; A <-> C; A <-> D
         T, R = args
         rates = DynamicModel.reaction_rate_kosir(T, R)
-        return np.array([-(rates[0] + rates[1] + rates[3])*x[0] + rates[2]*x[2] + rates[4]*x[3],
-                        2*rates[0]*x[0],
-                        rates[1]*x[0] - rates[2]*x[2],
-                        rates[3]*x[0] - rates[4]*x[3]])
+        stoichiometry = np.array([-1, -1, -1, 2, 0, 0, 0, 1, 0, 0, 0, 1]).reshape(4, -1)
+        return np.dot(stoichiometry, DynamicModel._reactions(x, rates))
 
     @staticmethod
     def reaction_rate_kosir(T, R) -> List:
@@ -93,38 +99,50 @@ class DynamicModel():
         Ead = 50*10**3
         Eda = 60*10**3
 
-        return [8.566/2*np.exp(-(Eab/R)*(1/T - 1/373)), 1.191*np.exp(-(Eac/R)*(1/T - 1/373)), 5.743*np.exp(-(Eca/R)*(1/T - 1/373)), 
-                10.219*np.exp(-(Ead/R)*(1/T - 1/373)), 1.535*np.exp(-(Eda/R)*(1/T - 1/373))]
+        if isinstance(T, smp.Symbol):
+            return [8.566/2*smp.exp(-(Eab/R)*(1/T - 1/373)), 1.191*smp.exp(-(Eac/R)*(1/T - 1/373)), 5.743*smp.exp(-(Eca/R)*(1/T - 1/373)), 
+                    10.219*smp.exp(-(Ead/R)*(1/T - 1/373)), 1.535*smp.exp(-(Eda/R)*(1/T - 1/373))]
+        else :
+            return [8.566/2*np.exp(-(Eab/R)*(1/T - 1/373)), 1.191*np.exp(-(Eac/R)*(1/T - 1/373)), 5.743*np.exp(-(Eca/R)*(1/T - 1/373)), 
+                    10.219*np.exp(-(Ead/R)*(1/T - 1/373)), 1.535*np.exp(-(Eda/R)*(1/T - 1/373))]
 
     @staticmethod
     def kinetic_kosir_temperature(x, t, args) -> np.ndarray:
         # A -> 2B; A <-> C; A <-> D
-        R  = 8.314
+        _, R  = args
         rates = DynamicModel.reaction_rate_kosir(x[-1], R)
-        return np.array([-(rates[0] + rates[1] + rates[3])*x[0] + rates[2]*x[2] + rates[4]*x[3],
-                        2*rates[0]*x[0],
-                        rates[1]*x[0] - rates[2]*x[2],
-                        rates[3]*x[0] - rates[4]*x[3], 
-                        373*(np.pi*np.cos(np.pi*t)/50)])
+        stoichiometry = np.array([-1, -1, -1, 2, 0, 0, 0, 1, 0, 0, 0, 1]).reshape(4, -1)
+        
+        return np.append(
+            np.dot(stoichiometry, DynamicModel._reactions(x, rates)),
+            373*(np.pi*np.cos(np.pi*t)/50)if not isinstance(x[0], smp.Symbol) else 373*(smp.pi*smp.cos(smp.pi*t)/50)
+            )
 
-    def coefficients(self, x : Optional[Tuple[smp.symbols]] = None, t : Optional[np.ndarray] = None, args : Optional[Tuple] = None) -> List[dict]:
+    def coefficients(self, x : Optional[Tuple[smp.symbols]] = None, t : Optional[np.ndarray] = None, args_as_symbols : bool = False) -> List[dict]:
 
         # if symbols are not provided
         if not x:
             x = smp.symbols(reduce(lambda accum, value : accum + value + ",", [f"x{i}" for i in range(self._n_states)], ""))
 
         # if arguments are not specified then take the first from the list of arguments
-        if not args:
+        if args_as_symbols :
+            args = smp.symbols("T, R") 
+        else:
             args = self.arguments[0]
 
-        equations = self.model(x, t, args)
+        if self.model == "kinetic_kosir_temperature":
+            rates = DynamicModel.reaction_rate_kosir(*args)
+            equations = DynamicModel._reactions(x, rates)
+        else:
+            equations = self.model_func(x, 0, args)
+            
         return [eqn.as_coefficients_dict() for eqn in equations]
 
     # forward simulates the chosen model using scipy odeint
     def integrate(self, **odeint_kwargs) -> List:
         
         self._solution_flag = True
-        self.solution = [odeint(self.model, xi, 
+        self.solution = [odeint(self.model_func, xi, 
                         self.time_span, args = (args, ), **odeint_kwargs) for xi, args in zip(self.initial_condition, self.arguments)]
 
         return self.solution 
@@ -147,7 +165,7 @@ class DynamicModel():
     def actual_derivative(self) -> List:
         assert self._solution_flag, "Integrate the model before calling this method"
         # passing tuples in vectorize can be an issue
-        return [np.vectorize(partial(self.model, args = args), signature = "(m),(n)->(m)")(xi, self.time_span) for 
+        return [np.vectorize(partial(self.model_func, args = args), signature = "(m),(n)->(m)")(xi, self.time_span) for 
                 xi, args in zip(self.solution, self.arguments)]
 
     # calculates the approximate derivative using finite difference
@@ -190,20 +208,24 @@ if __name__ == "__main__":
     solution = model.integrate()
     # model.plot(solution, t_span, "Time", "Concentration", ["A", "B", "C", "D"])
 
-    print(model.actual_derivative)
+    print("actual derivatives shape", model.actual_derivative[0].shape)
     print("--"*20)
-    print(model.add_noise())
+    print("noise added shape", model.add_noise()[0].shape)
     print("--"*20)
     
 
-    # getting dat for kinetic_arhenius
+    # getting data for kinetic_arhenius
     model = DynamicModel("kinetic_kosir", t_span, n_expt = 10)
     solution = model.integrate()
 
-    print(model.actual_derivative)
+    print("actual derivatives shape", model.actual_derivative[0].shape)
     print("--"*20)
-    print(model.add_noise())
+    print("noise added shape", model.add_noise()[0].shape)
     print("--"*20)
     print(model.arguments)
     print("--"*20)
-    print(model.coefficients(args = (373, 8.314)))
+    print("coefficients", model.coefficients())
+
+    model = DynamicModel("kinetic_kosir_temperature", t_span, n_expt = 2)
+    integration = model.integrate()
+    print("coefficients", model.coefficients(args_as_symbols = True))

@@ -43,14 +43,17 @@ class FunctionalLibrary():
             setattr(self, "include_interaction", kwargs["feature_library__include_interaction"])
                 
     def fit_transform(self, features : np.ndarray, include_feature: Optional[list[int]] = None, derivative_free : bool = False, 
-                        time_span : Optional[np.ndarray] = None, get_function : Optional[bool] = False, interpolation_scheme : str = "scipy") -> np.ndarray:
+                        time_span : Optional[np.ndarray] = None, output_time_span : Optional[np.ndarray] = None, get_function : Optional[bool] = False, 
+                        interpolation_scheme : str = "scipy", subtract_initial : bool = True, integrate_terms : bool = True) -> np.ndarray:
         """
         include_feature is zero indexed list of indices eg : [0, 1, 2, 3]
         get_function returns the interpolation matrix as a function of time. (Only used in derivative_free case)
         """
 
         if derivative_free:
-            assert isinstance(time_span, np.ndarray), "time_span should be specified for interpolation" 
+            assert isinstance(time_span, np.ndarray), "time_span should be specified for interpolation"
+            if output_time_span is None:
+                output_time_span = time_span 
             
             if interpolation_scheme == "scipy":
                 interpolation_func = sicpy_interpolation
@@ -76,8 +79,12 @@ class FunctionalLibrary():
                 return combinations_integration
             else:
                 assert interpolation_scheme == "scipy", f"Interpolation scheme has to be scipy"
-                return odeint(combinations_integration, combinations_integration(0, 0), time_span) - combinations_integration(0, 0)
-        
+                if integrate_terms : # integrate individual terms in the libray using interpolation
+                    solution = odeint(combinations_integration, combinations_integration(0, 0), output_time_span)
+                else: # dont integrate the individual terms in the library
+                    solution = np.array([*map(lambda t : combinations_integration(0, t), output_time_span)])
+
+                return solution - combinations_integration(0, 0) if subtract_initial else solution
         else:
             for i in range(self.degree):
                 combinations = self._get_combinations(features.T, i + 1)
@@ -110,8 +117,8 @@ if __name__ == "__main__":
 
     a = np.random.normal(size = (10, 3))
     time_span = np.arange(0, 10, 1)
-    lib = FunctionalLibrary(4)
-    b = lib.fit_transform(a, [0, 1, 2], True, time_span)
+    lib = FunctionalLibrary(1)
+    b = lib.fit_transform(a, [0, 1, 2], True, time_span, subtract_initial = False)
     print(lib.get_features(["x0", "x1", "x2"]))
     print(b.shape)
 

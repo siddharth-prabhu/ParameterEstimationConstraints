@@ -10,13 +10,15 @@ import os
 
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy.interpolate import CubicSpline
 
 from GenerateData import DynamicModel
 from FunctionalLibrary import FunctionalLibrary
 from HyperOpt import HyperOpt
 from Optimizer import Optimizer_casadi
 from energy import EnergySindy
-from integral import IntegralSindy
+# from integral import IntegralSindy
+from adiabatic import AdiabaticSindy
 
 
 # only runs hyperparameter optimization for different training conditions
@@ -29,13 +31,11 @@ parser.add_argument("--noise_study", choices = [0, 1], type = int, default = 0,
 parser.add_argument("--experiments_study", choices = [0, 1], type = int, default = 0, 
                     help = "If True performs hyperparameter optimization for varying initial conditions") 
 parser.add_argument("--sampling_study", choices = [0, 1], type = int, default = 0, 
-                    help = "If True performs hyperparameter optimization for varying sampling frequencies") 
-parser.add_argument("--adiabatic_study", choices = [0, 1], type = int, default = 0, 
-                    help = "If True performs sequential/simultaneous optimization for adiabatic case")                   
+                    help = "If True performs hyperparameter optimization for varying sampling frequencies")                  
 parser.add_argument("--max_workers", default = 1, type = int)
 parser.add_argument("--logdir", choices = ["NLS", "LS", "Adiabatic"], type = str, default = "LS", 
-                    help = "Nonlinear Least Square or Least Square")
-parser.add_argument("--problem", choices = ["NLS", "LS"], type = str, default = "LS", help = "The type of problem to solve")
+                    help = "Nonlinear Least Square or Least Square or Adiabatic")
+parser.add_argument("--problem", choices = ["NLS", "LS", "AD"], type = str, default = "LS", help = "The type of problem to solve")
 parser.add_argument("--degree", type = int, default = 1, help = "The polynomial degree of terms in functional library")
 parser.add_argument("--ensemble_iter", type = int, default = 1, help = "The number of emsemble iterations")
 args = parser.parse_args()
@@ -60,7 +60,7 @@ def run_gridsearch(n_expt : int, delta_t : float, noise_level : float, parameter
     model = DynamicModel("kinetic_kosir", time_span_clean, n_expt = 6, arguments = arguments_clean)
     features_clean = model.integrate()
     target_clean = model.actual_derivative # use actual derivatives for testing 
-    arguments = model.arguments
+    arguments_clean = model.arguments
 
     # generate training data with varying experiments and sampling time
     time_span = np.arange(0, 5, delta_t)
@@ -125,51 +125,55 @@ def run_gridsearch(n_expt : int, delta_t : float, noise_level : float, parameter
     return mse_pred, aic, mse_sim, comp 
 
 
-def run_adiabatic(n_expt : int, delta_t : float, parameters : List[dict], kind : str, 
-                max_workers : Optional[int] = None, seed : int = 12345, path : Optional[str] = None):
+def run_adiabatic(n_expt : int, delta_t : float, noise_level : float, parameters : List[dict], kind : str = "LS", ensemble_iterations : int = 1, 
+                    variance_elimination : bool = False, max_workers : Optional[int] = None, seed : int = 12345, path : Optional[str] = None):
 
-    plugin_dict = {"ipopt.print_level" : 0, "print_time": 0, "ipopt.sb" : "yes", "ipopt.max_iter" : 3000}
+    # lower the tolerance for noise
+    plugin_dict = {"ipopt.print_level" : 0, "print_time": 0, "ipopt.sb" : "yes", "ipopt.max_iter" : 3000, "ipopt.tol" : 1e-5}
 
+    if noise_level > 0:
+        plugin_dict["ipopt.tol"] = 1e-5 # set lower tolerance for noise
+
+    # generate clean testing data to be used later for calculating errors
     time_span_clean = np.arange(0, 5, 0.01)
-    arguments_temperature = [(360, 8.314), (370, 8.314), (380, 8.314), (390, 8.314), (373, 8.314), (385, 8.314)]
-    model = DynamicModel("kinetic_kosir", time_span_clean, n_expt = 6, arguments = arguments_temperature[:6])
+    model = DynamicModel("kinetic_kosir_temperature", time_span_clean, n_expt = 6)
     features_clean = model.integrate()
     target_clean = [tar[:, :-1] for tar in model.actual_derivative] # use actual derivatives for testing 
-    arguments_clean = model.arguments
+    arguments_clean = [np.column_stack((feat[:, -1], np.tile(8.314, (len(feat), 1)))) for feat in features_clean]
 
+    # generate training data with varying experiments and sampling time
     time_span = np.arange(0, 5, delta_t)
-    model = DynamicModel("kinetic_kosir_temperature", time_span, n_expt = 6)
+    model = DynamicModel("kinetic_kosir_temperature", time_span, n_expt = n_expt)
     features = model.integrate()
+    features = model.add_noise(0, noise_level)
     target = [tar[:, :-1] for tar in model.approx_derivative]
-    arguments = [np.column_stack((feat[:, -1], np.ones(len(feat))*8.314)) for feat in features]
+    arguments = [np.column_stack((feat[:, -1], np.tile(8.314, (len(feat), 1)))) for feat in features]
+    
+    include_column = [[0, 2], [0, 3], [0, 1]]
+    constraints_dict = {"consumption" : [], "formation" : [], 
+                        "stoichiometry" : np.array([-1, -1, -1, 0, 0, 2, 1, 0, 0, 0, 1, 0]).reshape(4, -1)}
 
     mse_pred, aic, mse_sim, comp = [], [], [], []
-    for status in ["with stoichiometry", "with constraints"]:
-
-        if status == "with constraints" : # mass balance constraints 
-            include_column = []
-            constraints_dict = {"consumption" : [], "formation" : [], 
-                                "stoichiometry" : np.array([-1, -1, -1, 0, 0, 2, 1, 0, 0, 0, 1, 0]).reshape(4, -1)}
-        elif status == "with stoichiometry" : # chemistry constraints
-            include_column = [[0, 2], [0, 3], [0, 1]]
-            constraints_dict = {"consumption" : [], "formation" : [], 
-                                "stoichiometry" : np.array([-1, -1, -1, 0, 0, 2, 1, 0, 0, 0, 1, 0]).reshape(4, -1)}
-        else : # unconstrained formulation
-            include_column = None
-            constraints_dict = {}
-
+    for status in ["sindy", "df-sindy"]:
+            
         # does grid_serch over parameters 
-        print(f"Running simulation for {kind} problem, and {status}", flush = True)
-        opt = HyperOpt([feat[:, :-1] for feat in features] if kind == "sindy" else features, target, features_clean, target_clean, 
-                        time_span, time_span_clean, parameters = parameters[0], 
-                        model = EnergySindy(plugin_dict = plugin_dict) if kind == "sindy" else IntegralSindy(plugin_dict = plugin_dict),
-                        arguments = arguments, arguments_clean = arguments_clean, 
+        print(f"Running simulation for {noise_level} noise, {n_expt} experiments, {delta_t} sampling time, and " + status, flush = True)
+        opt = HyperOpt([feat[:, :-1] for feat in features] if status == "sindy" else features, 
+                        target if status == "sindy" else [feat[:, :-1] for feat in features], 
+                        [feat[:, :-1] for feat in features_clean] if status == "sindy" else features_clean, 
+                        target_clean if status == "sindy" else [feat[:, :-1] for feat in features_clean], 
+                        time_span, time_span_clean, 
+                        parameters = parameters[-1], 
+                        model = EnergySindy(plugin_dict = plugin_dict) if status == "sindy" else AdiabaticSindy(plugin_dict = plugin_dict),
+                        arguments = arguments, 
+                        arguments_clean = arguments_clean, 
                         meta = {"include_column" : include_column, "constraints_dict" : constraints_dict, "ensemble_iterations" : 1, 
                         "variance_elimination" : False, # no need to perform bootstrapping 
-                        "seed" : seed, "derivative_free" : False})
+                        "seed" : seed, "derivative_free" : False}
+                        )
 
         opt.gridsearch(max_workers = max_workers)
-        opt.plot(filename = f'Gridsearch_{parameters[0]["feature_library__degree"][0]}_{status}_eniter{ensemble_iterations}_expt{n_expt}_delta_{delta_t}.html', 
+        opt.plot(filename = f'Gridsearch_{parameters[0]["feature_library__degree"][0]}_{status}_noise{noise_level}_expt{n_expt}_delta_{delta_t}.html', 
                     path = path, title = f"{status}")
         df_result = opt.df_result
 
@@ -206,9 +210,9 @@ def plot_adict(x : list, adict : dict, x_label : str, path : Optional[str] = Non
                 plt.bar(x + 0.5*width, value[1::4], label = "mass balance", width = width, align = "center")
                 plt.bar(x + 1.5*width, value[2::4], label = "chemistry", width = width, align = "center")
                 plt.bar(x - 1.5*width, value[3::4], label = "sindy", width = width, align = "center")
-            elif kind == "adiabatic":
-                plt.bar(x - 0.5*width, value[0::2], label = "full", width = width, align = "center")
-                plt.bar(x + 0.5*width, value[1::2], label = "partial", width = width, align = "center")
+            elif kind == "AD":
+                plt.bar(x - 0.5*width, value[0::2], label = "derivative", width = width, align = "center")
+                plt.bar(x + 0.5*width, value[1::2], label = "integral", width = width, align = "center")
             else:
                 plt.bar(x + 0.5*width, value[0::2], label = "chemistry", width = width, align = "center")
                 plt.bar(x - 0.5*width, value[1::2], label = "sindy", width = width, align = "center")
@@ -234,24 +238,19 @@ if __name__ == "__main__":
     noise_study = args.noise_study # if True performs hyperparameter optimization for varying noise levels
     experiments_study = args.experiments_study # if True performs hyperparameter optimization for varying initial conditions
     sampling_study = args.sampling_study # if True performs hyperparameter optimization for varying sampling frequencies
-    adiabatic_study = args.adiabatic_study # if True performs sequential/simultaneous optimization in adiabatic case
-    problem = args.problem # the type of problem to solve. Either LS or NLS
+    problem = args.problem # the type of problem to solve. Either LS or NLS or Adiabatci
     logdir = args.logdir 
     variance_elimination = True if ensemble_study >= 1 else False 
     max_workers = None if args.max_workers <= 0 else args.max_workers 
     degree = args.degree
     ensemble_iterations = args.ensemble_iter
 
-    if adiabatic_study:
-        if problem == "LS":
-            print("Adiabatic study cannot be performed for least square problem. Switching to non-linear least square")
-            problem = "NLS"
-        
+    if problem == "AD":
         if ensemble_study > 0:
             print("Switching to normal thresholding. Cannot perform bootstrapping or covariance based elimination with adiabatic study")
             ensemble_study = 0
-            ensemble_iterations = 1
-            variance_elimination = False
+        ensemble_iterations = 1
+        variance_elimination = False
     
     if ensemble_study == 0:
         ensemble_iterations = 1
@@ -287,11 +286,14 @@ if __name__ == "__main__":
         noise_level = [0.0, 0.1, 0.2]
         path_noise = os.path.join(path, "noise")
 
-        with ProcessPoolExecutor(max_workers = max_workers) as executor:   
-            result = executor.map(partial(run_gridsearch, parameters = [ensemble_params, sindy_params], 
+        afunc = run_adiabatic if problem == "AD" else run_gridsearch
+        afunc_partial = partial(afunc, parameters = [ensemble_params, sindy_params], 
                             ensemble_iterations = ensemble_iterations, variance_elimination = variance_elimination, 
                             max_workers = max_workers, seed = 20, 
-                            path = path_noise, kind = problem), repeat(6), repeat(0.01), noise_level)
+                            path = path_noise, kind = problem)
+
+        with ProcessPoolExecutor(max_workers = max_workers) as executor:   
+            result = executor.map(afunc_partial, repeat(6), repeat(0.01), noise_level)
 
             for alist in result:
                 for key, value in zip(["MSE_Prediction", "AIC", "MSE_Integration", "complexity"], alist):
@@ -310,11 +312,14 @@ if __name__ == "__main__":
         adict_experiments = defaultdict(list)
         path_experiments = os.path.join(path, "experiments")
 
+        afunc = run_adiabatic if problem == "AD" else run_gridsearch
+        afunc_partial = partial(afunc, delta_t = 0.05, noise_level = 0, parameters = [ensemble_params, sindy_params], 
+                                ensemble_iterations = ensemble_iterations, variance_elimination = variance_elimination, 
+                                max_workers = max_workers, seed = 20, 
+                                path = path_experiments, kind = problem)
+
         with ProcessPoolExecutor(max_workers = max_workers) as executor:   
-            result = executor.map(partial(run_gridsearch, delta_t = 0.05, noise_level = 0, parameters = [ensemble_params, sindy_params], 
-                            ensemble_iterations = ensemble_iterations, variance_elimination = variance_elimination, 
-                            max_workers = max_workers, seed = 20, 
-                            path = path_experiments, kind = problem), experiments)
+            result = executor.map(afunc_partial, experiments)
 
             for alist in result:
                 for key, value in zip(["MSE_Prediction", "AIC", "MSE_Integration", "complexity"], alist):
@@ -332,11 +337,14 @@ if __name__ == "__main__":
         adict_sampling = defaultdict(list)
         path_sampling = os.path.join(path, "sampling")
 
+        afunc = run_adiabatic if problem == "AD" else run_gridsearch
+        afunc_partial = partial(afunc, noise_level = 0, parameters = [ensemble_params, sindy_params], 
+                        ensemble_iterations = ensemble_iterations, variance_elimination = variance_elimination, 
+                        max_workers = max_workers, seed = 20, 
+                        path = path_sampling, kind = problem)
+
         with ProcessPoolExecutor(max_workers = max_workers) as executor:   
-            result = executor.map(partial(run_gridsearch, noise_level = 0, parameters = [ensemble_params, sindy_params], 
-                            ensemble_iterations = ensemble_iterations, variance_elimination = variance_elimination, 
-                            max_workers = max_workers, seed = 20, 
-                            path = path_sampling, kind = problem), repeat(6), sampling)
+            result = executor.map(afunc_partial, repeat(6), sampling)
 
             for alist in result:
                 for key, value in zip(["MSE_Prediction", "AIC", "MSE_Integration", "complexity"], alist):
@@ -346,21 +354,3 @@ if __name__ == "__main__":
         plot_adict(sampling, adict_sampling, x_label = "sampling", path = path_sampling, title = f"Polynomial degree {degree}")
 
     ########################################################################################################################
-    if adiabatic_study:
-
-        print("------"*100)
-        print("Starting adiabatic study")
-        kind = ["sindy", "df-sindy"]
-        adict_adiabatic = defaultdict(list)
-        path_adiabatic = path
-
-        with ProcessPoolExecutor(max_workers = max_workers) as executor:   
-            result = executor.map(partial(run_adiabatic, max_workers = max_workers, seed = 20, path = path_adiabatic),
-                                    repeat(6), repeat(0.01), repeat([sindy_params]), kind)
-
-            for alist in result:
-                for key, value in zip(["MSE_Prediction", "AIC", "MSE_Integration", "complexity"], alist):
-                    adict_adiabatic[key].extend(value)
-
-        adict_adiabatic["kind"] = "adiabatic"
-        plot_adict(kind, adict_adiabatic, x_label = "method", path = path_adiabatic, title = f"Polynomial degree {degree}")

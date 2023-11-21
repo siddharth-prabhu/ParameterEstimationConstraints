@@ -110,7 +110,16 @@ class IntegralSindy(EnergySindy):
         self.adict["coefficients"] = reference
         self.adict["coefficients_energy"] = activation
         self.adict["coefficients_combined"] = variables
-        # self.adict["multiple_shooting"] 
+        
+        # create decision variables for multiple shooting
+        self.adict["concentrations"] = [self.opti.variable(int(np.ceil(self.adict["library_dimension"][0][0]/self.horizon)), self._states) for _ in range(self.N)]
+    
+    def _create_parameters(self) -> List:
+        """
+        List of decision variables for which mean and standard deviation needs to be traced. 
+        The thresholding parameters always have to be the first one in the list
+        """
+        return [self.adict["coefficients"], self.adict["coefficients_energy"]]
 
     def _update_cost(self, target: List[np.ndarray], time_span : np.ndarray):
         # target here is list of np.ndarrays
@@ -144,7 +153,7 @@ class IntegralSindy(EnergySindy):
                     start += 2*dim[-1]
                 
                 return cd.mtimes(
-                    self.adict["stoichiometry"], 
+                    cd.MX(self.adict["stoichiometry"]), 
                     cd.vertcat(*[feature_ode(t, ref, act, reaction) for reaction, ref, act in zip(range(self._reactions), reference, activation)])
                             )         
             
@@ -155,22 +164,25 @@ class IntegralSindy(EnergySindy):
             # https://github.com/casadi/casadi/issues/2619
             # casadi_integrator = cd.integrator("integral", "cvodes", casadi_ode, {"grid" : time_span, "output_t0" : True})
             
-            concentration = self.opti.variable(len(time_span)//self.horizon, self._states)
+            concentration = self.adict["concentrations"][i]
             solution = [self.adict["initial"][i].reshape(1, -1)] # initial conditions
             x_initial = solution[-1]
             for j in range(len(time_span) - 1):
 
-                if j%self.horizon == 0:
+                if j!= 0 and j%self.horizon == 0:
                     x_initial = concentration[j//self.horizon, :]
 
-                casadi_integrator = cd.integrator("kosir", "cvodes", casadi_ode, {"t0" : time_span[j], "tf" : time_span[j + 1]})
+                casadi_integrator = cd.integrator("kosir", "cvodes", casadi_ode, 
+                                    {"t0" : time_span[j], "tf" : time_span[j + 1], "max_num_steps" : 200}) # "abstol" : 1e-6, "reltol" : 1e-6, 
                 integration_solution = casadi_integrator(x0 = x_initial, p = self.adict["coefficients_combined"])["xf"]
                 x_initial = integration_solution.T
                 solution.append(x_initial)
             
             # update cost
             self.adict["cost"] += cd.sumsqr(target[i] - cd.vertcat(*solution))/len(target)
-            self.opti.subject_to(cd.vertcat(*solution)[::self.horizon, :] == concentration)
+            # instead of adding it as a constraint add it in the objective function (noise resistant)
+            self.adict["cost"] += cd.sumsqr(cd.vertcat(*solution)[::self.horizon, :] - concentration)
+            # self.opti.subject_to(cd.vertcat(*solution)[::self.horizon, :] == concentration)
 
         # adding regularization 
         for coeff in self.adict["coefficients"]:
@@ -263,20 +275,19 @@ if __name__ == "__main__":
     from GenerateData import DynamicModel
     from scipy.interpolate import CubicSpline
 
-    time_span = np.arange(0, 5, 0.01)
+    time_span = np.arange(0, 5, 0.1)
     n_expt = 5
     model = DynamicModel("kinetic_kosir_temperature", time_span, n_expt = n_expt)
     features = model.integrate()
     target =  [feat[:, :-1] for feat in features]
 
-    plugin_dict = {"ipopt.print_level" : 5, "print_time":5, "ipopt.sb" : "yes", "ipopt.max_iter" : 3000, "ipopt.tol" : 1e-5}
-    opti = IntegralSindy(FunctionalLibrary(1) , alpha = 0.01, threshold = 0.1, solver_dict={"solver" : "ipopt"}, 
+    plugin_dict = {"ipopt.print_level" : 5, "print_time":5, "ipopt.sb" : "yes", "ipopt.max_iter" : 2000, "ipopt.tol" : 1e-5}
+    opti = IntegralSindy(FunctionalLibrary(1) , alpha = 0.1, threshold = 0.1, solver_dict={"solver" : "ipopt"}, 
                             plugin_dict = plugin_dict, max_iter = 20)
     
     stoichiometry = np.array([-1, -1, -1, 0, 0, 2, 1, 0, 0, 0, 1, 0], dtype = int).reshape(4, -1) # chemistry constraints
-    # include_column = [[0, 2], [0, 3], [0, 1]] # chemistry constraints
-    include_column = []
-    
+    include_column = [[0, 2], [0, 3], [0, 1]] # chemistry constraints
+
     opti.fit(features, target, time_span, include_column = include_column, 
                 constraints_dict= {"formation" : [], "consumption" : [],
                                     "stoichiometry" : stoichiometry})
@@ -285,7 +296,7 @@ if __name__ == "__main__":
     print("--"*20)
     interp = CubicSpline(time_span, features[0][:, -1])
     arguments = [[interp, 8.314] for _ in range(n_expt)]
-    print("mean squared error :", opti.score(features, target, time_span, model_args = arguments))
+    print("mean squared error :", opti.score(features, [deriv[:, :-1] for deriv in model.actual_derivative], time_span, model_args = arguments))
     print("model complexity", opti.complexity)
     print("Total number of iterations", opti.adict["iterations"])
     print("--"*20)

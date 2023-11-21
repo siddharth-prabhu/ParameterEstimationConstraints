@@ -238,7 +238,7 @@ class Optimizer_casadi(Base):
             # use the previous optimal solution as the starting point
             for i, param in enumerate(self._parameters):
                 for key, value in zip(param, self.adict["initial_conditions"][i]):
-                    self.opti.set_initial(key, value)
+                    self.opti.set_initial(key, cd.reshape(value, key.shape))
 
     # function for multiprocessing
     def _stlsq_solve_optimization(self, permutations : List, **kwargs) -> List[List[np.ndarray]]:
@@ -421,7 +421,6 @@ class Optimizer_casadi(Base):
         self.adict["coefficients_value"], self.adict["coefficients_deviation"] = _mean[0], _deviation[0]
         self._create_equations()
 
-    # need to consider when stoichiometric in present
     def _create_equations(self) -> None:
         # stores the equations in adict to be used later
         self.adict["equations"] = []
@@ -499,33 +498,6 @@ class Optimizer_casadi(Base):
                 _coefficients_inclusion[i][_symbol] = inclusion(np.count_nonzero(_coefficients_list[i][_symbol])/self.adict["iterations_ensemble"])
 
         ensemble_plot(_coefficients_list, _coefficients_distribution, _coefficients_inclusion)
-
-        """
-        #TODO create sympy equations for every value in coefficient_casadi_ensemble
-        if reaction_coefficients:
-            # plotting the distribution of reaction equations
-            _reaction_coefficients_list = [defaultdict(list) for _ in range(self._n_states)]
-            _reaction_coefficients_distribution = [defaultdict(distribution) for _ in range(self._n_states)]
-            _reaction_coefficients_inclusion = [defaultdict(inclusion) for _ in range(self._n_states)]
-
-            for i in range(self._n_states):
-                # for each iteration
-                for j in range(self.adict["iterations_ensemble"]):
-                    _expr = self._create_sympy_expressions([coefficients_casadi_ensemble[key][j] for key in range(self._reactions)], 
-                                                            self.adict["library_labels"], self.adict["stoichiometry"][i])
-                    _expr_coeff = _expr.as_coefficients_dict()
-
-                    for key, value in _expr_coeff.items():
-                        _reaction_coefficients_list[i][key].append(value)
-
-                for key, value in _reaction_coefficients_list[i].items():
-                    value.extend([0]*(self.adict["iterations_ensemble"] - len(value)))
-                    # wrap into numpy array as it does not know how to deal with sympy objects
-                    _reaction_coefficients_distribution[i][key] = distribution(np.mean(np.array(value, dtype=float)), np.std(np.array(value, dtype = float)))
-                    _reaction_coefficients_inclusion[i][key] = inclusion(np.count_nonzero(np.array(value, dtype = float))/self.adict["iterations_ensemble"])
-
-            ensemble_plot(_reaction_coefficients_list, _reaction_coefficients_distribution, _reaction_coefficients_inclusion)
-        """
             
         for key in range(self._reactions):
             fig, ax = plt.subplots(self.adict["iterations"], 3, figsize = (10, 4))
@@ -554,8 +526,8 @@ class Optimizer_casadi(Base):
             plt.show()
             
     def _casadi_model(self, x : np.ndarray, t : np.ndarray, model_args : Any):
-        
-        if model_args is not None and isinstance(model_args[0], Callable):
+
+        if model_args is not None and len(model_args) > 0 and isinstance(model_args[0], Callable):
             return np.array([eqn(*x, *(model_args[0](t), *model_args[1:])) for eqn in self.adict["equations_lambdify"]])
 
         return np.array([eqn(*x, *model_args) for eqn in self.adict["equations_lambdify"]])
@@ -574,6 +546,7 @@ class Optimizer_casadi(Base):
                     if argi.ndim == 2 and argi.shape[0] == len(time_span):
                         return np.vectorize(self._casadi_model, signature = "(m),(),(k)->(n)")(x, time_span, argi)
                     else:
+                        print(argi)
                         return np.vectorize(partial(self._casadi_model, model_args = argi), signature= "(m),()->(n)")(x, time_span)
                 else:
                     assert False, f"Unrecognized arguments {argi}"
@@ -604,8 +577,7 @@ class Optimizer_casadi(Base):
         x_init = [xi[0].flatten() for xi in X]
         result = []
         for i, xi in enumerate(x_init):
-            assert len(xi) == self._reactions, "Initial conditions should be of right dimensions"
-
+            assert len(xi) == self._states, "Initial conditions should be of right dimensions"
             try:
                 _integration_solution = odeint(self._casadi_model, xi, time_span, args = (model_args[i], ) if model_args else ((), ), **integrator_kwargs)
             except Exception as error:
@@ -616,7 +588,7 @@ class Optimizer_casadi(Base):
                     raise ValueError("Integration failed becoz nan or inf detected")
                 result.append(_integration_solution)
         
-        if calculate_score :
+        if not calculate_score :
             return result
         else:
             return result, tuple(self.score(X, result, time_span, metric = met, predict = False, model_args = model_args) for met in metric)
@@ -664,7 +636,7 @@ class Optimizer_casadi(Base):
 if __name__ == "__main__":
 
     from GenerateData import DynamicModel
-    from utils import coefficient_difference_plot
+    from utils import coefficients_plot
 
     time_span = np.arange(0, 5, 0.01)
     model = DynamicModel("kinetic_kosir", time_span, arguments = [(373, 8.314)], n_expt = 2, seed = 20)
@@ -673,7 +645,7 @@ if __name__ == "__main__":
     features = model.add_noise(0, 0)
     target = model.approx_derivative
 
-    opti = Optimizer_casadi(FunctionalLibrary(1) , alpha = 0, threshold = 1, plugin_dict = {"ipopt.print_level" : 0, "print_time":0, "ipopt.sb" : "yes"}, 
+    opti = Optimizer_casadi(FunctionalLibrary(2), alpha = 0, threshold = 1, plugin_dict = {"ipopt.print_level" : 0, "print_time":0, "ipopt.sb" : "yes"}, 
                             max_iter = 20)
     # stoichiometry = np.array([-1, -1, -1, 0, 0, 2, 1, 0, 0, 0, 1, 0]).reshape(4, -1) # chemistry constraints
     # include_column = [[0, 2], [0, 3], [0, 1]]
@@ -685,7 +657,7 @@ if __name__ == "__main__":
     
     opti.fit(features, target, time_span = time_span, include_column = include_column, 
                 constraints_dict= {"formation" : [], "consumption" : [], 
-                                    "stoichiometry" : stoichiometry}, ensemble_iterations = 1000, seed = 10, max_workers = 2, 
+                                    "stoichiometry" : stoichiometry}, ensemble_iterations = 1, seed = 10, max_workers = 1, 
                 variance_elimination = False, derivative_free = derivative_free)
     opti.print()
     print("--"*20)
@@ -695,6 +667,5 @@ if __name__ == "__main__":
     print("--"*20)
     # print("coefficients at each iteration", opti.adict["coefficients_iterations"])
     print("--"*20)
-    # opti.plot_distribution(reaction_coefficients = False, coefficients_iterations = True)
 
-    # coefficient_difference_plot(model.coefficients() , sigma = opti.adict["coefficients_dict"], sigma2 = opti.adict["coefficients_dict"])
+    coefficients_plot(model.coefficients() , opti.adict["coefficients_dict"])
