@@ -234,8 +234,8 @@ if __name__ == "__main__":
     opti = AdiabaticSindy(FunctionalLibrary(2) , alpha = 0.01, threshold = 0.1, solver_dict={"solver" : "ipopt"}, 
                             plugin_dict = plugin_dict, max_iter = 1)
     
-    stoichiometry = np.array([-1, -1, -1, 0, 0, 2, 1, 0, 0, 0, 1, 0], dtype = int).reshape(4, -1) # chemistry constraints
-    include_column = [[0, 2], [0, 3], [0, 1]] # chemistry constraints
+    include_column = [[0, 1], [0, 2], [0, 3]] 
+    stoichiometry = np.array([-1, -1, -1, 2, 0, 0, 0, 1, 0, 0, 0, 1]).reshape(4, -1)
     # include_column = None
 
     opti.fit(features, target, time_span, arguments = arguments, 

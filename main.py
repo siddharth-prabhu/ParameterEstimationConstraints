@@ -83,15 +83,15 @@ def run_gridsearch(n_expt : int, delta_t : float, noise_level : float, parameter
             constraints_dict = {"consumption" : [], "formation" : [], 
                                 "stoichiometry" : np.array([1, 0, 0, 0, 1, 0, 0, 0, 1, -1, -0.5, -1]).reshape(4, -1)}
         elif status == "with stoichiometry" : # chemistry constraints
-            include_column = [[0, 2], [0, 3], [0, 1]]
+            include_column = [[0, 1], [0, 2], [0, 3]] 
             constraints_dict = {"consumption" : [], "formation" : [], 
-                                "stoichiometry" : np.array([-1, -1, -1, 0, 0, 2, 1, 0, 0, 0, 1, 0]).reshape(4, -1)}
+                                "stoichiometry" : np.array([-1, -1, -1, 2, 0, 0, 0, 1, 0, 0, 0, 1]).reshape(4, -1)}
         elif status == "sindy":
             # compare derivative free method with sindy for NLS
             if kind == "NLS":
-                include_column = [[0, 2], [0, 3], [0, 1]]
+                include_column = [[0, 1], [0, 2], [0, 3]] 
                 constraints_dict = {"consumption" : [], "formation" : [], 
-                                    "stoichiometry" : np.array([-1, -1, -1, 0, 0, 2, 1, 0, 0, 0, 1, 0]).reshape(4, -1)}
+                                    "stoichiometry" : np.array([-1, -1, -1, 2, 0, 0, 0, 1, 0, 0, 0, 1]).reshape(4, -1)}
             else:
                 include_column = None
                 constraints_dict = {}
@@ -149,9 +149,9 @@ def run_adiabatic(n_expt : int, delta_t : float, noise_level : float, parameters
     target = [tar[:, :-1] for tar in model.approx_derivative]
     arguments = [np.column_stack((feat[:, -1], np.tile(8.314, (len(feat), 1)))) for feat in features]
     
-    include_column = [[0, 2], [0, 3], [0, 1]]
+    include_column = [[0, 1], [0, 2], [0, 3]] 
     constraints_dict = {"consumption" : [], "formation" : [], 
-                        "stoichiometry" : np.array([-1, -1, -1, 0, 0, 2, 1, 0, 0, 0, 1, 0]).reshape(4, -1)}
+                        "stoichiometry" : np.array([-1, -1, -1, 2, 0, 0, 0, 1, 0, 0, 0, 1]).reshape(4, -1)}
 
     mse_pred, aic, mse_sim, comp = [], [], [], []
     for status in ["sindy", "df-sindy"]:

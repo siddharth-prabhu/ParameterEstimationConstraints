@@ -262,7 +262,7 @@ class EnergySindy(Optimizer_casadi):
     def coefficients(self):
         return self.adict["coefficients_value"], self.adict["coefficients_energy_value"]
 
-    def _create_sympy_expressions(self, stoichiometry_row : np.ndarray) -> str:
+    def _create_sympy_expressions(self) -> str:
 
         # mask the coefficient values
         self.adict["coefficients_value_masked"] = []
@@ -274,14 +274,14 @@ class EnergySindy(Optimizer_casadi):
         coefficients_value : List[np.ndarray] = self.adict["coefficients_value_masked"]
         coefficients_energy : List[np.ndarray] = self.adict["coefficients_energy_value"]
         library_labels : List[List[str]] = self.adict["library_labels"]
-        expr = 0
+        expr = []
         
         for j in range(len(library_labels)):
             zero_filter = filter(lambda x : x[0], zip(coefficients_value[j], coefficients_energy[j], library_labels[j]))
             # modify expr to include arhenius equation (R and T are additional symbols that are defined)
-            expr += stoichiometry_row[j]*smp.sympify(reduce(lambda accum, value : 
+            expr.append(smp.sympify(reduce(lambda accum, value : 
                     accum + value[0] + "*exp(-(" + value[1] + "/R)*(1/T - Rational(1, 373)))* " + value[-1].replace(" ", "*") + " + ",   
-                    map(lambda x : (str(x[0]), str(x[1]*10_000), x[-1]), zero_filter), "+").rstrip(" +"))
+                    map(lambda x : (str(x[0]), str(x[1]*10_000), x[-1]), zero_filter), "+").rstrip(" +")))
         # replaced whitespaces with multiplication element wise library labels
         # simpify already handles xor operation
         return expr
@@ -333,18 +333,18 @@ if __name__ == "__main__":
 
     ## Running temperature dependent sindy (derivative based) formulation 
     time_span = np.arange(0, 5, 0.01)
-    model = DynamicModel("kinetic_kosir_temperature", time_span, n_expt = 6)
+    model = DynamicModel("kinetic_kosir_temperature", time_span, n_expt = 2)
     integration = model.integrate()
     features = [feat[:, :-1] for feat in integration]
     target = [tar[:, :-1] for tar in model.approx_derivative]
     arguments = [np.column_stack((feat[:, -1], np.ones(len(feat))*8.314)) for feat in integration]
 
     plugin_dict = {"ipopt.print_level" : 5, "print_time":5, "ipopt.sb" : "yes", "ipopt.max_iter" : 1000}
-    opti = EnergySindy(FunctionalLibrary(1) , alpha = 0.1, threshold = 0.5, solver_dict={"solver" : "ipopt"}, 
-                            plugin_dict = plugin_dict, max_iter = 20)
+    opti = EnergySindy(FunctionalLibrary(2) , alpha = 0.1, threshold = 0.5, solver_dict={"solver" : "ipopt"}, 
+                            plugin_dict = plugin_dict, max_iter = 1)
     
-    stoichiometry = np.array([-1, -1, -1, 0, 0, 2, 1, 0, 0, 0, 1, 0]).reshape(4, -1) # chemistry constraints
-    include_column = [[0, 2], [0, 3], [0, 1]] # chemistry constraints
+    stoichiometry = np.array([-1, -1, -1, 2, 0, 0, 0, 1, 0, 0, 0, 1]).reshape(4, -1) # chemistry constraints
+    include_column = [[0, 1], [0, 2], [0, 3]] # chemistry constraints
 
     opti.fit(features, target, time_span, arguments, include_column = include_column, 
                 constraints_dict= {"formation" : [], "consumption" : [], "stoichiometry" : stoichiometry}, 
@@ -360,4 +360,22 @@ if __name__ == "__main__":
     print("coefficients energy at each iteration", opti.adict["coefficients_energy_value"])
     print("--"*20)
     # print("simulate", opti.simulate(features, time_span, arguments))
-    coefficients_plot(model.coefficients(args_as_symbols = True), )
+    
+    # preprocess coefficients before plotting
+    def replace_keys(alist):
+        
+        def _replace(adict):
+
+            keys = list(adict.keys())
+            for key in keys:
+                value = adict[key]
+                new_key = smp.Mul(*key.args[:-1])
+                adict[new_key] = value
+                del adict[key]
+            return adict
+
+        return list(map(_replace, alist))
+
+    actual_coeff = replace_keys(model.coefficients(args_as_symbols = True))
+    discovered_coeff = replace_keys(opti.adict["coefficients_pre_stoichiometry_dict"])
+    coefficients_plot(actual_coeff, discovered_coeff, title = "Dynamics of reaction")

@@ -39,13 +39,14 @@ def ensemble_plot(coefficients_list : List[dict], distribution : List[dict], inc
     plt.show()
 
 def coefficients_plot(original_coefficients_list : List[dict], discovered_coefficients_list : List[dict], labels : Optional[List[list]] = None, 
-                      figname : str = "coefficients_plot", **kwargs):
+                      figname : str = "coefficients_plot", title : Optional[str] = None, **kwargs):
     """
     Function that plots the parameters in discovered_coefficients_list and the parameters in original_coefficient_list
     as horizontal bar plots.
     Dictionary keys should be symbols. 
     """ 
     assert len(original_coefficients_list) == len(discovered_coefficients_list), "Length of provided lists should be same"
+    title = "Dynamics of equation x" if title is None else title
 
     if labels is None:
         # get unique values of keys from both dictionaries
@@ -53,11 +54,11 @@ def coefficients_plot(original_coefficients_list : List[dict], discovered_coeffi
 
     def string_to_symbol(x):
         # convert string to symbols
-        if isinstance(x, smp.Symbol):
-            return x
-        
-        return smp.sympify(x.replace(" ", "*"))
+        if isinstance(x, str):
+            return smp.sympify(x.replace(" ", "*"))
+        return x
 
+    max_x = max(map(len, labels))
     rows = len(original_coefficients_list)
     with plt.style.context(["science", "notebook", "light"]):
         fig, ax =  plt.subplots(rows, 1, figsize = (15, 20))
@@ -73,10 +74,11 @@ def coefficients_plot(original_coefficients_list : List[dict], discovered_coeffi
             orig_values = list(map(lambda x : orig_dict.get(x, 0), label))
             dis_values = list(map(lambda x : dis_dict.get(x, 0), label))
 
-            ax[i].bar(x - 0.5*width, orig_values, label = "original", width = width, color = "blue")
-            ax[i].bar(x + 0.5*width, dis_values, label = "discovered", width = width, color = "red")
-            ax[i].set(ylabel = "coefficients", title = f"Dynamic equation of x{i}")
+            ax[i].bar(x - 0.5*width, orig_values, label = "original", width = width, color = "blue", **kwargs)
+            ax[i].bar(x + 0.5*width, dis_values, label = "discovered", width = width, color = "red", **kwargs)
+            ax[i].set(ylabel = "coefficients", title = f"{title}{i}")
             ax[i].set_xticks(x, labels = label, rotation = 90)
+            ax[i].set_xlim(left = -2*width, right = max_x)
             ax[i].legend()
 
         plt.savefig(figname)

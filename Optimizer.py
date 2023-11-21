@@ -427,9 +427,12 @@ class Optimizer_casadi(Base):
         self.adict["equations_lambdify"] = []
         self.adict["coefficients_dict"] = []
         
-        for i in range(self._states):
-            expr = self._create_sympy_expressions(self.adict["stoichiometry"][i]) # sympy expression
-
+        exprs = self._create_sympy_expressions()
+        self.adict["equations_pre_stoichiometry"] = exprs
+        self.adict["coefficients_pre_stoichiometry_dict"] = [expr.as_coefficients_dict() for expr in exprs]
+        exprs = np.dot(self.adict["stoichiometry"], exprs) # sympy expressions
+        
+        for expr in exprs:
             # truncate coefficients less than 1e-5 to zero. These values can occur especially in mass balance formulation because of subtracting
             for atom in smp.preorder_traversal(expr):
                 if atom.is_rational:
@@ -442,7 +445,7 @@ class Optimizer_casadi(Base):
             self.adict["equations_lambdify"].append(smp.lambdify(self.input_symbols, expr))
 
 
-    def _create_sympy_expressions(self, stoichiometry_row : np.ndarray):
+    def _create_sympy_expressions(self):
         """
         returns sympy expressions
         """
@@ -454,13 +457,13 @@ class Optimizer_casadi(Base):
         coefficients_value : List[np.ndarray] = self.adict["coefficients_value_masked"]
         mask : List[np.ndarray] = self.adict["mask"]
         library_labels : List[List[str]] = self.adict["library_labels"]
-        expr = 0
+        expr = []
 
         for j in range(len(library_labels)):
             zero_filter = filter(lambda x : x[0], zip(coefficients_value[j], library_labels[j]))
-            expr += stoichiometry_row[j]*smp.sympify(reduce(lambda accum, value : 
+            expr.append(smp.sympify(reduce(lambda accum, value : 
                     accum + value[0] + " * " + value[1].replace(" ", "*") + " + ",   
-                    map(lambda x : (str(x[0]), x[1]), zero_filter), "+").rstrip(" +")) 
+                    map(lambda x : (str(x[0]), x[1]), zero_filter), "+").rstrip(" +")))
         # replaced whitespaces with multiplication element wise library labels
         # simpify already handles xor operation
         return expr
@@ -642,11 +645,11 @@ if __name__ == "__main__":
     model = DynamicModel("kinetic_kosir", time_span, arguments = [(373, 8.314)], n_expt = 2, seed = 20)
     features = model.integrate() # list of features
     target = model.approx_derivative # list of target value
-    features = model.add_noise(0, 0)
+    features = model.add_noise(0, 0.2)
     target = model.approx_derivative
 
     opti = Optimizer_casadi(FunctionalLibrary(2), alpha = 0, threshold = 1, plugin_dict = {"ipopt.print_level" : 0, "print_time":0, "ipopt.sb" : "yes"}, 
-                            max_iter = 20)
+                            max_iter = 1)
     # stoichiometry = np.array([-1, -1, -1, 0, 0, 2, 1, 0, 0, 0, 1, 0]).reshape(4, -1) # chemistry constraints
     # include_column = [[0, 2], [0, 3], [0, 1]]
     include_column = []
