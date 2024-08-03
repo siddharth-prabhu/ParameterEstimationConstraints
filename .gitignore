@@ -1,5 +1,8 @@
 __pycache__/
 saved_data/
+Adiabatic/
+LS/
+NLS/
 saved_data*
 *.txt
 rough.py

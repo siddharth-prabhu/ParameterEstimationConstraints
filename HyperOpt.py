@@ -79,7 +79,7 @@ class HyperOpt():
             
             _gridsearch_results = executor.map(self._gridsearch_optimization, combinations, itertools.repeat(parameter_key))
             individual_results_keyword = ["complexity", "MSE_Prediction", "MSE_train_pred", "r2_test_pred", "r2_train_pred", "MSE_Integration", "MSE_train_sim", 
-                    "r2_test_sim", "r2_train_sim", "AIC", "iterations"]
+                    "r2_test_sim", "r2_train_sim", "AIC", "iterations", "coefficients", "coefficients_pre_stoichiometry"]
             
             for individual_results in _gridsearch_results:    
                 if individual_results : # exceptions in optimizer returns None
@@ -148,7 +148,7 @@ class HyperOpt():
                 # AIC = (MSE_train_pred + MSE_train_sim)*(sum(len(x_train) for x_train in self.X_train))/2 + complexity
 
             return [param_dict, complexity, MSE_test_pred, MSE_train_pred, r2_test_pred, r2_train_pred, MSE_test_sim, MSE_train_sim, 
-                    r2_test_sim, r2_train_sim, AIC, self.model.adict["iterations"]]
+                    r2_test_sim, r2_train_sim, AIC, self.model.adict["iterations"], self.model.adict["coefficients_dict"], self.model.adict["coefficients_pre_stoichiometry_dict"]]
 
     @staticmethod
     def _bokeh_plot(fig : figure, x_label : str, y_label : str, title : str, height : int = 400, width : int = 700):
@@ -174,7 +174,8 @@ class HyperOpt():
             return
 
         # capture r2 values between 0 and 1
-        updated_results = self.df_result
+        updated_results = self.df_result[["complexity", "MSE_Prediction", "MSE_train_pred", "r2_test_pred", "r2_train_pred", "MSE_Integration", "MSE_train_sim", 
+                    "r2_test_sim", "r2_train_sim", "AIC", "iterations"]]
         updated_results = updated_results.loc[(updated_results["r2_test_pred"] >= 0) & (updated_results["r2_test_pred"] <= 1) & 
                                                (updated_results["r2_test_sim"] >= 0) & (updated_results["r2_test_sim"] <= 1 )]
         

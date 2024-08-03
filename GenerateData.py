@@ -118,7 +118,8 @@ class DynamicModel():
             373*(np.pi*np.cos(np.pi*t)/50)if not isinstance(x[0], smp.Symbol) else 373*(smp.pi*smp.cos(smp.pi*t)/50)
             )
 
-    def coefficients(self, x : Optional[Tuple[smp.symbols]] = None, t : Optional[np.ndarray] = None, args_as_symbols : bool = False) -> List[dict]:
+    def coefficients(self, x : Optional[Tuple[smp.symbols]] = None, t : Optional[np.ndarray] = None, args_as_symbols : bool = False, 
+                     pre_stoichiometry : bool = False) -> List[dict]:
 
         # if symbols are not provided
         if not x:
@@ -130,10 +131,10 @@ class DynamicModel():
         else:
             args = self.arguments[0]
 
-        if self.model == "kinetic_kosir_temperature":
+        if pre_stoichiometry :
             rates = DynamicModel.reaction_rate_kosir(*args)
             equations = DynamicModel._reactions(x, rates)
-        else:
+        else :
             equations = self.model_func(x, 0, args)
             
         return [eqn.as_coefficients_dict() for eqn in equations]
@@ -165,9 +166,17 @@ class DynamicModel():
     def actual_derivative(self) -> List:
         assert self._solution_flag, "Integrate the model before calling this method"
         # passing tuples in vectorize can be an issue
+        
+        derivatives = []
+        for xi, args in zip(self.solution, self.arguments):
+            derivatives.append(np.vstack([self.model_func(_xi, _ti, args) for _xi, _ti in zip(xi, self.time_span)]))
+
+        return derivatives
+        """
         return [np.vectorize(partial(self.model_func, args = args), signature = "(m),(n)->(m)")(xi, self.time_span) for 
                 xi, args in zip(self.solution, self.arguments)]
-
+        """
+    
     # calculates the approximate derivative using finite difference
     @property
     def approx_derivative(self) -> List:

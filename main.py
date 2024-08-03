@@ -10,15 +10,14 @@ import os
 
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.interpolate import CubicSpline
+import sympy as smp
 
 from GenerateData import DynamicModel
-from FunctionalLibrary import FunctionalLibrary
 from HyperOpt import HyperOpt
 from Optimizer import Optimizer_casadi
 from energy import EnergySindy
-# from integral import IntegralSindy
 from adiabatic import AdiabaticSindy
+from utils import coefficients_plot
 
 
 # only runs hyperparameter optimization for different training conditions
@@ -48,12 +47,12 @@ def run_gridsearch(n_expt : int, delta_t : float, noise_level : float, parameter
     parameters : List[ensemble_params, sindy_params]
     """
 
-    plugin_dict = {"ipopt.print_level" : 0, "print_time": 0, "ipopt.sb" : "yes", "ipopt.max_iter" : 1000}
-    solver_dict = {"solver" : "ipopt", "tol" : 1e-5}
+    plugin_dict = {"ipopt.print_level" : 0, "print_time": 0, "ipopt.sb" : "yes", "ipopt.max_iter" : 3000}
+    solver_dict = {"solver" : "ipopt", "tol" : 1e-4}
     
     # generate clean testing data to be used later for calculating errors
     time_span_clean = np.arange(0, 5, 0.01)
-    arguments_temperature = [(360, 8.314), (370, 8.314), (380, 8.314), (390, 8.314), (373, 8.314), (385, 8.314)]
+    arguments_temperature = [(365, 8.314), (370, 8.314), (380, 8.314), (390, 8.314), (373, 8.314), (385, 8.314)]
     assert n_expt <= len(arguments_temperature), "Please sepcify more temperature values"
     
     arguments_clean = [(373, 8.314)] if kind == "LS" else arguments_temperature
@@ -71,7 +70,8 @@ def run_gridsearch(n_expt : int, delta_t : float, noise_level : float, parameter
     target = model.approx_derivative
     arguments = model.arguments
 
-    mse_pred, aic, mse_sim, comp = [], [], [], []
+    actual_coefficients = [model.coefficients(pre_stoichiometry = True if kind == "NLS" else False)]
+    mse_pred, aic, mse_sim, comp, coefficients, coefficients_pre_stoichiometriy = [], [], [], [], [], []
     for status in ["without constraints", "with constraints", "with stoichiometry", "sindy"]:
 
         # for NLS no need to perform unconstrained and mass balance formulation
@@ -94,11 +94,11 @@ def run_gridsearch(n_expt : int, delta_t : float, noise_level : float, parameter
                                     "stoichiometry" : np.array([-1, -1, -1, 2, 0, 0, 0, 1, 0, 0, 0, 1]).reshape(4, -1)}
             else:
                 include_column = None
-                constraints_dict = {}
+                constraints_dict = {"stoichiometry" : np.eye(4)}
 
         else : # unconstrained formulation
             include_column = None
-            constraints_dict = {}
+            constraints_dict = {"stoichiometry" : np.eye(4)}
         
         # does grid_serch over parameters 
         print(f"Running simulation for {noise_level} noise, {n_expt} experiments, {delta_t} sampling time, and " + status)
@@ -122,7 +122,11 @@ def run_gridsearch(n_expt : int, delta_t : float, noise_level : float, parameter
         mse_sim.append(df_result.get("MSE_Integration", [0])[0])
         comp.append(df_result.get("complexity", [0])[0])
 
-    return mse_pred, aic, mse_sim, comp 
+        _dummy_dict = [{} for _ in range(constraints_dict["stoichiometry"].shape[-1])]
+        coefficients.append(df_result.get("coefficients", [_dummy_dict])[0])
+        coefficients_pre_stoichiometriy.append(df_result.get("coefficients_pre_stoichiometry", [_dummy_dict])[0])
+
+    return mse_pred, aic, mse_sim, comp, coefficients, coefficients_pre_stoichiometriy, actual_coefficients
 
 
 def run_adiabatic(n_expt : int, delta_t : float, noise_level : float, parameters : List[dict], kind : str = "LS", ensemble_iterations : int = 1, 
@@ -153,7 +157,8 @@ def run_adiabatic(n_expt : int, delta_t : float, noise_level : float, parameters
     constraints_dict = {"consumption" : [], "formation" : [], 
                         "stoichiometry" : np.array([-1, -1, -1, 2, 0, 0, 0, 1, 0, 0, 0, 1]).reshape(4, -1)}
 
-    mse_pred, aic, mse_sim, comp = [], [], [], []
+    actual_coefficients = [model.coefficients(pre_stoichiometry = True)]
+    mse_pred, aic, mse_sim, comp, coefficients, coefficients_pre_stoichiometry = [], [], [], [], [], []
     for status in ["sindy", "df-sindy"]:
             
         # does grid_serch over parameters 
@@ -183,12 +188,16 @@ def run_adiabatic(n_expt : int, delta_t : float, noise_level : float, parameters
         mse_sim.append(df_result.get("MSE_Integration", [0])[0])
         comp.append(df_result.get("complexity", [0])[0])
 
-    return mse_pred, aic, mse_sim, comp
+        _dummy_dict = [{} for _ in range(constraints_dict["stoichiometry"].shape[-1])]
+        coefficients.append(df_result.get("coefficients", [_dummy_dict])[0])
+        coefficients_pre_stoichiometry.append(df_result.get("coefficients_pre_stoichiometry", [_dummy_dict])[0])
+
+    return mse_pred, aic, mse_sim, comp, coefficients, coefficients_pre_stoichiometry, actual_coefficients
 
 
-def plot_adict(x : list, adict : dict, x_label : str, path : Optional[str] = None, title : Optional[str] = None):
+def plot_adict(x : list, adict : dict, x_label : str, path : Optional[str] = None, title : Optional[str] = None) -> None :
     # plotting results
-    if not path:
+    if path is None :
         path = os.getcwd()
     
     if not isinstance(x, np.ndarray):
@@ -217,7 +226,7 @@ def plot_adict(x : list, adict : dict, x_label : str, path : Optional[str] = Non
                 plt.bar(x + 0.5*width, value[0::2], label = "chemistry", width = width, align = "center")
                 plt.bar(x - 0.5*width, value[1::2], label = "sindy", width = width, align = "center")
 
-            if key in ["MSE_Integration", "MSE_Prediction"]:
+            if key in ["MSE", "MSE_Prediction"]:
                 plt.yscale("log")
             
             if title:
@@ -229,6 +238,38 @@ def plot_adict(x : list, adict : dict, x_label : str, path : Optional[str] = Non
             plt.legend()
             plt.savefig(os.path.join(path, f'{x_label}_{key}_{"_".join(title.split())}'))
             plt.close()
+
+
+def plot_coeff(level : list, adict : dict, path : Optional[str] = None, title : Optional[str] = None) -> None :
+
+    if path is None :
+        path = os.path.join(os.getcwd(), "coefficients")
+
+    kind = adict.pop("kind")
+    actual_coefficients = adict["actual_coefficients"][0][0]
+    discovered_coefficients = adict["coefficients"] if kind == "LS" else adict["coefficients_pre_stoichiometry"]
+
+    remove_exp = lambda expr : expr.split("*exp")[0]
+
+    def update_keys(adict):
+        bdict = {}
+        for key, value in adict.items():
+            new_key = remove_exp(str(key))
+            bdict[smp.sympify(new_key)] = value
+
+        return bdict
+
+    for i, val in enumerate(level):
+
+        _discovered_coefficients = [[update_keys(_dict) for _dict in _alist] for _alist in discovered_coefficients[i]]
+
+        coefficients_plot(
+            actual_coefficients, 
+            _discovered_coefficients, 
+            expt_names = ["unconstrained", "mass balance", "chemistry", "sindy"] if kind == "LS" else (["derivative", "integral"] if kind == "AD" else ["chemistry", "sindy"]), 
+            path = path + str(val) + ".png", 
+            title = title
+        )
 
 
 if __name__ == "__main__": 
@@ -283,6 +324,7 @@ if __name__ == "__main__":
         print("------"*100)
         print("Starting experiment study")
         adict_noise = defaultdict(list)
+        coeff_noise = defaultdict(list)
         noise_level = [0.0, 0.1, 0.2]
         path_noise = os.path.join(path, "noise")
 
@@ -296,11 +338,16 @@ if __name__ == "__main__":
             result = executor.map(afunc_partial, repeat(6), repeat(0.01), noise_level)
 
             for alist in result:
-                for key, value in zip(["MSE_Prediction", "AIC", "MSE_Integration", "complexity"], alist):
-                    adict_noise[key].extend(value)
+                for key, value in zip(["MSE_Prediction", "AIC", "MSE", "complexity", "coefficients", "coefficients_pre_stoichiometry", "actual_coefficients"], alist):
+                    if key in ["coefficients", "coefficients_pre_stoichiometry", "actual_coefficients"]:
+                        coeff_noise[key].append(value)
+                    else:
+                        adict_noise[key].extend(value)
 
         adict_noise["kind"] = problem
+        coeff_noise["kind"] = problem
         plot_adict(noise_level, adict_noise, x_label = "noise", path = path_noise, title = f"Polynomial degree {degree}")
+        plot_coeff(noise_level, coeff_noise, path = os.path.join(path_noise, f"coefficients_Polynomial_degree_{degree}_noise"))
 
     ########################################################################################################################
     if experiments_study :
@@ -310,6 +357,7 @@ if __name__ == "__main__":
         print("Starting experiment study")
         experiments = [2, 4, 6]
         adict_experiments = defaultdict(list)
+        coeff_experiments = defaultdict(list)
         path_experiments = os.path.join(path, "experiments")
 
         afunc = run_adiabatic if problem == "AD" else run_gridsearch
@@ -322,12 +370,17 @@ if __name__ == "__main__":
             result = executor.map(afunc_partial, experiments)
 
             for alist in result:
-                for key, value in zip(["MSE_Prediction", "AIC", "MSE_Integration", "complexity"], alist):
-                    adict_experiments[key].extend(value)
+                for key, value in zip(["MSE_Prediction", "AIC", "MSE", "complexity", "coefficients", "coefficients_pre_stoichiometry", "actual_coefficients"], alist):
+                    if key in ["coefficients", "coefficients_pre_stoichiometry", "actual_coefficients"]:
+                        coeff_experiments[key].append(value)
+                    else:
+                        adict_experiments[key].extend(value)
         
         adict_experiments["kind"] = problem
+        coeff_experiments["kind"] = problem
         plot_adict(experiments, adict_experiments, x_label = "experiments", path = path_experiments, title = f"Polynomial degree {degree}")
-    
+        plot_coeff(experiments, coeff_experiments, path = os.path.join(path_experiments, f"coefficients_Polynomial_degree_{degree}_experiments"))
+
     ########################################################################################################################
     if sampling_study :
     
@@ -335,6 +388,7 @@ if __name__ == "__main__":
         print("Starting sampling study")
         sampling = [0.01, 0.05, 0.1]
         adict_sampling = defaultdict(list)
+        coeff_sampling = defaultdict(list)
         path_sampling = os.path.join(path, "sampling")
 
         afunc = run_adiabatic if problem == "AD" else run_gridsearch
@@ -347,10 +401,15 @@ if __name__ == "__main__":
             result = executor.map(afunc_partial, repeat(6), sampling)
 
             for alist in result:
-                for key, value in zip(["MSE_Prediction", "AIC", "MSE_Integration", "complexity"], alist):
-                    adict_sampling[key].extend(value)
+                for key, value in zip(["MSE_Prediction", "AIC", "MSE", "complexity", "coefficients", "coefficients_pre_stoichiometry", "actual_coefficients"], alist):
+                    if key in ["coefficients", "coefficients_pre_stoichiometry", "actual_coefficients"]:
+                        coeff_sampling[key].append(value)
+                    else:
+                        adict_sampling[key].extend(value)
 
         adict_sampling["kind"] = problem
+        coeff_sampling["kind"] = problem
         plot_adict(sampling, adict_sampling, x_label = "sampling", path = path_sampling, title = f"Polynomial degree {degree}")
+        plot_coeff(sampling, coeff_sampling, path = os.path.join(path_sampling, f"coefficients_Polynomial_degree_{degree}_sampling"))
 
     ########################################################################################################################

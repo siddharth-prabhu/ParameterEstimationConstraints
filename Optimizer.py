@@ -437,7 +437,7 @@ class Optimizer_casadi(Base):
             for atom in smp.preorder_traversal(expr):
                 if atom.is_rational:
                     continue
-                if atom.is_number and abs(atom) < 1e-5:
+                if atom.is_number and abs(atom) < 10 * self.solver_dict.get("tol", 1e-5):
                     expr = expr.subs(atom, 0)
             
             self.adict["equations"].append(expr)
@@ -598,7 +598,7 @@ class Optimizer_casadi(Base):
     
     @property
     def complexity(self):
-        #TODO why not take lenght of dictionary elements of self.adict["coefficients_dict"]
+        #TODO why not take length of dictionary elements of self.adict["coefficients_dict"]
         # self.adict["equations"] are now sympy equations and not strings
         # return sum(eqn.count("+") + eqn.lstrip("-").count("-") + 1 for eqn in self.adict["equations"])
         return sum(len(eqn) for eqn in self.adict["coefficients_dict"])
@@ -642,19 +642,19 @@ if __name__ == "__main__":
     from utils import coefficients_plot
 
     time_span = np.arange(0, 5, 0.01)
-    model = DynamicModel("kinetic_kosir", time_span, arguments = [(373, 8.314)], n_expt = 2, seed = 20)
+    model = DynamicModel("kinetic_kosir", time_span, arguments = [(373, 8.314)], n_expt = 6, seed = 20)
     features = model.integrate() # list of features
     target = model.approx_derivative # list of target value
-    features = model.add_noise(0, 0.2)
+    # features = model.add_noise(0, 0.2)
     target = model.approx_derivative
 
-    opti = Optimizer_casadi(FunctionalLibrary(2), alpha = 0, threshold = 1, plugin_dict = {"ipopt.print_level" : 0, "print_time":0, "ipopt.sb" : "yes"}, 
-                            max_iter = 1)
+    opti = Optimizer_casadi(FunctionalLibrary(1), alpha = 0.0, threshold = 0.1, plugin_dict = {"ipopt.print_level" : 0, "print_time":0, "ipopt.sb" : "yes"}, 
+                            max_iter = 20)
     # stoichiometry = np.array([-1, -1, -1, 0, 0, 2, 1, 0, 0, 0, 1, 0]).reshape(4, -1) # chemistry constraints
     # include_column = [[0, 2], [0, 3], [0, 1]]
     include_column = []
-    # stoichiometry =  np.array([1, 0, 0, 0, 1, 0, 0, 0, 1, -1, -0.5, -1]).reshape(4, -1) # mass balance constraints
-    stoichiometry = np.eye(4) # no constraints
+    stoichiometry =  np.array([1, 0, 0, 0, 1, 0, 0, 0, 1, -1, -0.5, -1]).reshape(4, -1) # mass balance constraints
+    # stoichiometry = np.eye(4) # no constraints
     
     derivative_free = True
     
@@ -671,4 +671,4 @@ if __name__ == "__main__":
     # print("coefficients at each iteration", opti.adict["coefficients_iterations"])
     print("--"*20)
 
-    coefficients_plot(model.coefficients() , opti.adict["coefficients_dict"])
+    # coefficients_plot(model.coefficients() , [opti.adict["coefficients_dict"], opti.adict["coefficients_dict"]])
