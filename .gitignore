@@ -10,7 +10,7 @@ rough.py
 *.out
 LS
 NLS
-.png
+*.png
 slurm*
 submit*
 output*
