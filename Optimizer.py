@@ -129,7 +129,8 @@ class Optimizer_casadi(Base):
         for i in range(self._states):
             asum = 0
             for j in range(self._reactions): 
-                asum += self.adict["stoichiometry"][i, j]*self.adict["reactions"][j]
+                if self.adict["stoichiometry"][i, j] != 0:
+                    asum += self.adict["stoichiometry"][i, j]*self.adict["reactions"][j]
 
             self.adict["cost"] += cd.sumsqr(target[:, i] - asum)/2
 
@@ -457,16 +458,17 @@ class Optimizer_casadi(Base):
         coefficients_value : List[np.ndarray] = self.adict["coefficients_value_masked"]
         mask : List[np.ndarray] = self.adict["mask"]
         library_labels : List[List[str]] = self.adict["library_labels"]
-        expr = []
+        _expr = []
 
         for j in range(len(library_labels)):
             zero_filter = filter(lambda x : x[0], zip(coefficients_value[j], library_labels[j]))
-            expr.append(smp.sympify(reduce(lambda accum, value : 
+            _astring = reduce(lambda accum, value : 
                     accum + value[0] + " * " + value[1].replace(" ", "*") + " + ",   
-                    map(lambda x : (str(x[0]), x[1]), zero_filter), "+").rstrip(" +")))
+                    map(lambda x : (str(x[0]), x[1]), zero_filter), "+").rstrip(" +")
+            _expr.append(smp.sympify(_astring))
         # replaced whitespaces with multiplication element wise library labels
         # simpify already handles xor operation
-        return expr
+        return _expr
 
 
     def plot_distribution(self, coefficient_casadi_ensemble : Optional[dict] = None, mean : Optional[dict] = None, deviation : Optional[dict] = None,
@@ -641,6 +643,7 @@ if __name__ == "__main__":
     from GenerateData import DynamicModel
     from utils import coefficients_plot
 
+    """
     time_span = np.arange(0, 5, 0.01)
     model = DynamicModel("kinetic_kosir", time_span, arguments = [(373, 8.314)], n_expt = 6, seed = 20)
     features = model.integrate() # list of features
@@ -672,3 +675,34 @@ if __name__ == "__main__":
     print("--"*20)
 
     # coefficients_plot(model.coefficients() , [opti.adict["coefficients_dict"], opti.adict["coefficients_dict"]])
+    """
+
+    # Testing Rober problem 
+
+    time_span = np.arange(0, 1e4, 0.01)
+    model = DynamicModel("kinetic_rober", time_span, n_expt = 6, seed = 20)
+    features = model.integrate() # list of features
+    target = model.approx_derivative # list of target value
+    # features = model.add_noise(0, 0.2)
+    # target = model.approx_derivative
+
+    opti = Optimizer_casadi(FunctionalLibrary(2), alpha = 0.01, threshold = 0.01, plugin_dict = {"ipopt.print_level" : 5, "print_time": 5, "ipopt.sb" : "no"}, 
+                            max_iter = 20)
+    # include_column = [[0, 2], [0, 3], [0, 1]]
+    include_column = []
+    stoichiometry = np.eye(3) # no constraints
+    
+    derivative_free = True
+    
+    opti.fit(features, target, time_span = time_span, include_column = include_column, 
+                constraints_dict= {"formation" : [], "consumption" : [], 
+                                    "stoichiometry" : stoichiometry}, ensemble_iterations = 1, seed = 10, max_workers = 1, 
+                variance_elimination = False, derivative_free = derivative_free)
+    opti.print()
+    print("--"*20)
+    print("mean squared error :", opti.score(features, target, time_span))
+    print("model complexity", opti.complexity)
+    print("Total number of iterations", opti.adict["iterations"])
+    print("--"*20)
+    # print("coefficients at each iteration", opti.adict["coefficients_iterations"])
+    print("--"*20)
