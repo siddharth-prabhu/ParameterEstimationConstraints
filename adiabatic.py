@@ -50,7 +50,6 @@ class AdiabaticSindy(EnergySindy):
             self.initializer,
             )
         
-
     def _generate_library_derivative_free(self, data : List[np.ndarray], include_column : List[np.ndarray], time_span : np.ndarray, 
                             output_time_span : np.ndarray, target : List[np.ndarray]) -> None:
         
@@ -124,8 +123,7 @@ class AdiabaticSindy(EnergySindy):
         for coeff in self.adict["coefficients"]:
             self.adict["cost"] += self.alpha*cd.sumsqr(coeff)
 
-    # function for multiprocessing
-    def _stlsq_solve_optimization(self, permutations : List, **kwargs) -> List[List[np.ndarray]]:
+    def _stlsq_solve_optimization(self, **kwargs) -> List[List[np.ndarray]]:
         # create problem from scratch since casadi cannot run the same problem once optimized
         # steps should follow a sequence 
         # dont replace if there is only one ensemble iteration. Dataset rows are constant for all reactions 
@@ -199,9 +197,8 @@ class AdiabaticSindy(EnergySindy):
         target = self.adict["target"]
     
         self._create_mask() # pulled outside optimization so that can be used in cost function
-        _mean, _deviation = self._stlsq(target, constraints_dict, 1, False, max_workers, seed)
-        (self.adict["coefficients_value"], self.adict["coefficients_energy_value"], self.adict["coefficients_deviation"], 
-                                        self.adict["coefficients_energy_deviation"]) = (_mean[0], _mean[1], _deviation[0], _deviation[1])
+        _mean = self._stlsq(target, constraints_dict, max_workers, seed)
+        (self.adict["coefficients_value"], self.adict["coefficients_energy_value"]) = (_mean[0], _mean[1])
         self._create_equations()
 
     def simulate(self, X : list[np.ndarray], time_span : np.ndarray, model_args : Optional[np.ndarray] = None, calculate_score : bool = False, 

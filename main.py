@@ -23,29 +23,21 @@ from utils import coefficients_plot
 # only runs hyperparameter optimization for different training conditions
 
 parser = argparse.ArgumentParser("ParameterEstimationSINDy")
-parser.add_argument("--ensemble_study", choices = [0, 1, 2], type = int, default = 0, 
-                    help = "If 0 performs thresholding, if 1 performs bootstrapping and 2 performs covariance elimination")
 parser.add_argument("--noise_study", choices = [0, 1], type = int, default = 0, 
                     help = "If True performs hyperparameter optimization for varying noise levels") 
 parser.add_argument("--experiments_study", choices = [0, 1], type = int, default = 0, 
-                    help = "If True performs hyperparameter optimization for varying initial conditions") 
-parser.add_argument("--sampling_study", choices = [0, 1], type = int, default = 0, 
-                    help = "If True performs hyperparameter optimization for varying sampling frequencies")                  
+                    help = "If True performs hyperparameter optimization for varying initial conditions")                
 parser.add_argument("--max_workers", default = 1, type = int)
 parser.add_argument("--logdir", choices = ["NLS", "LS", "Adiabatic"], type = str, default = "LS", 
                     help = "Nonlinear Least Square or Least Square or Adiabatic")
 parser.add_argument("--problem", choices = ["NLS", "LS", "AD"], type = str, default = "LS", help = "The type of problem to solve")
 parser.add_argument("--degree", type = int, default = 1, help = "The polynomial degree of terms in functional library")
-parser.add_argument("--ensemble_iter", type = int, default = 1, help = "The number of emsemble iterations")
 args = parser.parse_args()
 
 
-def run_gridsearch(n_expt : int, delta_t : float, noise_level : float, parameters : List[dict], kind : str = "LS", ensemble_iterations : int = 1, 
-                    variance_elimination : bool = False, max_workers : Optional[int] = None, seed : int = 12345, path : Optional[str] = None):
+def run_gridsearch(n_expt : int, delta_t : float, noise_level : float, parameters : dict, kind : str = "LS", 
+                    max_workers : Optional[int] = None, seed : int = 12345, path : Optional[str] = None):
     
-    """
-    parameters : List[ensemble_params, sindy_params]
-    """
 
     plugin_dict = {"ipopt.print_level" : 0, "print_time": 0, "ipopt.sb" : "yes", "ipopt.max_iter" : 3000}
     solver_dict = {"solver" : "ipopt", "tol" : 1e-4}
@@ -103,16 +95,15 @@ def run_gridsearch(n_expt : int, delta_t : float, noise_level : float, parameter
         # does grid_serch over parameters 
         print(f"Running simulation for {noise_level} noise, {n_expt} experiments, {delta_t} sampling time, and " + status)
         opt = HyperOpt(features, target, features_clean, target_clean, 
-                        time_span, time_span_clean, parameters = parameters[1], # parameters[status == "sindy"], 
+                        time_span, time_span_clean, parameters = parameters, 
                         model = Optimizer_casadi(plugin_dict = plugin_dict, solver_dict = solver_dict) if kind == "LS" else EnergySindy(plugin_dict = plugin_dict, solver_dict = solver_dict),
                         arguments = arguments if kind == "NLS" else None, arguments_clean =  arguments_clean if kind == "NLS" else None, 
-                        meta = {"include_column" : include_column, "constraints_dict" : constraints_dict, "ensemble_iterations" : ensemble_iterations, 
-                        "variance_elimination" : False, # no need to perform bootstrapping 
+                        meta = {"include_column" : include_column, "constraints_dict" : constraints_dict,
                         "seed" : seed, "derivative_free" : False if status == "sindy" else True})
 
         opt.gridsearch(max_workers = max_workers)
 
-        opt.plot(filename = f'Gridsearch_{parameters[0]["feature_library__degree"][0]}_{status}_noise{noise_level}_eniter{ensemble_iterations}_expt{n_expt}_delta_{delta_t}.html', 
+        opt.plot(filename = f'Gridsearch_{parameters["feature_library__degree"][0]}_{status}_noise{noise_level}_expt{n_expt}_delta_{delta_t}.html', 
                     path = path, title = f"{status} and {noise_level} noise")
         df_result = opt.df_result
 
@@ -129,8 +120,8 @@ def run_gridsearch(n_expt : int, delta_t : float, noise_level : float, parameter
     return mse_pred, aic, mse_sim, comp, coefficients, coefficients_pre_stoichiometriy, actual_coefficients
 
 
-def run_adiabatic(n_expt : int, delta_t : float, noise_level : float, parameters : List[dict], kind : str = "LS", ensemble_iterations : int = 1, 
-                    variance_elimination : bool = False, max_workers : Optional[int] = None, seed : int = 12345, path : Optional[str] = None):
+def run_adiabatic(n_expt : int, delta_t : float, noise_level : float, parameters : dict, kind : str = "LS", 
+                    max_workers : Optional[int] = None, seed : int = 12345, path : Optional[str] = None):
 
     # lower the tolerance for noise
     plugin_dict = {"ipopt.print_level" : 0, "print_time": 0, "ipopt.sb" : "yes", "ipopt.max_iter" : 3000, "ipopt.tol" : 1e-5}
@@ -168,17 +159,16 @@ def run_adiabatic(n_expt : int, delta_t : float, noise_level : float, parameters
                         [feat[:, :-1] for feat in features_clean] if status == "sindy" else features_clean, 
                         target_clean if status == "sindy" else [feat[:, :-1] for feat in features_clean], 
                         time_span, time_span_clean, 
-                        parameters = parameters[-1], 
+                        parameters = parameters, 
                         model = EnergySindy(plugin_dict = plugin_dict) if status == "sindy" else AdiabaticSindy(plugin_dict = plugin_dict),
                         arguments = arguments, 
                         arguments_clean = arguments_clean, 
-                        meta = {"include_column" : include_column, "constraints_dict" : constraints_dict, "ensemble_iterations" : 1, 
-                        "variance_elimination" : False, # no need to perform bootstrapping 
+                        meta = {"include_column" : include_column, "constraints_dict" : constraints_dict, 
                         "seed" : seed, "derivative_free" : False}
                         )
 
         opt.gridsearch(max_workers = max_workers)
-        opt.plot(filename = f'Gridsearch_{parameters[0]["feature_library__degree"][0]}_{status}_noise{noise_level}_expt{n_expt}_delta_{delta_t}.html', 
+        opt.plot(filename = f'Gridsearch_{parameters["feature_library__degree"][0]}_{status}_noise{noise_level}_expt{n_expt}_delta_{delta_t}.html', 
                     path = path, title = f"{status}")
         df_result = opt.df_result
 
@@ -275,34 +265,15 @@ def plot_coeff(level : list, adict : dict, path : Optional[str] = None, title : 
 if __name__ == "__main__": 
 
     # Perfrom simulations
-    ensemble_study = args.ensemble_study # "If 0 performs thresholding, if 1 performs bootstrapping and 2 performs covariance elimination"
     noise_study = args.noise_study # if True performs hyperparameter optimization for varying noise levels
     experiments_study = args.experiments_study # if True performs hyperparameter optimization for varying initial conditions
     sampling_study = args.sampling_study # if True performs hyperparameter optimization for varying sampling frequencies
     problem = args.problem # the type of problem to solve. Either LS or NLS or Adiabatci
     logdir = args.logdir 
-    variance_elimination = True if ensemble_study >= 1 else False 
     max_workers = None if args.max_workers <= 0 else args.max_workers 
-    degree = args.degree
-    ensemble_iterations = args.ensemble_iter
+    degree = args.degree 
 
-    if problem == "AD":
-        if ensemble_study > 0:
-            print("Switching to normal thresholding. Cannot perform bootstrapping or covariance based elimination with adiabatic study")
-            ensemble_study = 0
-        ensemble_iterations = 1
-        variance_elimination = False
-    
-    if ensemble_study == 0:
-        ensemble_iterations = 1
-        variance_elimination = False
-
-    if variance_elimination:
-        elimination = "covariance" if ensemble_study == 2 else "boostrapping"
-    else:
-        elimination = "thresholding"
-
-    path = os.path.join(os.getcwd(), logdir, elimination)
+    path = os.path.join(os.getcwd(), logdir)
     if not os.path.exists(path):
         os.mkdir(path)
 
@@ -312,11 +283,6 @@ if __name__ == "__main__":
         "feature_library__include_bias" : [False],
         "feature_library__degree": [degree]
         }
-
-    ensemble_params = {"optimizer__threshold": [2, 1.25, 1.6], # 95%, 80%, 90%
-        "optimizer__alpha": [0], 
-        "feature_library__include_bias" : [False],
-        "feature_library__degree": [degree]}
 
     ########################################################################################################################
     if noise_study :
@@ -329,8 +295,7 @@ if __name__ == "__main__":
         path_noise = os.path.join(path, "noise")
 
         afunc = run_adiabatic if problem == "AD" else run_gridsearch
-        afunc_partial = partial(afunc, parameters = [ensemble_params, sindy_params], 
-                            ensemble_iterations = ensemble_iterations, variance_elimination = variance_elimination, 
+        afunc_partial = partial(afunc, parameters = sindy_params,  
                             max_workers = max_workers, seed = 20, 
                             path = path_noise, kind = problem)
 
@@ -361,8 +326,7 @@ if __name__ == "__main__":
         path_experiments = os.path.join(path, "experiments")
 
         afunc = run_adiabatic if problem == "AD" else run_gridsearch
-        afunc_partial = partial(afunc, delta_t = 0.05, noise_level = 0, parameters = [ensemble_params, sindy_params], 
-                                ensemble_iterations = ensemble_iterations, variance_elimination = variance_elimination, 
+        afunc_partial = partial(afunc, delta_t = 0.05, noise_level = 0, parameters = sindy_params,  
                                 max_workers = max_workers, seed = 20, 
                                 path = path_experiments, kind = problem)
 
@@ -392,8 +356,7 @@ if __name__ == "__main__":
         path_sampling = os.path.join(path, "sampling")
 
         afunc = run_adiabatic if problem == "AD" else run_gridsearch
-        afunc_partial = partial(afunc, noise_level = 0, parameters = [ensemble_params, sindy_params], 
-                        ensemble_iterations = ensemble_iterations, variance_elimination = variance_elimination, 
+        afunc_partial = partial(afunc, noise_level = 0, parameters = sindy_params, 
                         max_workers = max_workers, seed = 20, 
                         path = path_sampling, kind = problem)
 
@@ -413,3 +376,4 @@ if __name__ == "__main__":
         plot_coeff(sampling, coeff_sampling, path = os.path.join(path_sampling, f"coefficients_Polynomial_degree_{degree}_sampling"))
 
     ########################################################################################################################
+    

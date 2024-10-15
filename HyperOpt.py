@@ -144,9 +144,7 @@ class HyperOpt():
 
             else:                  
                 AIC = 2*np.log(MSE_test_sim) + complexity # AIC should be based on testing data and not clean data
-                # AIC = 2*np.log((MSE_test_sim + MSE_test_pred)/2) + complexity
-                # AIC = (MSE_train_pred + MSE_train_sim)*(sum(len(x_train) for x_train in self.X_train))/2 + complexity
-
+                
             return [param_dict, complexity, MSE_test_pred, MSE_train_pred, r2_test_pred, r2_train_pred, MSE_test_sim, MSE_train_sim, 
                     r2_test_sim, r2_train_sim, AIC, self.model.adict["iterations"], self.model.adict["coefficients_dict"], self.model.adict["coefficients_pre_stoichiometry_dict"]]
 
@@ -247,7 +245,6 @@ if __name__ == "__main__":
 
     opt.gridsearch(max_workers = 2)
     
-    """
     ## testing for adiabatic conditions
 
     time_span = np.arange(0, 5, 0.1)
@@ -267,4 +264,15 @@ if __name__ == "__main__":
                     arguments, arguments, parameters = params,  
                     meta = {"include_column" : include_column, "constraints_dict" : {"stoichiometry" : stoichiometry}, "shooting_horizon" : 5})
     opt.gridsearch(max_workers = 1)
+    """
+
+    ## testing for menten system
+
+    t_span = np.arange(0, 20, 0.01)
+    model_actual = DynamicModel("kinetic_menten", t_span, n_expt = 2, arguments = [(0.1, 0.2, 0.3)])
+    features = model_actual.integrate()
+    target = model_actual.approx_derivative
     
+    opt = HyperOpt(features, target, features, target, t_span, t_span, model = Optimizer_casadi(plugin_dict = {"ipopt.print_level" : 0, "print_time":0, "ipopt.sb" : "yes"}), 
+                    parameters = params)
+    opt.gridsearch(max_workers = 2)

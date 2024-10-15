@@ -100,8 +100,6 @@ class EnergySindy(Optimizer_casadi):
 
     def _add_constraints(self, constraints_dict, seed : int = 12345):
 
-        super()._add_constraints(constraints_dict, seed)
-
         if constraints_dict.get("activation_energy", False):
             # make all the activation energies positive
             for coefficient_energy in self.adict["coefficients_energy"]:
@@ -149,9 +147,7 @@ class EnergySindy(Optimizer_casadi):
         """
         return [self.adict["coefficients"], self.adict["coefficients_energy"]]
 
-
-    # function for multiprocessing
-    def _stlsq_solve_optimization(self, permutations : List, **kwargs) -> List[List[np.ndarray]]:
+    def _stlsq_solve_optimization(self, **kwargs) -> List[List[np.ndarray]]:
         # create problem from scratch since casadi cannot run the same problem once optimized
         # steps should follow a sequence 
         # dont replace if there is only one ensemble iteration. Dataset rows are constant for all reactions 
@@ -165,10 +161,10 @@ class EnergySindy(Optimizer_casadi):
 
         self._create_decision_variables()
         self._parameters : List = self._create_parameters()
-        self.adict["library"] = [value[permutations]*self.adict["mask"][ind] for ind, value in enumerate(library)]
+        self.adict["library"] = [value*self.adict["mask"][ind] for ind, value in enumerate(library)]
         # shuffle the arguments as well
-        self.adict["arguments"] = self.adict["arguments_original"][permutations]
-        self._update_cost(target[permutations])
+        self.adict["arguments"] = self.adict["arguments_original"]
+        self._update_cost(target)
         if constraints_dict:
             self._add_constraints(constraints_dict, seed)
         self._initialize_decision_variables()
@@ -177,23 +173,14 @@ class EnergySindy(Optimizer_casadi):
         # list[np.ndarray]. additional layer of np.array and flatten to account for singular value, which casadi outputs as float
         return [[np.array([_solution.value(coeff)]).flatten() for coeff in params] for params in self._parameters]
 
-
     def fit(self, features : List[np.ndarray], target : List[np.ndarray], time_span : np.ndarray, arguments : List[Any], 
-                include_column : Optional[List[np.ndarray]] = None, constraints_dict : dict = {} , 
-                ensemble_iterations : int = 1, variance_elimination : bool = False, derivative_free : bool = False,
+                include_column : Optional[List[np.ndarray]] = None, constraints_dict : dict = {}, derivative_free : bool = False,
                 max_workers : Optional[int] = None, seed : int = 12345, **kwargs) -> None:
         """
         target : the derivatives of states. depending on the formulation it will be used or replaced with states
         arguments is a list of arrays so that its compatible with vectorize
-        if variance_elimination = True and ensemble_iterations > 1 performs boostrapping
-        if variance_elimination = True and ensemble_iterations <= 1 performs covariane matrix
-        if variance_elimination = False performs normal thresholding (regular sindy)
-        constraints_dict should be of the form {"consumption" : [], "formation" : [], 
-                                                   "stoichiometry" : np.ndarray}
+        constraints_dict should be of the form {"stoichiometry" : np.ndarray}
         """
-        # prevents errors in downstream
-        if not variance_elimination:
-            ensemble_iterations = 1
 
         self._flag_fit = True
         self._input_states = np.shape(features)[-1]
@@ -232,9 +219,8 @@ class EnergySindy(Optimizer_casadi):
             self._generate_library(features, include_column)
 
         self._create_mask() # pulled outside optimization so that can be used in cost function
-        _mean, _deviation = self._stlsq(target, constraints_dict, ensemble_iterations, variance_elimination, max_workers, seed)
-        (self.adict["coefficients_value"], self.adict["coefficients_energy_value"], self.adict["coefficients_deviation"], 
-                                        self.adict["coefficients_energy_deviation"]) = (_mean[0], _mean[1], _deviation[0], _deviation[1])
+        _mean = self._stlsq(target, constraints_dict, max_workers, seed)
+        (self.adict["coefficients_value"], self.adict["coefficients_energy_value"]) = (_mean[0], _mean[1])
         self._create_equations()
 
     def simulate(self, X : list[np.ndarray], time_span : np.ndarray, model_args : Optional[np.ndarray] = None, calculate_score : bool = False, 
@@ -269,22 +255,24 @@ class EnergySindy(Optimizer_casadi):
         for coefficients, mask in zip(self.adict["coefficients_value"], self.adict["mask"]):
             self.adict["coefficients_value_masked"].append(coefficients*mask.flatten())
 
+        print("coefficients_value", self.adict["coefficients_value"])
         # Do not round the coefficients here (Rounding may compromise accuracy while prediciton or scoring). 
         # Round them only when printing
         coefficients_value : List[np.ndarray] = self.adict["coefficients_value_masked"]
         coefficients_energy : List[np.ndarray] = self.adict["coefficients_energy_value"]
         library_labels : List[List[str]] = self.adict["library_labels"]
-        expr = []
+        _expr = []
         
-        for j in range(len(library_labels)):
-            zero_filter = filter(lambda x : x[0], zip(coefficients_value[j], coefficients_energy[j], library_labels[j]))
-            # modify expr to include arhenius equation (R and T are additional symbols that are defined)
-            expr.append(smp.sympify(reduce(lambda accum, value : 
-                    accum + value[0] + "*exp(-(" + value[1] + "/R)*(1/T - Rational(1, 373)))* " + value[-1].replace(" ", "*") + " + ",   
-                    map(lambda x : (str(x[0]), str(x[1]*10_000), x[-1]), zero_filter), "+").rstrip(" +")))
+        # modify expr to include arhenius equation (R and T are additional symbols that are defined)
         # replaced whitespaces with multiplication element wise library labels
         # simpify already handles xor operation
-        return expr
+        for j in range(len(library_labels)):
+            zero_filter = filter(lambda x : x[0], zip(coefficients_value[j], coefficients_energy[j], library_labels[j]))
+            _astring = reduce(lambda accum, value : 
+                    accum + value[0] + "*exp(-(" + value[1] + "/R)*(1/T - Rational(1, 373)))* " + value[-1].replace(" ", "*") + " + ",   
+                    map(lambda x : (str(x[0]), str(x[1]*10_000), x[-1]), zero_filter), "+").rstrip(" +")
+            _expr.append(smp.sympify(_astring))
+        return _expr
 
 
 if __name__ == "__main__":
@@ -313,7 +301,6 @@ if __name__ == "__main__":
 
     opti.fit(features, target, time_span, arguments, include_column = include_column, 
                 constraints_dict= {"formation" : [], "consumption" : [], "stoichiometry" : stoichiometry}, 
-                ensemble_iterations = 1, variance_elimination = False, 
                 derivative_free = True, seed = 20, max_workers = 2)
 
     opti.print()
@@ -348,7 +335,6 @@ if __name__ == "__main__":
 
     opti.fit(features, target, time_span, arguments, include_column = include_column, 
                 constraints_dict= {"formation" : [], "consumption" : [], "stoichiometry" : stoichiometry}, 
-                ensemble_iterations = 1, variance_elimination = False, 
                 derivative_free = False, seed = 20, max_workers = 2)
     
     opti.print()
