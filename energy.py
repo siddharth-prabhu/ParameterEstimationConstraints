@@ -11,8 +11,8 @@ from sklearn.metrics import mean_squared_error
 import matplotlib.pyplot as plt
 from scipy.interpolate import CubicSpline
 
-from Optimizer import Optimizer_casadi
-from FunctionalLibrary import FunctionalLibrary
+from optimizer import Optimizer_casadi
+from functional_library import FunctionalLibrary
 
 
 class EnergySindy(Optimizer_casadi):

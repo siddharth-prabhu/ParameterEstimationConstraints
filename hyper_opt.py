@@ -14,11 +14,11 @@ from bokeh.plotting import figure, output_file, save
 from bokeh.models import ColumnDataSource
 from bokeh.layouts import column, row
 
-from GenerateData import DynamicModel
-from Optimizer import Optimizer_casadi
+from generate_data import DynamicModel
+from optimizer import Optimizer_casadi
 from energy import EnergySindy
 from adiabatic import AdiabaticSindy
-from FunctionalLibrary import FunctionalLibrary
+from functional_library import FunctionalLibrary
 
 @dataclass()
 class HyperOpt():

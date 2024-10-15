@@ -12,9 +12,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 import sympy as smp
 
-from GenerateData import DynamicModel
-from HyperOpt import HyperOpt
-from Optimizer import Optimizer_casadi
+from generate_data import DynamicModel
+from hyper_opt import HyperOpt
+from optimizer import Optimizer_casadi
 from energy import EnergySindy
 from adiabatic import AdiabaticSindy
 from utils import coefficients_plot

@@ -13,8 +13,8 @@ from tqdm import tqdm
 from sklearn.metrics import mean_squared_error
 from scipy.integrate import odeint
 
-from Base import Base
-from FunctionalLibrary import FunctionalLibrary
+from base import Base
+from functional_library import FunctionalLibrary
 
 
 @dataclass(frozen = False)
@@ -478,7 +478,7 @@ class Optimizer_casadi(Base):
 
 if __name__ == "__main__":
 
-    from GenerateData import DynamicModel
+    from generate_data import DynamicModel
     from utils import coefficients_plot
 
     """

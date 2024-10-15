@@ -10,7 +10,7 @@ import numpy as np
 import sympy as smp
 from sklearn.metrics import mean_squared_error
 
-from FunctionalLibrary import FunctionalLibrary
+from functional_library import FunctionalLibrary
 from energy import EnergySindy
 
 
