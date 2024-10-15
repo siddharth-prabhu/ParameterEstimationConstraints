@@ -28,6 +28,7 @@ class DynamicModel():
     def __post_init__(self):
         self._model_dict = {"kinetic_simple" : {"function" : DynamicModel.kinetic_simple, "n_states" : 4, "low" : [5, 5, 5, 5], "high" : [20, 20, 20, 20]},
                             "kinetic_rober" : {"function" : DynamicModel.kinetic_rober, "n_states" : 3, "low" : [5, 5, 5], "high" : [20, 20, 20]},
+                            "kinetic_menten" : {"function" : DynamicModel.kinetic_menten, "n_states" : 4, "low" : [5, 5, 5, 5], "high" : [20, 20, 20, 20]},
                             "kinetic_kosir" : {"function" : DynamicModel.kinetic_kosir, "n_states" : 4, "low" : [5, 5, 5, 5], "high" : [20, 20, 20, 20]}, 
                             "kinetic_kosir_temperature" : {"function" : DynamicModel.kinetic_kosir_temperature, "n_states" : 5,  
                             "low" : [5, 5, 5, 5, 373], "high" : [10, 10, 10, 10, 373]}}
@@ -72,13 +73,22 @@ class DynamicModel():
     @staticmethod
     def kinetic_rober(x, t, args) -> np.ndarray:
         # A -> B; 2B -> C + B -> A + C
-        # k1 = 0.04, k2 = 3e7, k3 = 1e4
-        k1, k2, k3 = 0.04, 3e3, 1e1
+        # k1, k2, k3 = 0.04, 3e7, 1e4
+        k1, k2, k3 = args
         return np.array([
             -k1 * x[0] + k3 * x[1] * x[2], 
             k1 * x[0] - k2 * x[1]**2 - k3 * x[1] * x[2],
             k2 * x[1]**2
         ])
+
+    @staticmethod
+    def kinetic_menten(x, t, args) -> np.ndarray:
+        # A + B -> C; C -> A + B; C -> B + D
+        # k1, k2, k3 = 110, 100, 1
+        k1, k2, k3 = args
+        reactions = np.array([k1 * x[0] * x[1], k2 * x[2], k3 * x[2]])
+        stoichiometric = np.array([-1, 1, 0, -1, 1, 1, 1, -1, -1, 0, 0, 1]).reshape(4, -1)
+        return np.dot(stoichiometric, reactions)
     
     @staticmethod
     def _reactions(x, k) -> np.ndarray:
@@ -251,7 +261,7 @@ if __name__ == "__main__":
     integration = model.integrate()
     print("coefficients", model.coefficients(args_as_symbols = True))
 
-    # testing rober kinetics
-    t_span = np.arange(0, 1e4, 0.01)
-    model = DynamicModel("kinetic_rober", t_span, n_expt = 5)
+    # testing menten kinetics
+    t_span = np.arange(0, 20, 0.01)
+    model = DynamicModel("kinetic_menten", t_span, n_expt = 5, arguments = [(0.1, 2, 3)])
     solution = model.integrate()
