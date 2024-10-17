@@ -1,4 +1,4 @@
-# type: ignore
+ # type: ignore
 
 from dataclasses import dataclass, field
 from typing import ClassVar, Optional, List, Tuple

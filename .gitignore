@@ -1,15 +1,11 @@
 __pycache__/
 saved_data/
-Adiabatic/
-LS/
-NLS/
+log/
 saved_data*
 *.txt
 rough.py
 *.sh
 *.out
-LS
-NLS
 *.png
 slurm*
 submit*

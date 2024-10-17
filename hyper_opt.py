@@ -5,6 +5,9 @@ from collections import defaultdict
 from functools import reduce
 from concurrent.futures import ProcessPoolExecutor
 from typing import Optional, List, Callable, Tuple
+from datetime import datetime
+import logging
+from pprint import pformat
 
 import numpy as np
 import pandas as pd
@@ -33,6 +36,7 @@ class HyperOpt():
     arguments : List[np.ndarray] = field(default = None)
     arguments_clean : List[np.ndarray] = field(default = None)
 
+    _dir : str = field(default = "hyper")
     parameters : dict = field(default_factory = dict)
     meta : dict = field(default_factory = dict)
 
@@ -42,6 +46,13 @@ class HyperOpt():
         if self.arguments:
             assert len(self.arguments) == len(self.X), f"Arguments (length = {len(self.arguments)}) should be equal to the number of initial conditions (length = {len(self.X)})"
             assert len(self.arguments_clean) == len(self.X_clean), f"Clean arguments (length = {len(self.arguments_clean)}) should be equal to the number of initial conditions (length = {len(self.X_clean)})"  
+
+        if not os.path.exists(self._dir) : os.makedirs(self._dir)
+
+        self.logger = logging.getLogger(self._dir)
+        self.logger.setLevel(logging.INFO)
+        logfile = logging.FileHandler(os.path.join(self._dir, "summary.txt"))
+        self.logger.addHandler(logfile)
 
     @staticmethod
     def train_test_split(arrays : Tuple[List[np.ndarray]], train_split_percent : int = 80) -> Tuple[List[np.array]]:
@@ -103,25 +114,38 @@ class HyperOpt():
         # self.df_result.drop_duplicates(["r2_test_pred"], keep = "first", inplace = True, ignore_index = True)
 
         if display_results:
-            print(self.df_result.head(10))
+            self.logger.info("Hyperparameter Optimization Results")
+            self.logger.info(pformat(self.df_result.head(10)))
 
-    # function to be looped for multiprocessing
     def _gridsearch_optimization(self, combination, parameter_key):
-        
+        """
+            function to be looped for multiprocessing
+        """
+
+        identifier = str(datetime.now())
+        _dir = os.path.join(self._dir, identifier)
+        if not os.path.exists(_dir) : os.makedirs(_dir)
+
+        _logger = logging.getLogger(identifier)
+        _logger.setLevel(logging.INFO)
+        logfile = logging.FileHandler(os.path.join(_dir, "model_stats.txt"))
+        _logger.addHandler(logfile)
+
         param_dict = dict(zip(parameter_key, combination)) # combine the key value part and fit the model
-        self.model.set_params(**param_dict)
-        print("--"*100)
-        print("Running for parameter combination", param_dict)
+        self.model.set_params(**param_dict, _logger = _logger, _dir = _dir)
+        _logger.info("--"*100)
+        _logger.info("Running for parameter combination", param_dict)
 
         try:
             self.model.fit(self.X_train, self.y_train, time_span = self.t_train, arguments = self.arguments_train, **self.meta)
         
         except Exception as error:
-            print(error)
-            print("Failed for the parameter combination", param_dict)
-            print("--"*100)
+            _logger.info(error)
+            _logger.info("Failed for the parameter combination", param_dict)
+            _logger.info("--"*100)
         else :
-            print(f"Model for parameter combination {param_dict}", self.model.print(), sep = "\n")
+            _logger.info(f"Model for parameter combination {param_dict}")
+            self.model.print()
             complexity = self.model.complexity
             MSE_test_pred = self.model.score(self.X_clean_test, self.y_clean_test, self.t_clean, metric = mean_squared_error, model_args = self.arguments_clean_test)
             MSE_train_pred = self.model.score(self.X_clean_train, self.y_clean_train, self.t_clean, metric = mean_squared_error, model_args = self.arguments_clean_train)
@@ -135,7 +159,7 @@ class HyperOpt():
                 _, (MSE_train_sim, r2_train_sim) = self.model.simulate(self.X_clean_train, self.t_clean, model_args = self.arguments_clean_train, calculate_score = True, metric = [mean_squared_error, r2_score])
             
             except Exception as error:
-                print(f"Failed calculating integration errors because of {error}")
+                _logger.info(f"Failed calculating integration errors because of {error}")
                 MSE_test_sim = np.nan
                 MSE_train_sim = np.nan
                 r2_test_sim = np.nan
@@ -214,7 +238,7 @@ class HyperOpt():
 if __name__ == "__main__":
 
     params = {"optimizer__threshold": [0.01], 
-        "optimizer__alpha": [0.01], 
+        "optimizer__alpha": [0.01, 0.1], 
         "feature_library__include_bias" : [False],
         "feature_library__degree": [1]}
 
@@ -273,6 +297,8 @@ if __name__ == "__main__":
     features = model_actual.integrate()
     target = model_actual.approx_derivative
     
-    opt = HyperOpt(features, target, features, target, t_span, t_span, model = Optimizer_casadi(plugin_dict = {"ipopt.print_level" : 0, "print_time":0, "ipopt.sb" : "yes"}), 
-                    parameters = params)
+    opt = HyperOpt(features, target, features, target, t_span, t_span, 
+                model = Optimizer_casadi(plugin_dict = {"ipopt.print_level" : 0, "print_time":0, "ipopt.sb" : "yes"}), 
+                parameters = params
+            )
     opt.gridsearch(max_workers = 2)

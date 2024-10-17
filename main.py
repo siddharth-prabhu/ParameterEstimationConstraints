@@ -1,12 +1,10 @@
 # type: ignore
 
+import os
 from collections import defaultdict
 from typing import Optional, List
 from concurrent.futures import ProcessPoolExecutor
-from functools import partial
-from itertools import repeat
 import argparse
-import os
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -26,13 +24,14 @@ parser = argparse.ArgumentParser("ParameterEstimationSINDy")
 parser.add_argument("--noise_study", choices = [0, 1], type = int, default = 0, 
                     help = "If True performs hyperparameter optimization for varying noise levels") 
 parser.add_argument("--experiments_study", choices = [0, 1], type = int, default = 0, 
-                    help = "If True performs hyperparameter optimization for varying initial conditions")                
+                    help = "If True performs hyperparameter optimization for varying initial conditions")   
+parser.add_argument("--sampling_study", choices = [0, 1], type = int, default = 0, 
+                    help = "If True performs hyperparameter optimization for varying sampling frequency")             
 parser.add_argument("--max_workers", default = 1, type = int)
-parser.add_argument("--logdir", choices = ["NLS", "LS", "Adiabatic"], type = str, default = "LS", 
-                    help = "Nonlinear Least Square or Least Square or Adiabatic")
 parser.add_argument("--problem", choices = ["NLS", "LS", "AD"], type = str, default = "LS", help = "The type of problem to solve")
+parser.add_argument("--system", choices = ["kosir", "menten", "carb"], type = str, default = "kosir", help = "The type of reaction network to run")
 parser.add_argument("--degree", type = int, default = 1, help = "The polynomial degree of terms in functional library")
-args = parser.parse_args()
+pargs = parser.parse_args()
 
 
 def run_gridsearch(n_expt : int, delta_t : float, noise_level : float, parameters : dict, kind : str = "LS", 
@@ -72,18 +71,15 @@ def run_gridsearch(n_expt : int, delta_t : float, noise_level : float, parameter
 
         if status == "with constraints" : # mass balance constraints 
             include_column = [] # "mass_balance" : [56.108, 28.05, 56.106, 56.108]
-            constraints_dict = {"consumption" : [], "formation" : [], 
-                                "stoichiometry" : np.array([1, 0, 0, 0, 1, 0, 0, 0, 1, -1, -0.5, -1]).reshape(4, -1)}
+            constraints_dict = {"stoichiometry" : np.array([1, 0, 0, 0, 1, 0, 0, 0, 1, -1, -0.5, -1]).reshape(4, -1)}
         elif status == "with stoichiometry" : # chemistry constraints
             include_column = [[0, 1], [0, 2], [0, 3]] 
-            constraints_dict = {"consumption" : [], "formation" : [], 
-                                "stoichiometry" : np.array([-1, -1, -1, 2, 0, 0, 0, 1, 0, 0, 0, 1]).reshape(4, -1)}
+            constraints_dict = {"stoichiometry" : np.array([-1, -1, -1, 2, 0, 0, 0, 1, 0, 0, 0, 1]).reshape(4, -1)}
         elif status == "sindy":
             # compare derivative free method with sindy for NLS
             if kind == "NLS":
                 include_column = [[0, 1], [0, 2], [0, 3]] 
-                constraints_dict = {"consumption" : [], "formation" : [], 
-                                    "stoichiometry" : np.array([-1, -1, -1, 2, 0, 0, 0, 1, 0, 0, 0, 1]).reshape(4, -1)}
+                constraints_dict = {"stoichiometry" : np.array([-1, -1, -1, 2, 0, 0, 0, 1, 0, 0, 0, 1]).reshape(4, -1)}
             else:
                 include_column = None
                 constraints_dict = {"stoichiometry" : np.eye(4)}
@@ -93,18 +89,17 @@ def run_gridsearch(n_expt : int, delta_t : float, noise_level : float, parameter
             constraints_dict = {"stoichiometry" : np.eye(4)}
         
         # does grid_serch over parameters 
-        print(f"Running simulation for {noise_level} noise, {n_expt} experiments, {delta_t} sampling time, and " + status)
+        _path = os.path.join(path, status)
         opt = HyperOpt(features, target, features_clean, target_clean, 
                         time_span, time_span_clean, parameters = parameters, 
                         model = Optimizer_casadi(plugin_dict = plugin_dict, solver_dict = solver_dict) if kind == "LS" else EnergySindy(plugin_dict = plugin_dict, solver_dict = solver_dict),
                         arguments = arguments if kind == "NLS" else None, arguments_clean =  arguments_clean if kind == "NLS" else None, 
                         meta = {"include_column" : include_column, "constraints_dict" : constraints_dict,
-                        "seed" : seed, "derivative_free" : False if status == "sindy" else True})
+                        "seed" : seed, "derivative_free" : False if status == "sindy" else True}, 
+                        _dir = _path)
 
         opt.gridsearch(max_workers = max_workers)
-
-        opt.plot(filename = f'Gridsearch_{parameters["feature_library__degree"][0]}_{status}_noise{noise_level}_expt{n_expt}_delta_{delta_t}.html', 
-                    path = path, title = f"{status} and {noise_level} noise")
+        opt.plot(filename = 'Gridsearch.html', path = _path, title = f"{status} and {noise_level} noise")
         df_result = opt.df_result
 
         # if no models were discovered then return all zero entries else return the first entry
@@ -126,8 +121,7 @@ def run_adiabatic(n_expt : int, delta_t : float, noise_level : float, parameters
     # lower the tolerance for noise
     plugin_dict = {"ipopt.print_level" : 0, "print_time": 0, "ipopt.sb" : "yes", "ipopt.max_iter" : 3000, "ipopt.tol" : 1e-5}
 
-    if noise_level > 0:
-        plugin_dict["ipopt.tol"] = 1e-5 # set lower tolerance for noise
+    if noise_level > 0 : plugin_dict["ipopt.tol"] = 1e-5 # set lower tolerance for noise
 
     # generate clean testing data to be used later for calculating errors
     time_span_clean = np.arange(0, 5, 0.01)
@@ -145,14 +139,14 @@ def run_adiabatic(n_expt : int, delta_t : float, noise_level : float, parameters
     arguments = [np.column_stack((feat[:, -1], np.tile(8.314, (len(feat), 1)))) for feat in features]
     
     include_column = [[0, 1], [0, 2], [0, 3]] 
-    constraints_dict = {"consumption" : [], "formation" : [], 
-                        "stoichiometry" : np.array([-1, -1, -1, 2, 0, 0, 0, 1, 0, 0, 0, 1]).reshape(4, -1)}
+    constraints_dict = {"stoichiometry" : np.array([-1, -1, -1, 2, 0, 0, 0, 1, 0, 0, 0, 1]).reshape(4, -1)}
 
     actual_coefficients = [model.coefficients(pre_stoichiometry = True)]
     mse_pred, aic, mse_sim, comp, coefficients, coefficients_pre_stoichiometry = [], [], [], [], [], []
     for status in ["sindy", "df-sindy"]:
             
         # does grid_serch over parameters 
+        _path = os.path.join(path, status)
         print(f"Running simulation for {noise_level} noise, {n_expt} experiments, {delta_t} sampling time, and " + status, flush = True)
         opt = HyperOpt([feat[:, :-1] for feat in features] if status == "sindy" else features, 
                         target if status == "sindy" else [feat[:, :-1] for feat in features], 
@@ -164,12 +158,12 @@ def run_adiabatic(n_expt : int, delta_t : float, noise_level : float, parameters
                         arguments = arguments, 
                         arguments_clean = arguments_clean, 
                         meta = {"include_column" : include_column, "constraints_dict" : constraints_dict, 
-                        "seed" : seed, "derivative_free" : False}
+                        "seed" : seed, "derivative_free" : False},
+                        _dir = _path
                         )
 
         opt.gridsearch(max_workers = max_workers)
-        opt.plot(filename = f'Gridsearch_{parameters["feature_library__degree"][0]}_{status}_noise{noise_level}_expt{n_expt}_delta_{delta_t}.html', 
-                    path = path, title = f"{status}")
+        opt.plot(filename = 'Gridsearch.html', path = _path, title = f"{status}")
         df_result = opt.df_result
 
         # if no models were discovered then return all zero entries else return the first entry
@@ -226,7 +220,7 @@ def plot_adict(x : list, adict : dict, x_label : str, path : Optional[str] = Non
             plt.ylabel(key)
             plt.xticks(x, labels = xtick_label)
             plt.legend()
-            plt.savefig(os.path.join(path, f'{x_label}_{key}_{"_".join(title.split())}'))
+            plt.savefig(os.path.join(path, f'{key}'))
             plt.close()
 
 
@@ -264,18 +258,15 @@ def plot_coeff(level : list, adict : dict, path : Optional[str] = None, title : 
 
 if __name__ == "__main__": 
 
-    # Perfrom simulations
-    noise_study = args.noise_study # if True performs hyperparameter optimization for varying noise levels
-    experiments_study = args.experiments_study # if True performs hyperparameter optimization for varying initial conditions
-    sampling_study = args.sampling_study # if True performs hyperparameter optimization for varying sampling frequencies
-    problem = args.problem # the type of problem to solve. Either LS or NLS or Adiabatci
-    logdir = args.logdir 
-    max_workers = None if args.max_workers <= 0 else args.max_workers 
-    degree = args.degree 
+    # Perform simulations
+    noise_study = pargs.noise_study # if True performs hyperparameter optimization for varying noise levels
+    experiments_study = pargs.experiments_study # if True performs hyperparameter optimization for varying initial conditions
+    sampling_study = pargs.sampling_study # if True performs hyperparameter optimization for varying sampling frequencies
+    problem = pargs.problem # the type of problem to solve. Either LS or NLS or Adiabatic 
+    max_workers = None if pargs.max_workers <= 0 else pargs.max_workers 
+    degree = pargs.degree 
 
-    path = os.path.join(os.getcwd(), logdir)
-    if not os.path.exists(path):
-        os.mkdir(path)
+    path = os.path.join("log", pargs.system, problem)
 
     # with hyperparameter optmization
     sindy_params = {"optimizer__threshold": [0.1, 0.5, 1],
@@ -292,15 +283,15 @@ if __name__ == "__main__":
         adict_noise = defaultdict(list)
         coeff_noise = defaultdict(list)
         noise_level = [0.0, 0.1, 0.2]
-        path_noise = os.path.join(path, "noise")
+        path_noise = [os.path.join(path, "noise", f"degree{degree}", str(i)) for i in noise_level]
 
         afunc = run_adiabatic if problem == "AD" else run_gridsearch
-        afunc_partial = partial(afunc, parameters = sindy_params,  
-                            max_workers = max_workers, seed = 20, 
-                            path = path_noise, kind = problem)
+        def afunc_partial(_noise, _path) :
+            return afunc(n_expt = 6, delta_t = 0.01, noise_level = _noise, parameters = sindy_params,  
+                            max_workers = max_workers, seed = 20, kind = problem, path = _path)
 
         with ProcessPoolExecutor(max_workers = max_workers) as executor:   
-            result = executor.map(afunc_partial, repeat(6), repeat(0.01), noise_level)
+            result = executor.map(afunc_partial, noise_level, path_noise)
 
             for alist in result:
                 for key, value in zip(["MSE_Prediction", "AIC", "MSE", "complexity", "coefficients", "coefficients_pre_stoichiometry", "actual_coefficients"], alist):
@@ -311,8 +302,8 @@ if __name__ == "__main__":
 
         adict_noise["kind"] = problem
         coeff_noise["kind"] = problem
-        plot_adict(noise_level, adict_noise, x_label = "noise", path = path_noise, title = f"Polynomial degree {degree}")
-        plot_coeff(noise_level, coeff_noise, path = os.path.join(path_noise, f"coefficients_Polynomial_degree_{degree}_noise"))
+        plot_adict(noise_level, adict_noise, x_label = "noise", path = os.path.join(path, "noise", f"degree{degree}"), title = f"Polynomial degree {degree}")
+        plot_coeff(noise_level, coeff_noise, path = os.path.join(path, "noise", f"degree{degree}", f"coefficients"))
 
     ########################################################################################################################
     if experiments_study :
@@ -323,15 +314,15 @@ if __name__ == "__main__":
         experiments = [2, 4, 6]
         adict_experiments = defaultdict(list)
         coeff_experiments = defaultdict(list)
-        path_experiments = os.path.join(path, "experiments")
+        path_experiments = [os.path.join(path, "experiments", f"degree{degree}", str(i)) for i in experiments]
 
         afunc = run_adiabatic if problem == "AD" else run_gridsearch
-        afunc_partial = partial(afunc, delta_t = 0.05, noise_level = 0, parameters = sindy_params,  
-                                max_workers = max_workers, seed = 20, 
-                                path = path_experiments, kind = problem)
+        def afunc_partial(_expt, _path) :
+            return afunc(n_expt = _expt, delta_t = 0.05, noise_level = 0, parameters = sindy_params, max_workers = max_workers, seed = 20, 
+                                kind = problem, path = _path)
 
         with ProcessPoolExecutor(max_workers = max_workers) as executor:   
-            result = executor.map(afunc_partial, experiments)
+            result = executor.map(afunc_partial, experiments, path_experiments)
 
             for alist in result:
                 for key, value in zip(["MSE_Prediction", "AIC", "MSE", "complexity", "coefficients", "coefficients_pre_stoichiometry", "actual_coefficients"], alist):
@@ -342,8 +333,8 @@ if __name__ == "__main__":
         
         adict_experiments["kind"] = problem
         coeff_experiments["kind"] = problem
-        plot_adict(experiments, adict_experiments, x_label = "experiments", path = path_experiments, title = f"Polynomial degree {degree}")
-        plot_coeff(experiments, coeff_experiments, path = os.path.join(path_experiments, f"coefficients_Polynomial_degree_{degree}_experiments"))
+        plot_adict(experiments, adict_experiments, x_label = "experiments", path = os.path.join(path, "experiments", f"degree{degree}"), title = f"Polynomial degree {degree}")
+        plot_coeff(experiments, coeff_experiments, path = os.path.join(path, "experiments", f"degree{degree}", "coefficients"))
 
     ########################################################################################################################
     if sampling_study :
@@ -353,15 +344,15 @@ if __name__ == "__main__":
         sampling = [0.01, 0.05, 0.1]
         adict_sampling = defaultdict(list)
         coeff_sampling = defaultdict(list)
-        path_sampling = os.path.join(path, "sampling")
+        path_sampling = [os.path.join(path, "sampling", f"degree{degree}", str(i)) for i in sampling]
 
         afunc = run_adiabatic if problem == "AD" else run_gridsearch
-        afunc_partial = partial(afunc, noise_level = 0, parameters = sindy_params, 
-                        max_workers = max_workers, seed = 20, 
-                        path = path_sampling, kind = problem)
+        def afunc_partial(_samp, _path) :
+            return afunc(n_expt = 6, delta_t = _samp, noise_level = 0, parameters = sindy_params, max_workers = max_workers, seed = 20, 
+                        kind = problem, path = _path)
 
         with ProcessPoolExecutor(max_workers = max_workers) as executor:   
-            result = executor.map(afunc_partial, repeat(6), sampling)
+            result = executor.map(afunc_partial, sampling, path_sampling)
 
             for alist in result:
                 for key, value in zip(["MSE_Prediction", "AIC", "MSE", "complexity", "coefficients", "coefficients_pre_stoichiometry", "actual_coefficients"], alist):
@@ -372,8 +363,8 @@ if __name__ == "__main__":
 
         adict_sampling["kind"] = problem
         coeff_sampling["kind"] = problem
-        plot_adict(sampling, adict_sampling, x_label = "sampling", path = path_sampling, title = f"Polynomial degree {degree}")
-        plot_coeff(sampling, coeff_sampling, path = os.path.join(path_sampling, f"coefficients_Polynomial_degree_{degree}_sampling"))
+        plot_adict(sampling, adict_sampling, x_label = "sampling", path = os.path.join(path, "sampling", f"degree{degree}"), title = f"Polynomial degree {degree}")
+        plot_coeff(sampling, coeff_sampling, path = os.path.join(path, "sampling", f"degree{degree}", f"coefficients"))
 
     ########################################################################################################################
     

@@ -1,9 +1,12 @@
 # type: ignore
 
-from dataclasses import dataclass, field
+import os
+from dataclasses import dataclass, field, fields
 from typing import Optional, Callable, List, Tuple, Any
 from functools import reduce, partial
 from collections import defaultdict, namedtuple
+from pprint import pformat
+import inspect
 
 import numpy as np
 import casadi as cd
@@ -22,23 +25,32 @@ class Optimizer_casadi(Base):
 
     library : FunctionalLibrary = field(default = FunctionalLibrary())
     input_features : list[str] = field(default_factory=list)
-    alpha : float = field(default = 0.0)
-    threshold : float = field(default = 0.01)
-    max_iter : int = field(default = 20)
+    alpha : float = 0.0
+    threshold : float = 0.01
+    max_iter : int = 20
     plugin_dict : dict = field(default_factory = dict)
     solver_dict : dict = field(default_factory = dict)
-    initializer : str = field(default = "ones")
+    initializer : str = "ones"
 
+    _dir : str = ""
+    logger : Callable = None
     _flag_fit : bool = field(default = False, init = False)
     adict : dict = field(default_factory = dict, init = False)
 
     def __post_init__(self) : self.check_params()
 
     def check_params(self):
-        assert isinstance(self.alpha, Callable) or (isinstance(self.alpha, float) and self.alpha >= 0), "Regularization parameter (alpha) should either be callable or greater than 0"
+        
+        self.plugin_dict["ipopt.output_file"] = os.path.join(self._dir, "_model_stats.txt")
+        assert isinstance(self.alpha, Callable) or (self.alpha >= 0.), "Regularization parameter (alpha) should either be callable or greater than 0"
         assert self.threshold >= 0, "Thresholding parameter should be greater than equal to zero"
         assert self.max_iter >= 1, "Max iteration should be greater than zero"
 
+        self._logger(pformat({v.name : getattr(self, v.name) for v in fields(self)}))
+        self._logger(f"{'--'*50}")
+    
+    def _logger(self, astring) : return print(astring) if self.logger is None else self.logger.info(astring)
+    
     def set_params(self, **kwargs) -> None:
         # sets the values of various parameter for gridsearchcv
 
@@ -50,6 +62,12 @@ class Optimizer_casadi(Base):
         
         if "optimizer__max_iter" in kwargs:
             setattr(self, "max_iter", kwargs["optimizer__max_iter"])
+
+        if "_logger" in kwargs : 
+            setattr(self, "logger", kwargs["_logger"])
+
+        if "_dir" in kwargs : 
+            setattr(self, "_dir", kwargs["_dir"])
 
         self.check_params()
         self.library.set_params(**kwargs)
@@ -238,8 +256,10 @@ class Optimizer_casadi(Base):
         self.adict["iterations"] = 0
         library = self.adict["library"] # use the original library terms
 
-        for iteration in tqdm(range(self.max_iter)):
+        progress_bar = tqdm(range(self.max_iter), file = open(os.devnull, "w"))
+        for iteration in progress_bar :
             
+            self._logger(progress_bar)
             # keys are the reaction number while the values are np.ndarrays of coefficients
             self.adict["coefficients_casadi"] : List[dict] = []
             _coefficients = self._stlsq_solve_optimization(library = library, target = target, constraints_dict = constraints_dict, seed = seed, time_span = time_span)
@@ -251,12 +271,16 @@ class Optimizer_casadi(Base):
                     bdict[key] = _coefficients_parameters[key]
                 
                 self.adict["coefficients_casadi"].append(bdict)
-                     
+
+            # print iteration information to log file
+            with open(self.plugin_dict["ipopt.output_file"], "r") as file :
+                for line in file : self._logger(line.strip())
+
             # list of boolean arrays
             # thresholding parameters are always the first entries of self.adict["coefficients_casadi"]
             # thresholding is always performed on the original decision variables i.e. self.adict["coefficients"] and not the coefficients
             # that we get after multiplying with the stoichiometric matrix
-            print("Thresholding normal sindy")
+            self._logger("Thresholding normal sindy")
             coefficients_next = [np.abs(self.adict["coefficients_casadi"][0][key]) > self.threshold for key in self.adict["coefficients_casadi"][0].keys()]
         
             # check for full elimination before checking for convergence. Because we assume all coefficients initially are below threshold. 
@@ -266,7 +290,7 @@ class Optimizer_casadi(Base):
 
             # multiply with mask so that oscillating coefficients can be ignored.
             if np.array([np.allclose(coeff_prev, coeff_next*mask) for coeff_prev, coeff_next, mask in zip(coefficients_prev, coefficients_next, self.adict["mask"])]).all():
-                print("Solution converged")
+                self._logger("Solution converged")
                 break
             
             # store values for every iteration
@@ -280,6 +304,9 @@ class Optimizer_casadi(Base):
             self.adict["initial_conditions"] = _coefficients
             self.adict["iterations"] += 1
 
+        # delete output file
+        self._logger(f"{'--'*50}")
+        os.remove(self.plugin_dict["ipopt.output_file"])
         return _coefficients
 
     def fit(self, features : List[np.ndarray], target : List[np.ndarray], time_span : np.ndarray, arguments : Optional[List[np.ndarray]] = None, 
@@ -425,7 +452,7 @@ class Optimizer_casadi(Base):
             try:
                 _integration_solution = odeint(self._casadi_model, xi, time_span, args = (model_args[i], ) if model_args else ((), ), **integrator_kwargs)
             except Exception as error:
-                print(error)
+                self._logger(error)
                 raise ValueError(f"Integration failed with error {error}") 
             else:
                 if np.isnan(_integration_solution).any() or np.isinf(_integration_solution).any():
@@ -458,6 +485,7 @@ class Optimizer_casadi(Base):
             pickle.dump(self.adict["equations"], file)
 
     def print(self) -> None:
+        self._logger(f"{'--'*50} \nDiscoverd model")
         assert self._flag_fit, "Fit the model before printing models"
         if not self.adict.get("equations", False):
             self._create_equations()
@@ -473,13 +501,20 @@ class Optimizer_casadi(Base):
                 if atom.is_number:
                     eqn = eqn.subs(atom, round(atom, 2))
 
-            print(f"{self.input_features[i]}' = ", eqn)
+            self._logger(f"{self.input_features[i]}' = {eqn}")
 
 
 if __name__ == "__main__":
 
+    import logging
+
     from generate_data import DynamicModel
     from utils import coefficients_plot
+
+    logger = logging.getLogger(__name__)
+    logger.setLevel(logging.INFO)
+    logfile = logging.FileHandler("optimizer.txt")
+    logger.addHandler(logfile)
 
     """
     time_span = np.arange(0, 5, 0.01)
@@ -490,7 +525,7 @@ if __name__ == "__main__":
     target = model.approx_derivative
 
     opti = Optimizer_casadi(FunctionalLibrary(1), alpha = 0.0, threshold = 0.1, plugin_dict = {"ipopt.print_level" : 0, "print_time":0, "ipopt.sb" : "yes"}, 
-                            max_iter = 20)
+                            max_iter = 20, logger = logger)
     # stoichiometry = np.array([-1, -1, -1, 0, 0, 2, 1, 0, 0, 0, 1, 0]).reshape(4, -1) # chemistry constraints
     # include_column = [[0, 2], [0, 3], [0, 1]]
     include_column = []
@@ -521,8 +556,9 @@ if __name__ == "__main__":
     features = model.integrate() # list of features
     target = model.approx_derivative # list of target value
 
-    opti = Optimizer_casadi(FunctionalLibrary(2), alpha = lambda iteration : 0.001, threshold = 0.05, plugin_dict = {"ipopt.print_level" : 5, "print_time": 5, "ipopt.sb" : "no"}, 
-                            max_iter = 20)
+    opti = Optimizer_casadi(FunctionalLibrary(2), alpha = lambda iteration : 0.001, threshold = 0.05, 
+                            plugin_dict = {"ipopt.print_level" : 5, "print_time": 5, "ipopt.sb" : "no"}, 
+                            max_iter = 20, logger = logger)
     include_column = [[0, 1, 2], [0, 1, 2], [1, 2, 3]]
     stoichiometry = np.array([-1, 1, 0, -1, 1, 1, 1, -1, -1, 0, 0, 1]).reshape(4, -1) # no constraints
     
@@ -534,5 +570,5 @@ if __name__ == "__main__":
     print("model complexity", opti.complexity)
     print("Total number of iterations", opti.adict["iterations"])
     print("--"*20)
-    coefficients_plot(model.coefficients() , [opti.adict["coefficients_dict"], opti.adict["coefficients_dict"]])
+    # coefficients_plot(model.coefficients() , [opti.adict["coefficients_dict"], opti.adict["coefficients_dict"]])
     

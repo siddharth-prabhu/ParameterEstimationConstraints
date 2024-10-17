@@ -21,34 +21,37 @@ class EnergySindy(Optimizer_casadi):
                     library : FunctionalLibrary = FunctionalLibrary(2),
                     input_features : List[str] = [],
                     alpha : float = 0.0,
-                    num_points : float = 0.5,
-                    threshold : float = 0.01, # inverse of z_critical for boostrapping
+                    threshold : float = 0.01,
                     max_iter : int = 20,
                     plugin_dict : dict = {},
                     solver_dict : dict = {},
-                    initializer : str = "ones"
+                    initializer : str = "ones",
+                    _dir : str = "",
+                    logger : Optional[Callable] = None
                 ):
         
         self.library = library
         self.input_features = input_features
         self.alpha = alpha
-        self.num_points = num_points
         self.threshold = threshold
         self.max_iter = max_iter
         self.plugin_dict = plugin_dict
         self.solver_dict = solver_dict
         self.initializer = initializer
+        self._dir = _dir
+        self.logger = logger
 
         super().__init__(
             self.library, 
             self.input_features,
             self.alpha,
-            self.num_points,
             self.threshold,
             self.max_iter,
             self.plugin_dict,
             self.solver_dict,
-            self.initializer
+            self.initializer,
+            self._dir,
+            self.logger
             )
 
     def _create_decision_variables(self):
@@ -255,7 +258,6 @@ class EnergySindy(Optimizer_casadi):
         for coefficients, mask in zip(self.adict["coefficients_value"], self.adict["mask"]):
             self.adict["coefficients_value_masked"].append(coefficients*mask.flatten())
 
-        print("coefficients_value", self.adict["coefficients_value"])
         # Do not round the coefficients here (Rounding may compromise accuracy while prediciton or scoring). 
         # Round them only when printing
         coefficients_value : List[np.ndarray] = self.adict["coefficients_value_masked"]
@@ -277,8 +279,15 @@ class EnergySindy(Optimizer_casadi):
 
 if __name__ == "__main__":
 
-    from GenerateData import DynamicModel
+    import logging
+
+    from generate_data import DynamicModel
     from utils import coefficients_plot
+
+    logger = logging.getLogger(__name__)
+    logger.setLevel(logging.INFO)
+    logfile = logging.FileHandler("energy.txt")
+    logger.addHandler(logfile)
 
     """
     ## Running temperature dependant df-sindy (integral based) formulation 
@@ -294,7 +303,7 @@ if __name__ == "__main__":
     plugin_dict = {"ipopt.print_level" : 5, "print_time":5, "ipopt.sb" : "yes", "ipopt.max_iter" : 1000}
     # plugin_dict = {}
     opti = EnergySindy(FunctionalLibrary(1) , alpha = 0.1, threshold = 0.5, solver_dict={"solver" : "ipopt"}, 
-                            plugin_dict = plugin_dict, max_iter = 20)
+                            plugin_dict = plugin_dict, max_iter = 20, logger = logger)
     
     stoichiometry = np.array([-1, -1, -1, 0, 0, 2, 1, 0, 0, 0, 1, 0]).reshape(4, -1) # chemistry constraints
     include_column = [[0, 2], [0, 3], [0, 1]] # chemistry constraints
@@ -328,13 +337,13 @@ if __name__ == "__main__":
 
     plugin_dict = {"ipopt.print_level" : 5, "print_time":5, "ipopt.sb" : "yes", "ipopt.max_iter" : 1000}
     opti = EnergySindy(FunctionalLibrary(2) , alpha = 0.1, threshold = 0.5, solver_dict={"solver" : "ipopt"}, 
-                            plugin_dict = plugin_dict, max_iter = 1)
+                            plugin_dict = plugin_dict, max_iter = 1, logger = logger)
     
     stoichiometry = np.array([-1, -1, -1, 2, 0, 0, 0, 1, 0, 0, 0, 1]).reshape(4, -1) # chemistry constraints
     include_column = [[0, 1], [0, 2], [0, 3]] # chemistry constraints
 
     opti.fit(features, target, time_span, arguments, include_column = include_column, 
-                constraints_dict= {"formation" : [], "consumption" : [], "stoichiometry" : stoichiometry}, 
+                constraints_dict= {"stoichiometry" : stoichiometry}, 
                 derivative_free = False, seed = 20, max_workers = 2)
     
     opti.print()

@@ -1,7 +1,6 @@
 # type: ignore
 from typing import List, Optional, Callable, Any
 from functools import reduce
-import operator
 import warnings
 warnings.filterwarnings("ignore")
 
@@ -10,7 +9,7 @@ import numpy as np
 import sympy as smp
 from sklearn.metrics import mean_squared_error
 
-from FunctionalLibrary import FunctionalLibrary
+from functional_library import FunctionalLibrary
 from energy import EnergySindy
 
 
@@ -20,34 +19,37 @@ class AdiabaticSindy(EnergySindy):
                 library : FunctionalLibrary = FunctionalLibrary(2),
                 input_features : List[str] = [],
                 alpha : float = 0.0,
-                num_points : float = 0.5,
-                threshold : float = 0.01, # inverse of z_critical for boostrapping
+                threshold : float = 0.01,
                 max_iter : int = 20,
                 plugin_dict : dict = {},
                 solver_dict : dict = {},
-                initializer : str = "zeros"
+                initializer : str = "zeros",
+                _dir : str = "",
+                logger : Optional[Callable] = None,
                 ):
         
         self.library = library
         self.input_features = input_features
         self.alpha = alpha
-        self.num_points = num_points
         self.threshold = threshold
         self.max_iter = max_iter
         self.plugin_dict = plugin_dict
         self.solver_dict = solver_dict
         self.initializer = initializer
+        self._dir = _dir
+        self.logger = logger
 
         super().__init__(
             self.library, 
             self.input_features,
             self.alpha,
-            self.num_points,
             self.threshold,
             self.max_iter,
             self.plugin_dict,
             self.solver_dict,
             self.initializer,
+            self._dir, 
+            self.logger
             )
         
     def _generate_library_derivative_free(self, data : List[np.ndarray], include_column : List[np.ndarray], time_span : np.ndarray, 
@@ -155,11 +157,7 @@ class AdiabaticSindy(EnergySindy):
         """
         target : the derivatives of states. depending on the formulation it will be used or replaced with states
         arguments is a list of arrays so that its compatible with vectorize
-        if variance_elimination = True and ensemble_iterations > 1 performs boostrapping
-        if variance_elimination = True and ensemble_iterations <= 1 performs covariane matrix
-        if variance_elimination = False performs normal thresholding (regular sindy)
-        constraints_dict should be of the form {"consumption" : [], "formation" : [], 
-                                                   "stoichiometry" : np.ndarray}
+        constraints_dict should be of the form {"stoichiometry" : np.ndarray}
         """
 
         self._flag_fit = True
@@ -217,8 +215,15 @@ class AdiabaticSindy(EnergySindy):
 
 if __name__ == "__main__":
 
-    from GenerateData import DynamicModel
+    import logging 
+
+    from generate_data import DynamicModel
     from scipy.interpolate import CubicSpline
+
+    logger = logging.getLogger(__name__)
+    logger.setLevel(logging.INFO)
+    logfile = logging.FileHandler("adiabatic.txt")
+    logger.addHandler(logfile)
 
     time_span = np.arange(0, 5, 0.1)
     n_expt = 5
@@ -229,16 +234,14 @@ if __name__ == "__main__":
 
     plugin_dict = {"ipopt.print_level" : 5, "print_time":5, "ipopt.sb" : "yes", "ipopt.max_iter" : 2000, "ipopt.tol" : 1e-5}
     opti = AdiabaticSindy(FunctionalLibrary(2) , alpha = 0.01, threshold = 0.1, solver_dict={"solver" : "ipopt"}, 
-                            plugin_dict = plugin_dict, max_iter = 1)
+                            plugin_dict = plugin_dict, max_iter = 1, logger = logger)
     
     include_column = [[0, 1], [0, 2], [0, 3]] 
     stoichiometry = np.array([-1, -1, -1, 2, 0, 0, 0, 1, 0, 0, 0, 1]).reshape(4, -1)
     # include_column = None
 
     opti.fit(features, target, time_span, arguments = arguments, 
-                include_column = include_column, 
-                constraints_dict= {"formation" : [], "consumption" : [],
-                                    "stoichiometry" : stoichiometry})
+                include_column = include_column, constraints_dict= {"stoichiometry" : stoichiometry})
 
     opti.print()
     print("--"*20)
