@@ -2,7 +2,6 @@ import os
 import itertools
 from dataclasses import dataclass, field
 from collections import defaultdict
-from functools import reduce
 from concurrent.futures import ProcessPoolExecutor
 from typing import Optional, List, Callable, Tuple
 from datetime import datetime
@@ -11,17 +10,12 @@ from pprint import pformat
 
 import numpy as np
 import pandas as pd
-pd.set_option("display.max_columns", 20)
+pd.set_option("display.max_columns", 20, "display.max_colwidth", None)
 from sklearn.metrics import mean_squared_error, r2_score
 from bokeh.plotting import figure, output_file, save
 from bokeh.models import ColumnDataSource
 from bokeh.layouts import column, row
 
-from generate_data import DynamicModel
-from optimizer import Optimizer_casadi
-from energy import EnergySindy
-from adiabatic import AdiabaticSindy
-from functional_library import FunctionalLibrary
 
 @dataclass()
 class HyperOpt():
@@ -90,7 +84,7 @@ class HyperOpt():
             
             _gridsearch_results = executor.map(self._gridsearch_optimization, combinations, itertools.repeat(parameter_key))
             individual_results_keyword = ["complexity", "MSE_Prediction", "MSE_train_pred", "r2_test_pred", "r2_train_pred", "MSE_Integration", "MSE_train_sim", 
-                    "r2_test_sim", "r2_train_sim", "AIC", "iterations", "coefficients", "coefficients_pre_stoichiometry"]
+                    "r2_test_sim", "r2_train_sim", "AIC", "iterations", "coefficients", "coefficients_pre_stoichiometry", "Directory"]
             
             for individual_results in _gridsearch_results:    
                 if individual_results : # exceptions in optimizer returns None
@@ -115,7 +109,7 @@ class HyperOpt():
 
         if display_results:
             self.logger.info("Hyperparameter Optimization Results")
-            self.logger.info(pformat(self.df_result.head(10)))
+            self.logger.info(pformat(self.df_result))
 
     def _gridsearch_optimization(self, combination, parameter_key):
         """
@@ -132,9 +126,9 @@ class HyperOpt():
         _logger.addHandler(logfile)
 
         param_dict = dict(zip(parameter_key, combination)) # combine the key value part and fit the model
-        self.model.set_params(**param_dict, _logger = _logger, _dir = _dir)
         _logger.info("--"*100)
         _logger.info("Running for parameter combination", param_dict)
+        self.model.set_params(**param_dict, _logger = _logger, _dir = _dir)
 
         try:
             self.model.fit(self.X_train, self.y_train, time_span = self.t_train, arguments = self.arguments_train, **self.meta)
@@ -169,8 +163,11 @@ class HyperOpt():
             else:                  
                 AIC = 2*np.log(MSE_test_sim) + complexity # AIC should be based on testing data and not clean data
                 
-            return [param_dict, complexity, MSE_test_pred, MSE_train_pred, r2_test_pred, r2_train_pred, MSE_test_sim, MSE_train_sim, 
-                    r2_test_sim, r2_train_sim, AIC, self.model.adict["iterations"], self.model.adict["coefficients_dict"], self.model.adict["coefficients_pre_stoichiometry_dict"]]
+            return [
+                param_dict, complexity, MSE_test_pred, MSE_train_pred, r2_test_pred, r2_train_pred, MSE_test_sim, MSE_train_sim, 
+                r2_test_sim, r2_train_sim, AIC, self.model.adict["iterations"], self.model.adict["coefficients_dict"], 
+                self.model.adict["coefficients_pre_stoichiometry_dict"], _dir
+                ]
 
     @staticmethod
     def _bokeh_plot(fig : figure, x_label : str, y_label : str, title : str, height : int = 400, width : int = 700):
@@ -188,9 +185,8 @@ class HyperOpt():
         fig.outline_line_color = "black"
         fig.margin = (5, 5, 5, 5) #top, right, bottom, left
 
-    # bokeh plotting
-    def plot(self, filename : str = "Gridsearch_results.html", path : Optional[str] = None, title : str = "Concentration vs time"):
-
+    def plot(self, filename : str = "Gridsearch_results.html", path : Optional[str] = None, title : str = "Concentration vs time") -> None :
+        # bokeh plotting
         # do not run if dataframe is empty
         if self.df_result.empty:
             return
@@ -236,6 +232,12 @@ class HyperOpt():
 
 
 if __name__ == "__main__":
+
+    from generate_data import DynamicModel
+    from optimizer import Optimizer_casadi
+    from energy import EnergySindy
+    from adiabatic import AdiabaticSindy
+    from functional_library import FunctionalLibrary
 
     params = {"optimizer__threshold": [0.01], 
         "optimizer__alpha": [0.01, 0.1], 
