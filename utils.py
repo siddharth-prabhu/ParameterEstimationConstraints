@@ -52,8 +52,8 @@ def coefficients_plot(original_coefficients_list : List[dict], discovered_coeffi
     max_x = max(map(len, labels))
     rows = len(original_coefficients_list)
     with plt.style.context(["science", "notebook", "light"]):
-        fig, ax =  plt.subplots(rows, 1, figsize = (15, 20))
-        fig.subplots_adjust(hspace = 0.5, wspace = 0.5)
+        fig, ax =  plt.subplots(rows, 1, figsize = (15, rows * 4))
+        # fig.subplots_adjust(hspace = 0.5, wspace = 0.5)
         ax = np.ravel(ax)
         
         for i, orig_dict, label in zip(range(len(labels)), original_coefficients_list, labels):
@@ -71,12 +71,13 @@ def coefficients_plot(original_coefficients_list : List[dict], discovered_coeffi
             for j in range(num_mod):
                 ax[i].bar(x + (- start + j + 1)*width, dis_values[j], label = expt_names[j], width = width, edgecolor = "k", **kwargs)
             
-            ax[i].set(xlabel = "coefficients of", ylabel = "value", title = f"{title}{i}")
+            ax[i].set(ylabel = "value", title = f"{title}{i}")
             ax[i].set_xticks(x, labels = label_str, rotation = 90)
             ax[i].set_xlim(left = -2*width, right = max_x)
             ax[i].hlines(0, -2*width, max_x, "k", alpha = 1, linestyles = "solid", linewidth = 1)
             ax[i].legend()
             ax[i].grid(axis = "x", color = "k", alpha = 1, linestyle = "solid", linewidth = 1)
 
+        fig.tight_layout()
         plt.savefig(path)
         plt.close()
