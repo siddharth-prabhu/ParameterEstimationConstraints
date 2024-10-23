@@ -174,7 +174,7 @@ class EnergySindy(Optimizer_casadi):
         _solution = self._minimize(self.plugin_dict, self.solver_dict) # no need to save for every iteration
 
         # list[np.ndarray]. additional layer of np.array and flatten to account for singular value, which casadi outputs as float
-        return [[np.array([_solution.value(coeff)]).flatten() for coeff in params] for params in self._parameters]
+        return [[self._get_coefficients_value(_solution, coeff) for coeff in params] for params in self._parameters]
 
     def fit(self, features : List[np.ndarray], target : List[np.ndarray], time_span : np.ndarray, arguments : List[Any], 
                 include_column : Optional[List[np.ndarray]] = None, constraints_dict : dict = {}, derivative_free : bool = False,
@@ -209,7 +209,7 @@ class EnergySindy(Optimizer_casadi):
         
         if include_column:
             assert len(include_column) == self._reactions, "length of columns should match with the number of functional libraries"
-            include_column = [list(range(self._input_states)) if len(alist) == 0 else alist for alist in include_column] 
+            include_column = [list(range(self._input_states)) if len(alist) == 0 else sorted(alist) for alist in include_column] 
         else:
             include_column = [list(range(self._input_states)) for _ in range(self._reactions)]
 

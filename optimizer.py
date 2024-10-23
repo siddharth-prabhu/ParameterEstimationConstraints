@@ -4,9 +4,8 @@ import os
 from dataclasses import dataclass, field, fields
 from typing import Optional, Callable, List, Tuple, Any
 from functools import reduce, partial
-from collections import defaultdict, namedtuple
+from collections import defaultdict
 from pprint import pformat
-import inspect
 
 import numpy as np
 import casadi as cd
@@ -69,8 +68,8 @@ class Optimizer_casadi(Base):
         if "_dir" in kwargs : 
             setattr(self, "_dir", kwargs["_dir"])
 
-        self.check_params()
         self.library.set_params(**kwargs)
+        self.check_params()
 
     def _generate_library(self, data : np.ndarray, include_column : List[np.ndarray]) -> None:
         
@@ -145,7 +144,7 @@ class Optimizer_casadi(Base):
         # add regularization to the cost function
         _alpha = self.alpha(self.adict.get("iterations", 0)) if isinstance(self.alpha, Callable) else self.alpha
         for j in range(self._reactions):
-            if _alpha > 0 :
+            if _alpha >= 0. :
                 self.adict["cost"] += _alpha*cd.sumsqr(self.adict["coefficients"][j])
 
     def _create_covariance(self) -> List[np.ndarray]:
@@ -222,6 +221,20 @@ class Optimizer_casadi(Base):
                 for key, value in zip(param, self.adict["initial_conditions"][i]):
                     self.opti.set_initial(key, cd.reshape(value, key.shape))
 
+    def _get_coefficients_value(self, solution : object, coeff : cd.MX) -> np.ndarray :
+        # All the parameters for a given equation may be eliminiated but the optimizaiton still proceeds for the rest of the equations.
+        # This function catches missing parameter errors in the optimizaiton problem 
+
+        def _get_value(_ind) :
+            try : 
+                return solution.value(coeff[_ind])
+            except Exception as error : 
+                return 0
+            
+        return np.array(
+            list(map(_get_value, range(coeff.size1())))
+        ).flatten()
+    
     def _stlsq_solve_optimization(self, **kwargs) -> List[List[np.ndarray]]:
         # create problem from scratch since casadi cannot run the same problem once optimized
         # steps should follow a sequence 
@@ -243,7 +256,7 @@ class Optimizer_casadi(Base):
 
         # optimal values are passed because casadi objects cannot be pickled for multiprocessing
         # list[np.ndarray]. additional layer of np.array and flatten to account for singular value, which casadi outputs as float
-        return [[np.array([_solution.value(coeff)]).flatten() for coeff in params] for params in self._parameters]
+        return [[self._get_coefficients_value(_solution, coeff) for coeff in params] for params in self._parameters]
 
     def _stlsq(self, target : np.ndarray, constraints_dict : dict, time_span : Optional[np.ndarray] = None, 
                max_workers : Optional[int] = None, seed : int = 12345) -> List[List[np.ndarray]]:
@@ -285,8 +298,14 @@ class Optimizer_casadi(Base):
         
             # check for full elimination before checking for convergence. Because we assume all coefficients initially are below threshold. 
             # if new coefficients indeed come out to be less than threshold, then they can be caught by the following check
-            if sum(np.sum(coeff) for coeff in coefficients_next) == 0:
-                raise RuntimeError("Thresholding parameter eliminated all the coefficients")
+            _sum = np.array([np.sum(coeff) for coeff in coefficients_next])
+            if np.sum(_sum) == 0 : # The optimization stops when there are no parameters to optimize over
+                os.remove(self.plugin_dict["ipopt.output_file"])
+                raise RuntimeError("Thresholding parameter eliminated all the coefficients for all equations")
+
+            _ind = _sum == 0
+            if any(_ind) : # continue optimization
+                self._logger(f"Thresholding parameter removed all coefficients in equations with False index : {_ind}")
 
             # multiply with mask so that oscillating coefficients can be ignored.
             if np.array([np.allclose(coeff_prev, coeff_next*mask) for coeff_prev, coeff_next, mask in zip(coefficients_prev, coefficients_next, self.adict["mask"])]).all():
@@ -336,7 +355,7 @@ class Optimizer_casadi(Base):
 
         if include_column:
             assert len(include_column) == self._reactions, "length of columns should match with the number of functional libraries"
-            include_column = [list(range(self._input_states)) if len(alist) == 0 else alist for alist in include_column] 
+            include_column = [list(range(self._input_states)) if len(alist) == 0 else sorted(alist) for alist in include_column] 
         else:
             include_column = [list(range(self._input_states)) for _ in range(self._reactions)]
 
@@ -393,7 +412,7 @@ class Optimizer_casadi(Base):
             zero_filter = filter(lambda x : x[0], zip(coefficients_value[j], library_labels[j]))
             _astring = reduce(lambda accum, value : 
                     accum + value[0] + " * " + value[1].replace(" ", "*") + " + ",   
-                    map(lambda x : (str(x[0]), x[1]), zero_filter), "+").rstrip(" +")
+                    map(lambda x : (str(x[0]), x[1]), zero_filter), "0").rstrip(" +")
             _expr.append(smp.sympify(_astring))
         # replaced whitespaces with multiplication element wise library labels
         # simpify already handles xor operation
@@ -548,7 +567,7 @@ if __name__ == "__main__":
 
     # coefficients_plot(model.coefficients() , [opti.adict["coefficients_dict"], opti.adict["coefficients_dict"]])
     """
-
+    """
     # Testing Menten problem 
 
     time_span = np.arange(0, 20, 0.01)
@@ -571,4 +590,37 @@ if __name__ == "__main__":
     print("Total number of iterations", opti.adict["iterations"])
     print("--"*20)
     # coefficients_plot(model.coefficients() , [opti.adict["coefficients_dict"], opti.adict["coefficients_dict"]])
+    """
+
+    # Testing carb problem
+    time_span = np.arange(0, 10, 0.01)
+    model = DynamicModel("kinetic_carb", time_span, n_expt = 10, arguments = [], seed = 20)
+    features = model.integrate() # list of features
+    target = model.approx_derivative # list of target value
+
+    opti = Optimizer_casadi(FunctionalLibrary(2), alpha = lambda iteration : 1, threshold = 0.09, 
+                            plugin_dict = {"ipopt.print_level" : 5, "print_time": 5, "ipopt.sb" : "no"}, 
+                            max_iter = 20, logger = logger)
+    
+    # chemistry formulation
+    include_column = [[3, 4, 5, 10], [1, 3, 4, 6], [0, 2, 4, 6], [1, 3, 4, 7], [0, 3, 4, 8], [3, 8, 9, 10]]
+    stoichiometry = np.array([
+            0, 0, -1, 0, -1, 0, 0, -1, 0, -1, 0, 0, 0, 0, 1, 0, 0, 0,
+            -1, 1, 0, -1, 1, 1, 1, -1, 1, 1, -1, 0, -1, 0, 0, 0, 0, 0, 
+            0, 1, -1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, -1, 
+            0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, -1]).reshape(-1, 6)
+    
+    # unconstrainted formulation
+    # include_column = []
+    # stoichiometry = np.eye(11)
+
+    opti.fit(features, target, time_span = time_span, include_column = include_column, 
+                constraints_dict= {"stoichiometry" : stoichiometry}, seed = 10, max_workers = 1, derivative_free = True)
+    opti.print()
+    print("--"*20)
+    print("mean squared error :", opti.score(features, target, time_span))
+    print("model complexity", opti.complexity)
+    print("Total number of iterations", opti.adict["iterations"])
+    print("--"*20)
+    coefficients_plot(model.coefficients() , [opti.adict["coefficients_dict"], opti.adict["coefficients_dict"]])
     
