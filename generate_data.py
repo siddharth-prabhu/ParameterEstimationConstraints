@@ -29,6 +29,7 @@ class DynamicModel():
         self._model_dict = {"kinetic_simple" : {"function" : DynamicModel.kinetic_simple, "n_states" : 4, "low" : [5, 5, 5, 5], "high" : [20, 20, 20, 20]},
                             "kinetic_rober" : {"function" : DynamicModel.kinetic_rober, "n_states" : 3, "low" : [5, 5, 5], "high" : [20, 20, 20]},
                             "kinetic_menten" : {"function" : DynamicModel.kinetic_menten, "n_states" : 4, "low" : [5, 5, 5, 5], "high" : [20, 20, 20, 20]},
+                            "kinetic_carb" : {"function" : DynamicModel.kinetic_carb, "n_states" : 11, "low" : [5]*11, "high" : [20]*11},
                             "kinetic_kosir" : {"function" : DynamicModel.kinetic_kosir, "n_states" : 4, "low" : [5, 5, 5, 5], "high" : [20, 20, 20, 20]}, 
                             "kinetic_kosir_temperature" : {"function" : DynamicModel.kinetic_kosir_temperature, "n_states" : 5,  
                             "low" : [5, 5, 5, 5, 373], "high" : [10, 10, 10, 10, 373]}}
@@ -54,7 +55,7 @@ class DynamicModel():
         self.arguments = [np.array(argi) for argi in self.arguments]
         assert len(self.initial_condition[-1]) == self._model_dict[self.model]["n_states"], "Incorrect number of states"
         assert len(self.initial_condition) == self.n_expt, "Initial conditions should match the number of experiments"
-        assert len(self.arguments) == self.n_expt, "List of arguments should match the number of experiments"
+        assert len(self.arguments) == self.n_expt, f"Arguments with length {len(self.arguments)} is not same as the number of experiments {self.n_expt}"
 
         self._n_states = self._model_dict[self.model]["n_states"]
         self.model_func = self._model_dict[self.model]["function"] 
@@ -83,12 +84,44 @@ class DynamicModel():
 
     @staticmethod
     def kinetic_menten(x, t, args) -> np.ndarray:
-        # A + B -> C; C -> A + B; C -> B + D
+        # species = [A, B, C, D]
+        # reactions = [
+        #       A + B <k2  --  k1> C; 
+        #       C          --  k3> B + D ]
+        
         # k1, k2, k3 = 110, 100, 1
         k1, k2, k3 = args
-        reactions = np.array([k1 * x[0] * x[1], k2 * x[2], k3 * x[2]])
-        stoichiometric = np.array([-1, 1, 0, -1, 1, 1, 1, -1, -1, 0, 0, 1]).reshape(4, -1)
+        reactions = np.array([k1 * x[0] * x[1] - k2 * x[2], k3 * x[2]])
+        stoichiometric = np.array([-1, 0, -1, 1, 1, -1, 0, 1]).reshape(4, -1)
         return np.dot(stoichiometric, reactions)
+    
+    def kinetic_carb(x, t, args) -> np.ndarray:
+        # species = [A, B, C, D, E, F, G, J, K, L, X] 
+        # reactions = [
+        #       F + D <k7 --  k1> E + X;
+        #       E + B <k8 --  k2> G + D;
+        #       A + G <k9 --  k3> E + C;
+        #       B + D <k10 -- k4> J + E;
+        #       A + E <k11 -- k5> D + K;
+        #       X + K <k12 -- k6> L + D ]
+
+        k1, k2, k3, k4, k5, k6, k7, k8, k9, k10, k11, k12 = .3, .4, 1.1, .9, 1.0, .2, 1.2, .6, .7, .1, .5, .8
+        reactions = np.array([
+            k1 * x[5] * x[3] - k7 * x[4] * x[10],
+            k2 * x[1] * x[4] - k8 * x[3] * x[6],
+            k3 * x[0] * x[6] - k9 * x[2] * x[4],
+            k4 * x[1] * x[3] - k10 * x[4] * x[7],
+            k5 * x[0] * x[4] - k11 * x[3] * x[8],
+            k6 * x[8] * x[10] - k12 * x[3] * x[9]
+        ])
+        stoic = np.array([
+            0, 0, -1, 0, -1, 0, 0, -1, 0, -1, 0, 0, 0, 0, 1, 0, 0, 0,
+            -1, 1, 0, -1, 1, 1, 1, -1, 1, 1, -1, 0, -1, 0, 0, 0, 0, 0, 
+            0, 1, -1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, -1, 
+            0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, -1
+        ]).reshape(-1, 6)
+        
+        return stoic @ reactions 
     
     @staticmethod
     def _reactions(x, k) -> np.ndarray:
@@ -100,7 +133,11 @@ class DynamicModel():
 
     @staticmethod
     def kinetic_kosir(x, t, args) -> np.ndarray:
-        # A -> 2B; A <-> C; A <-> D
+        # species = [A, B, C, D]
+        # reactions = [
+        #       A     -- k0> 2B;
+        #       A <k2 -- k1> C;
+        #       A <k4 -- k3> D ]
         T, R = args
         rates = DynamicModel.reaction_rate_kosir(T, R)
         stoichiometry = np.array([-1, -1, -1, 2, 0, 0, 0, 1, 0, 0, 0, 1]).reshape(4, -1)
@@ -230,6 +267,7 @@ class DynamicModel():
         
         with open(path, "wb") as file:
             pickle.dump(data, file)
+
 
 if __name__ == "__main__":
 
