@@ -272,7 +272,7 @@ class EnergySindy(Optimizer_casadi):
             zero_filter = filter(lambda x : x[0], zip(coefficients_value[j], coefficients_energy[j], library_labels[j]))
             _astring = reduce(lambda accum, value : 
                     accum + value[0] + "*exp(-(" + value[1] + "/R)*(1/T - Rational(1, 373)))* " + value[-1].replace(" ", "*") + " + ",   
-                    map(lambda x : (str(x[0]), str(x[1]*10_000), x[-1]), zero_filter), "+").rstrip(" +")
+                    map(lambda x : (str(x[0]), str(x[1]*10_000), x[-1]), zero_filter), "0").rstrip(" +")
             _expr.append(smp.sympify(_astring))
         return _expr
 
