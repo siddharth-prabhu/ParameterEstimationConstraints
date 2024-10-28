@@ -73,7 +73,7 @@ def coefficients_plot(original_coefficients_list : List[dict], discovered_coeffi
             
             ax[i].set(ylabel = "value", title = f"{title}{i}")
             ax[i].set_xticks(x, labels = label_str, rotation = 90)
-            ax[i].set_xlim(left = -2*width, right = max_x)
+            ax[i].set_xlim(left = -2*width, right = len(label))
             ax[i].hlines(0, -2*width, max_x, "k", alpha = 1, linestyles = "solid", linewidth = 1)
             ax[i].legend()
             ax[i].grid(axis = "x", color = "k", alpha = 1, linestyle = "solid", linewidth = 1)
