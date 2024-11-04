@@ -35,6 +35,7 @@ parser.add_argument("--problem", choices = ["NLS", "LS", "AD"], type = str, defa
 parser.add_argument("--system", choices = ["kosir", "menten", "carb"], type = str, default = "kosir", help = "The type of reaction network to run")
 parser.add_argument("--nexpt", type = int, default = 6, help = "The number of independant experiments")
 parser.add_argument("--dt", type = float, default = 0.01, help = "The sampling time of independant experiments")
+parser.add_argument("--dir", type = str, default = "", help = "The directory to save the results")
 parser.add_argument("--max_workers", default = 1, type = int)
 parser.add_argument("--seed", default = 20, type = int)
 pargs = parser.parse_args()
@@ -44,7 +45,7 @@ def run_gridsearch(system : str, n_expt : int, delta_t : float, noise_level : fl
                     max_workers : Optional[int] = None, seed : int = 12345, path : Optional[str] = None):
     
 
-    plugin_dict = {"ipopt.print_level" : 0, "print_time": 0, "ipopt.sb" : "yes", "ipopt.max_iter" : 3000}
+    plugin_dict = {"ipopt.print_level" : 0, "print_time": 0, "ipopt.sb" : "yes", "ipopt.max_iter" : 1000}
     solver_dict = {"solver" : "ipopt", "tol" : 1e-4}
     
     # generate clean testing data to be used later for calculating errors
@@ -119,7 +120,7 @@ def run_gridsearch(system : str, n_expt : int, delta_t : float, noise_level : fl
         coefficients.append(df_result.get("coefficients", [_dummy_dict])[0])
         coefficients_pre_stoichiometriy.append(df_result.get("coefficients_pre_stoichiometry", [_dummy_dict])[0])
 
-    return mse_pred, aic, mse_sim, comp, coefficients, coefficients_pre_stoichiometriy, actual_coefficients
+    return mse_pred, aic, comp, mse_sim, coefficients, coefficients_pre_stoichiometriy, actual_coefficients
 
 
 def run_adiabatic(system : str, n_expt : int, delta_t : float, noise_level : float, parameters : dict, kind : str = "LS", 
@@ -183,7 +184,7 @@ def run_adiabatic(system : str, n_expt : int, delta_t : float, noise_level : flo
         coefficients.append(df_result.get("coefficients", [_dummy_dict])[0])
         coefficients_pre_stoichiometry.append(df_result.get("coefficients_pre_stoichiometry", [_dummy_dict])[0])
 
-    return mse_pred, aic, mse_sim, comp, coefficients, coefficients_pre_stoichiometry, actual_coefficients
+    return mse_pred, aic, comp, mse_sim, coefficients, coefficients_pre_stoichiometry, actual_coefficients
 
 
 def plot_adict(x : list, adict : dict, x_label : str, path : Optional[str] = None, title : Optional[str] = None) -> None :
@@ -202,55 +203,58 @@ def plot_adict(x : list, adict : dict, x_label : str, path : Optional[str] = Non
     assert kind, "kind is not provided while plotting"
     
     with plt.style.context(["science", "notebook", "vibrant"]):
-        for key, value in adict.items():
-            value = np.array(value)
 
-            if kind == "LS":
-                plt.bar(x - 1.5*width, value[3::4], label = "sindy", width = width, align = "center")
-                plt.bar(x - 0.5*width, value[0::4], label = "unconstrained", width = width, align = "center")
-                plt.bar(x + 0.5*width, value[1::4], label = "mass balance", width = width, align = "center")
-                plt.bar(x + 1.5*width, value[2::4], label = "chemistry", width = width, align = "center")
-                
-            elif kind == "AD":
-                plt.bar(x - 0.5*width, value[0::2], label = "derivative", width = width, align = "center")
-                plt.bar(x + 0.5*width, value[1::2], label = "integral", width = width, align = "center")
-            else:
-                plt.bar(x - 0.5*width, value[1::2], label = "sindy", width = width, align = "center")
-                plt.bar(x + 0.5*width, value[0::2], label = "chemistry", width = width, align = "center")
-                
-
-            if key in ["MSE", "MSE_Prediction"]:
-                plt.yscale("log")
+        for keys in [["complexity", "MSE"], ["AIC", "MSE_Prediction"]] :
             
-            if title:
-                plt.title(title)
+            fig, ax =  plt.subplots(1, 2, figsize = (15, 4), gridspec_kw = {"wspace" : 0.3})
+            
+            for i, _key in enumerate(keys) :
 
-            plt.xlabel(x_label)
-            plt.ylabel(key)
-            plt.xticks(x, labels = xtick_label)
-            plt.legend()
-            plt.savefig(os.path.join(path, f'{key}'))
+                value = np.array(adict[_key])
+
+                if kind == "LS" :
+                    ax[i].bar(x - 1.5*width, value[3::4], label = "sindy", width = width, align = "center")
+                    ax[i].bar(x - 0.5*width, value[0::4], label = "unconstrained", width = width, align = "center")
+                    ax[i].bar(x + 0.5*width, value[1::4], label = "mass balance", width = width, align = "center")
+                    ax[i].bar(x + 1.5*width, value[2::4], label = "chemistry", width = width, align = "center")
+                elif kind == "AD" :
+                    ax[i].bar(x - 0.5*width, value[0::2], label = "derivative", width = width, align = "center")
+                    ax[i].bar(x + 0.5*width, value[1::2], label = "integral", width = width, align = "center")
+                else :
+                    ax[i].bar(x - 0.5*width, value[1::2], label = "sindy", width = width, align = "center")
+                    ax[i].bar(x + 0.5*width, value[0::2], label = "chemistry", width = width, align = "center")
+                    
+
+                if _key in ["MSE", "MSE_Prediction"] : ax[i].set(yscale = "log")
+                if title : ax[i].title(title)
+
+                ax[i].set(xlabel = x_label, ylabel = _key)
+                ax[i].set_xticks(x, labels = xtick_label)
+            
+            handles, labels = ax[-1].get_legend_handles_labels()
+            fig.legend(handles, labels, loc = 7, frameon = True, fancybox = True, edgecolor = "black")
+            fig.tight_layout()
+            fig.subplots_adjust(right = 0.8)
+            plt.savefig(os.path.join(path, f'{keys[0] + keys[1]}'), bbox_inches = "tight")
             plt.close()
 
+remove_exp = lambda expr : expr.split("*exp")[0]
 
-def plot_coeff(level : list, adict : dict, path : Optional[str] = None, title : Optional[str] = None) -> None :
+def update_keys(adict):
+    # removes exponential terms
+    bdict = {}
+    for key, value in adict.items():
+        new_key = remove_exp(str(key))
+        bdict[smp.sympify(new_key)] = value
 
-    if path is None :
-        path = os.path.join(os.getcwd(), "coefficients")
+    return bdict
+
+
+def plot_coeff(level : list, adict : dict, path : str, title : Optional[str] = None, outside_legend : bool = True) -> None :
 
     kind = adict.pop("kind")
     actual_coefficients = adict["actual_coefficients"][0][0]
     discovered_coefficients = adict["coefficients"] if kind == "LS" else adict["coefficients_pre_stoichiometry"]
-
-    remove_exp = lambda expr : expr.split("*exp")[0]
-
-    def update_keys(adict):
-        bdict = {}
-        for key, value in adict.items():
-            new_key = remove_exp(str(key))
-            bdict[smp.sympify(new_key)] = value
-
-        return bdict
 
     for i, val in enumerate(level):
 
@@ -261,7 +265,8 @@ def plot_coeff(level : list, adict : dict, path : Optional[str] = None, title : 
             _discovered_coefficients, 
             expt_names = ["unconstrained", "mass balance", "chemistry", "sindy"] if kind == "LS" else (["derivative", "integral"] if kind == "AD" else ["chemistry", "sindy"]), 
             path = path + str(val) + ".png", 
-            title = title
+            title = title, 
+            outside_legend = outside_legend
         )
 
 
@@ -272,7 +277,7 @@ if __name__ == "__main__":
     problem = pargs.problem # the type of problem to solve. Either LS or NLS or Adiabatic 
     max_workers = None if pargs.max_workers <= 0 else pargs.max_workers 
     
-    path = os.path.join("log", pargs.system, problem)
+    path = os.path.join("log", pargs.dir, pargs.system, problem)
     sindy_params = {"optimizer__threshold": map_afunc_string(pargs.stlsq_threshold, float),
         "optimizer__alpha": map_afunc_string(pargs.stlsq_alpha, float), # 0, 0.01, 0.1
         "feature_library__include_bias" : [False],
@@ -298,7 +303,7 @@ if __name__ == "__main__":
             result = executor.map(afunc_partial, noise_level, path_noise)
 
             for alist in result:
-                for key, value in zip(["MSE_Prediction", "AIC", "MSE", "complexity", "coefficients", "coefficients_pre_stoichiometry", "actual_coefficients"], alist):
+                for key, value in zip(["MSE_Prediction", "AIC", "complexity", "MSE", "coefficients", "coefficients_pre_stoichiometry", "actual_coefficients"], alist):
                     if key in ["coefficients", "coefficients_pre_stoichiometry", "actual_coefficients"]:
                         coeff_noise[key].append(value)
                     else:
@@ -328,7 +333,7 @@ if __name__ == "__main__":
             result = executor.map(afunc_partial, experiments, path_experiments)
 
             for alist in result:
-                for key, value in zip(["MSE_Prediction", "AIC", "MSE", "complexity", "coefficients", "coefficients_pre_stoichiometry", "actual_coefficients"], alist):
+                for key, value in zip(["MSE_Prediction", "AIC", "complexity", "MSE", "coefficients", "coefficients_pre_stoichiometry", "actual_coefficients"], alist):
                     if key in ["coefficients", "coefficients_pre_stoichiometry", "actual_coefficients"]:
                         coeff_experiments[key].append(value)
                     else:
@@ -358,7 +363,7 @@ if __name__ == "__main__":
             result = executor.map(afunc_partial, sampling, path_sampling)
 
             for alist in result:
-                for key, value in zip(["MSE_Prediction", "AIC", "MSE", "complexity", "coefficients", "coefficients_pre_stoichiometry", "actual_coefficients"], alist):
+                for key, value in zip(["MSE_Prediction", "AIC", "complexity", "MSE", "coefficients", "coefficients_pre_stoichiometry", "actual_coefficients"], alist):
                     if key in ["coefficients", "coefficients_pre_stoichiometry", "actual_coefficients"]:
                         coeff_sampling[key].append(value)
                     else:
@@ -373,55 +378,61 @@ if __name__ == "__main__":
     # Additional mechanisms in kinetic_kosir and LS problem
     if pargs.mechanism_study > 0 : 
 
-        n_expt = 6
         plugin_dict = {"ipopt.print_level" : 0, "print_time": 0, "ipopt.sb" : "yes", "ipopt.max_iter" : 3000}
         solver_dict = {"solver" : "ipopt", "tol" : 1e-5}
         
-        # generate clean testing data to be used later for calculating errors
-        time_span_clean = np.arange(0, 10, 0.01)
-        arguments_clean = [(373, 8.314)]
-        model = DynamicModel("kinetic_kosir", time_span_clean, n_expt = n_expt, arguments = arguments_clean)
-        features_clean = model.integrate()
-        target_clean = model.actual_derivative # use actual derivatives for testing 
-        arguments_clean = model.arguments
+        for kind in ["LS", "NLS"] : 
 
-        # generate training data with varying experiments and sampling time
-        time_span = np.arange(0, 10, 0.01)
-        arguments = [(373, 8.314)] 
-        model = DynamicModel("kinetic_kosir", time_span, n_expt = n_expt, arguments = arguments, seed = pargs.seed)
-        features = model.integrate()
-        target = model.approx_derivative
-        arguments = model.arguments
+            # generate clean testing data to be used later for calculating errors
+            time_span_clean = np.arange(0, 10, 0.01)
+            arguments_temperature = reaction_data["kinetic_kosir"].arguments
+            while max(2, pargs.nexpt) > len(arguments_temperature) : 
+                arguments_temperature.extend(arguments_temperature[:pargs.nexpt - len(arguments_temperature)])
+            
+            arguments_clean = arguments_temperature[:1] if kind == "LS" else arguments_temperature[:2]
+            model = DynamicModel("kinetic_kosir", time_span_clean, n_expt = 2, arguments = arguments_clean)
+            features_clean = model.integrate()
+            target_clean = model.actual_derivative # use actual derivatives for testing 
+            arguments_clean = model.arguments
 
-        actual_coefficients = model.coefficients(pre_stoichiometry = True)
+            # generate training data with varying experiments and sampling time
+            time_span = np.arange(0, 10, 0.01)
+            arguments = arguments_temperature[:1] if kind == "LS" else arguments_temperature[:pargs.nexpt]
+            model = DynamicModel("kinetic_kosir", time_span, n_expt = pargs.nexpt, arguments = arguments, seed = pargs.seed)
+            features = model.integrate()
+            target = model.approx_derivative
+            arguments = model.arguments
 
-        # Chemistry information corresponds to the following assumed reaction network
-        # species = [A, B, C, D]
-            # reactions = [
-            #       A     -- k0> 2B;
-            #       A <k2 -- k1> C;
-            #       A <k4 -- k3> D;
-            #       C     -- k4> D ]
-        include_column = [[0, 1], [0, 2], [0, 3], [2, 3]]
-        constraints_dict = {"stoichiometry" : np.array([-1, -1, -1, 0, 2, 0, 0, 0, 0, 1, 0, -1, 0, 0, 1, 1]).reshape(4, -1)}
+            actual_coefficients = model.coefficients(pre_stoichiometry = True)
 
-        # does grid_serch over parameters 
-        _path = os.path.join("log", "kosir", "Mechanism")
-        opt = HyperOpt(features, target, features_clean, target_clean, 
-                        time_span, time_span_clean, parameters = sindy_params, 
-                        model = Optimizer_casadi(plugin_dict = plugin_dict, solver_dict = solver_dict),
-                        arguments = None, arguments_clean =  None, 
-                        meta = {"include_column" : include_column, "constraints_dict" : constraints_dict,
-                        "seed" : pargs.seed, "derivative_free" : True}, 
-                        _dir = _path)
+            # Chemistry information corresponds to the following assumed reaction network
+            # species = [A, B, C, D]
+                # reactions = [
+                #       A     -- k0> 2B;
+                #       A <k2 -- k1> C;
+                #       A <k4 -- k3> D;
+                #       C     -- k4> D ]
+            include_column = [[0, 1], [0, 2], [0, 3], [2, 3]]
+            constraints_dict = {"stoichiometry" : np.array([-1, -1, -1, 0, 2, 0, 0, 0, 0, 1, 0, -1, 0, 0, 1, 1]).reshape(4, -1)}
 
-        opt.gridsearch(max_workers = max_workers)
-        opt.plot(filename = 'Gridsearch.html', path = _path, title = "")
-        _discovered_coefficients = opt.df_result["coefficients_pre_stoichiometry"][0]
+            # does grid_serch over parameters 
+            _path = os.path.join("log", pargs.dir, "kosir", "Mechanism", kind)
+            opt = HyperOpt(features, target, features_clean, target_clean, 
+                            time_span, time_span_clean, parameters = sindy_params, 
+                            model = Optimizer_casadi(plugin_dict = plugin_dict, solver_dict = solver_dict) if kind == "LS" else EnergySindy(plugin_dict = plugin_dict, solver_dict = solver_dict),
+                            arguments = arguments if kind == "NLS" else None, arguments_clean =  arguments_clean if kind == "NLS" else None, 
+                            meta = {"include_column" : include_column, "constraints_dict" : constraints_dict,
+                            "seed" : pargs.seed, "derivative_free" : True}, 
+                            _dir = _path)
 
-        # plot coefficients pre_stoichiometry 
-        actual_coefficients.append({_key : 0. for _key in _discovered_coefficients[-1].keys()}) # append dummy coefficients for the spurious reaction
-        coefficients_plot(actual_coefficients, [_discovered_coefficients], expt_names = ["chemistry"], path = os.path.join(_path, "coefficients.png"))
+            opt.gridsearch(max_workers = max_workers)
+            opt.plot(filename = 'Gridsearch.html', path = _path, title = "")
+            _discovered_coefficients = opt.df_result["coefficients_pre_stoichiometry"][0]
+
+            # plot coefficients pre_stoichiometry 
+            actual_coefficients.append({_key : 0. for _key in _discovered_coefficients[-1].keys()}) # append dummy coefficients for the spurious reaction
+            coefficients_plot(actual_coefficients, [[update_keys(_dict) for _dict in _discovered_coefficients]], 
+                              expt_names = ["chemistry"], path = os.path.join(_path, "coefficients.png"), outside_legend = False)
 
     ########################################################################################################################
     # Stiffness simulation of Menten reaction network
@@ -436,7 +447,7 @@ if __name__ == "__main__":
         print("------"*100)
         print("Starting stiffness study")
         
-        _path = os.path.join("log", "menten", "Stiffness")
+        _path = os.path.join("log", pargs.dir, "menten", "Stiffness", str(pargs.dt))
 
         for _ind, _params in enumerate([
             (0.1, 0.2, 0.3), (1, 2, 0.3), (10, 20, 0.3), (100, 200, 0.3), (100, 200, 3), (1000, 2000, 0.3)
@@ -450,13 +461,13 @@ if __name__ == "__main__":
             # This prevents multiprocessing (Workaround is to pass reaction_data as an argument to the function)
             reaction_data["kinetic_menten"] = reaction_data["kinetic_menten"]._replace(arguments = [_params])
 
-            alist = run_gridsearch(system = "menten", n_expt = 10, delta_t = 0.01, noise_level = 0, parameters = stiff_params, 
+            alist = run_gridsearch(system = "menten", n_expt = 10, delta_t = pargs.dt, noise_level = 0, parameters = stiff_params, 
                 max_workers = max_workers, seed = pargs.seed, kind = "LS", path = os.path.join(_path, f"{_ind}"))
 
-            for key, value in zip(["MSE_Prediction", "AIC", "MSE", "complexity", "coefficients", "coefficients_pre_stoichiometry", "actual_coefficients"], alist) :
+            for key, value in zip(["MSE_Prediction", "AIC", "complexity", "MSE", "coefficients", "coefficients_pre_stoichiometry", "actual_coefficients"], alist) :
                 
                 coeff_stiff[key].append(value) if key in ["coefficients", "coefficients_pre_stoichiometry", "actual_coefficients"] else adict_stiff[key].extend(value) 
 
             plot_adict([str(_ind)], adict_stiff, x_label = "", path = os.path.join(_path, f"{_ind}"))
-            plot_coeff([str(_ind)], coeff_stiff, path = os.path.join(_path, f"{_ind}", "coefficients"))
+            plot_coeff([str(_ind)], coeff_stiff, path = os.path.join(_path, f"{_ind}", "coefficients"), outside_legend = False)
             
