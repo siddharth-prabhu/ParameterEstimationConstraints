@@ -6,7 +6,7 @@ import sympy as smp
 
 
 def coefficients_plot(original_coefficients_list : List[dict], discovered_coefficients_list : List[List[dict]], labels : Optional[List[list]] = None, 
-                      expt_names : List[str] = [], path : str = "coefficients_plot", title : Optional[str] = None, **kwargs):
+                      expt_names : List[str] = [], path : str = "coefficients_plot", title : Optional[str] = None, outside_legend : bool = True, **kwargs):
     """
     Function that plots the parameters in discovered_coefficients_list and the parameters in original_coefficient_list
     as horizontal bar plots.
@@ -75,9 +75,14 @@ def coefficients_plot(original_coefficients_list : List[dict], discovered_coeffi
             ax[i].set_xticks(x, labels = label_str, rotation = 90)
             ax[i].set_xlim(left = -2*width, right = len(label))
             ax[i].hlines(0, -2*width, max_x, "k", alpha = 1, linestyles = "solid", linewidth = 1)
-            ax[i].legend()
+            if not outside_legend : ax[i].legend()
             ax[i].grid(axis = "x", color = "k", alpha = 1, linestyle = "solid", linewidth = 1)
 
+        if outside_legend : 
+            handles, labels = ax[-1].get_legend_handles_labels()
+            fig.legend(handles, labels, loc = 7, frameon = True, fancybox = True, edgecolor = "black")
+        
         fig.tight_layout()
-        plt.savefig(path)
+        if outside_legend : fig.subplots_adjust(right = 0.8)
+        plt.savefig(path, bbox_inches = "tight")
         plt.close()
