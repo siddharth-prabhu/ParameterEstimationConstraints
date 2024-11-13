@@ -3,10 +3,9 @@ saved_data/
 log/
 saved_data*
 *.txt
+!requirements.txt
 rough.py
-*.sh
 *.out
 *.png
 slurm*
-submit*
 output*
