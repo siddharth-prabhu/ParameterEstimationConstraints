@@ -12,7 +12,7 @@ This project is based on our paper (https://pubs.acs.org/doi/10.1021/acs.iecr.4c
 Clone the repository:
 
 ```
-git clone (https://github.com/siddharth-prabhu/ParameterEstimationConstraints.git)
+git clone https://github.com/siddharth-prabhu/ParameterEstimationConstraints.git
 cd ParameterEstimationConstraints
 python main.py
 ```
