@@ -4,7 +4,7 @@ This project is based on our paper (https://pubs.acs.org/doi/10.1021/acs.iecr.4c
 
 ## Features
 
-- Integral formulation of Sparse Identification of Nonlinear Dynamics (SINDy)
+- Integral convex formulation of Sparse Identification of Nonlinear Dynamics (SINDy)
 - Domain information such as mass balance and stoichiometric information constraint chemical reaction network discovery
 
 ## Installation
